@@ -25,10 +25,17 @@ const DEFAULT_LANE_COLORS = [
   '#bac8ff', '#e9ecef',
 ];
 
+// Pastel, readable defaults for the non-category badges shown on cards.
+const DEFAULT_BADGES = {
+  due: { color: '#d0ebff', textColor: '#1864ab' }, // pastel blue / dark blue
+  tag: { color: '#e5dbff', textColor: '#5f3dc4' }, // pastel lavender / deep purple
+};
+
 const DEFAULTS = {
   theme: 'light-blue',
   priorities: DEFAULT_PRIORITIES,
   laneColors: DEFAULT_LANE_COLORS,
+  badges: DEFAULT_BADGES,
 };
 
 // Pick readable ink (dark on light bg, white on dark bg) for a custom color.
@@ -83,6 +90,11 @@ export async function getSettings() {
   if (!s.priorities || !s.priorities.length) s.priorities = DEFAULT_PRIORITIES;
   if (!s.laneColors || !s.laneColors.length) s.laneColors = DEFAULT_LANE_COLORS;
   if (!s.theme) s.theme = 'light-blue';
+  // Deep-fill badge colors so partial/absent config still renders readable.
+  s.badges = {
+    due: { ...DEFAULT_BADGES.due, ...((s.badges || {}).due || {}) },
+    tag: { ...DEFAULT_BADGES.tag, ...((s.badges || {}).tag || {}) },
+  };
   return s;
 }
 
@@ -131,6 +143,13 @@ export async function updateSettings(patch = {}) {
   if (patch.laneColors !== undefined)
     next.laneColors = (Array.isArray(patch.laneColors) ? patch.laneColors : [])
       .filter((c) => typeof c === 'string' && c);
+  if (patch.badges !== undefined) {
+    const b = patch.badges || {};
+    next.badges = {
+      due: { color: (b.due || {}).color || DEFAULT_BADGES.due.color, textColor: (b.due || {}).textColor || DEFAULT_BADGES.due.textColor },
+      tag: { color: (b.tag || {}).color || DEFAULT_BADGES.tag.color, textColor: (b.tag || {}).textColor || DEFAULT_BADGES.tag.textColor },
+    };
+  }
   return updateJson(
     config.settingsFile,
     (s) => ({ ...DEFAULTS, ...(s || {}), ...next }),

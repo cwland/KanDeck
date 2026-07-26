@@ -10,6 +10,7 @@
     board: null,      // active full board
     priorities: [],   // app-level categories (id, name, color)
     laneColors: [],   // app-level lane color palette
+    badges: { due: { color: '#d0ebff', textColor: '#1864ab' }, tag: { color: '#e5dbff', textColor: '#5f3dc4' } },
     themeId: window.DEFAULT_THEME || 'light-blue',
     inbox: [],        // inbox items
     zoom: 100,        // current board zoom %
@@ -42,6 +43,7 @@
     const s = await api('/settings');
     state.priorities = s.priorities || [];
     state.laneColors = s.laneColors || [];
+    if (s.badges) state.badges = s.badges;
     state.themeId = s.theme || window.DEFAULT_THEME || 'light-blue';
     applyTheme(state.themeId);
     if (s.version) $('#inboxVersion').textContent = 'KanDeck v' + s.version;
@@ -191,12 +193,12 @@
     if (card.dueDate) {
       const due = new Date(card.dueDate);
       const overdue = due < new Date();
-      badges += `<span class="badge due ${overdue ? 'overdue' : ''}">📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
+      const dstyle = overdue ? '' : `style="background:${state.badges.due.color};color:${state.badges.due.textColor}"`;
+      badges += `<span class="badge due ${overdue ? 'overdue' : ''}" ${dstyle}>📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
     if (card.alarm) badges += `<span class="badge alarm" title="Alarm on">⏰</span>`;
     (card.tags || []).forEach((t) => {
-      const col = laneColorAt(Math.abs(hash(t)));
-      badges += `<span class="tag-chip" style="background:${col};color:${textOn(col)}">${esc(t)}</span>`;
+      badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`;
     });
 
     li.innerHTML =
@@ -564,6 +566,7 @@
     setAppTab('theme');
     renderThemeGrid();
     renderPriorityEditor();
+    renderBadgeEditor();
     renderLaneColorsEditor();
     loadBackups();
     appModal.hidden = false;
@@ -607,6 +610,28 @@
   function renderPriorityEditor() {
     const ul = $('#priorityEditor'); ul.innerHTML = '';
     state.priorities.forEach((p) => ul.appendChild(priorityRow(p)));
+  }
+  function badgeRow(label, key, val, previewText) {
+    const li = document.createElement('li');
+    li.className = 'priority-row'; li.dataset.badge = key;
+    const name = document.createElement('span'); name.className = 'pr-name badge-name'; name.textContent = label;
+    const bg = colorField('Bg', 'bd-color', val.color);
+    const tx = colorField('Text', 'bd-text', val.textColor);
+    const preview = document.createElement('span'); preview.className = 'pr-preview';
+    const refresh = () => {
+      preview.textContent = previewText;
+      preview.style.background = bg.querySelector('input').value;
+      preview.style.color = tx.querySelector('input').value;
+    };
+    [bg.querySelector('input'), tx.querySelector('input')].forEach((i) => i.addEventListener('input', refresh));
+    li.append(name, bg, tx, preview);
+    refresh();
+    return li;
+  }
+  function renderBadgeEditor() {
+    const ul = $('#badgeEditor'); ul.innerHTML = '';
+    ul.appendChild(badgeRow('Due date', 'due', state.badges.due, '📅 Aug 1'));
+    ul.appendChild(badgeRow('Tags / labels', 'tag', state.badges.tag, 'label'));
   }
   function colorField(label, cls, val) {
     const w = document.createElement('label'); w.className = 'pr-colorfield';
@@ -656,8 +681,14 @@
       };
     }).filter((p) => p.name);
     const laneColors = $$('#laneColorsEditor input[type=color]').map((i) => i.value);
-    const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors } });
+    const bd = (key) => ({
+      color: $(`#badgeEditor [data-badge="${key}"] .bd-color`).value,
+      textColor: $(`#badgeEditor [data-badge="${key}"] .bd-text`).value,
+    });
+    const badges = { due: bd('due'), tag: bd('tag') };
+    const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges } });
     state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
+    if (s.badges) state.badges = s.badges;
     applyTheme(state.themeId);
     appModal.hidden = true; toast('Settings saved');
     if (state.board) renderBoard();
@@ -683,7 +714,7 @@
       const tc = priText(it.priority) || textOn(pc);
       badges += `<span class="tag-chip" style="background:${pc};color:${tc}">${esc(priName(it.priority))}</span>`;
     }
-    (it.tags || []).forEach((t) => { badges += `<span class="ic-src">${esc(t)}</span>`; });
+    (it.tags || []).forEach((t) => { badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`; });
     li.innerHTML =
       `<button class="ic-del" title="Dismiss">✕</button>` +
       `<div class="ic-title">${esc(it.subject)}</div>` +
