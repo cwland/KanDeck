@@ -239,6 +239,12 @@ router.post('/inbox', wrap(async (req, res) => {
   res.status(201).json(item);
 }));
 
+router.put('/inbox/:id', wrap(async (req, res) => {
+  const item = await inbox.updateItem(req.params.id, req.body || {});
+  if (!item) return res.status(404).json({ error: 'Inbox item not found' });
+  res.json(item);
+}));
+
 router.delete('/inbox/:id', wrap(async (req, res) => {
   res.json({ ok: !!(await inbox.removeItem(req.params.id)) });
 }));

@@ -45,6 +45,26 @@ export async function addItem(input = {}) {
   return item;
 }
 
+export async function updateItem(id, patch = {}) {
+  let updated = null;
+  await updateJson(
+    config.inboxFile,
+    (inbox) => {
+      inbox = inbox || { items: [] };
+      const item = inbox.items.find((i) => i.id === id);
+      if (item) {
+        for (const k of ['subject', 'description', 'priority', 'dueDate', 'alarm', 'tags']) {
+          if (patch[k] !== undefined) item[k] = patch[k];
+        }
+        updated = item;
+      }
+      return inbox;
+    },
+    EMPTY
+  );
+  return updated;
+}
+
 export async function removeItem(id) {
   let removed = null;
   await updateJson(

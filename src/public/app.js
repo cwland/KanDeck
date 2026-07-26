@@ -16,6 +16,7 @@
     search: '',
     editingCardId: null,
     editingColumnId: null,
+    editingInboxId: null, // set while editing an inbox item in the card modal
     newBoardId: null, // set while configuring a brand-new board (rollback on cancel)
   };
 
@@ -319,6 +320,7 @@
   function openCardModal(card) {
     state.editingCardId = card.id;
     state.newCardColumnId = null;
+    state.editingInboxId = null;
     buildPriorityOptions();
     $('#cardSubject').value = card.subject;
     $('#cardDesc').value = card.description || '';
@@ -336,6 +338,7 @@
   function openNewCardModal(columnId) {
     state.editingCardId = null;
     state.newCardColumnId = columnId;
+    state.editingInboxId = null;
     buildPriorityOptions();
     $('#cardSubject').value = '';
     $('#cardDesc').value = '';
@@ -361,6 +364,10 @@
       alarm: $('#cardAlarm').checked,
       tags: $('#cardTags').value.split(',').map((t) => t.trim()).filter(Boolean),
     };
+    if (state.editingInboxId) {
+      await api(`/inbox/${state.editingInboxId}`, { method: 'PUT', body });
+      cardModal.hidden = true; loadInbox(); return;
+    }
     if (state.editingCardId) {
       await api(`/tasks/${state.editingCardId}`, { method: 'PUT', body });
     } else {
@@ -372,6 +379,11 @@
   $('#cardSave').onclick = saveCard;
   $('#cardClose').onclick = () => (cardModal.hidden = true);
   $('#cardDelete').onclick = async () => {
+    if (state.editingInboxId) {
+      if (!confirm('Delete this inbox item?')) return;
+      await api(`/inbox/${state.editingInboxId}`, { method: 'DELETE' });
+      cardModal.hidden = true; loadInbox(); return;
+    }
     if (!confirm('Delete this card?')) return;
     await api(`/boards/${state.boardId}/cards/${state.editingCardId}`, { method: 'DELETE' });
     cardModal.hidden = true; refresh();
@@ -677,7 +689,27 @@
       await api('/inbox/' + it.id, { method: 'DELETE' });
       loadInbox();
     };
+    li.onclick = () => openInboxCardModal(it);
     return li;
+  }
+
+  // Edit an inbox item in the same card modal (before it's dragged to a board).
+  function openInboxCardModal(item) {
+    state.editingCardId = null;
+    state.newCardColumnId = null;
+    state.editingInboxId = item.id;
+    buildPriorityOptions();
+    $('#cardSubject').value = item.subject;
+    $('#cardDesc').value = item.description || '';
+    $('#cardPriority').value = item.priority || 'none';
+    $('#cardDue').value = toDateInput(item.dueDate);
+    $('#cardAlarm').checked = !!item.alarm;
+    $('#cardTags').value = (item.tags || []).join(', ');
+    $('#cardCreated').textContent = 'Inbox item · source: ' + (item.source || 'api');
+    $('#cardDelete').style.display = '';
+    $('#cardArchive').style.display = 'none';
+    cardModal.hidden = false;
+    setTimeout(() => $('#cardSubject').focus(), 30);
   }
   function makeInboxSortable(ul) {
     if (typeof Sortable === 'undefined') return;
