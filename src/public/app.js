@@ -338,7 +338,6 @@
     });
   }
   async function refresh() { state.board = await api('/boards/' + state.boardId); renderHeader(); renderBoard(); }
-  async function refreshQuiet() { state.board = await api('/boards/' + state.boardId); }
 
   // ---- Card modal ----
   const cardModal = $('#cardModal');
@@ -607,12 +606,28 @@
   const appModal = $('#appModal');
   let pendingTheme = state.themeId;
   let appDirty = false;
-  function markAppDirty() { appDirty = true; $('#appDirty').hidden = false; }
-  function clearAppDirty() { appDirty = false; $('#appDirty').hidden = true; }
-  // Any input/change inside the modal flags unsaved changes — except tabs that
-  // save themselves via their own buttons (Notifications, API). Auto-backup is
-  // saved by the main Save button, so it DOES flag unsaved changes.
-  const SELF_SAVE = '[data-tab="notify"],[data-tab="api"]';
+  const DIRTY_MSG = '⚠️ You have unsaved changes — click Save to keep them.';
+  function markAppDirty() {
+    appDirty = true;
+    const b = $('#appDirty');
+    b.classList.remove('error'); b.textContent = DIRTY_MSG; b.hidden = false;
+  }
+  function clearAppDirty() {
+    appDirty = false;
+    const b = $('#appDirty');
+    b.classList.remove('error'); b.hidden = true;
+  }
+  // Inline validation error shown in the same banner (red), switching to the tab.
+  function showAppError(msg, tab) {
+    if (tab) setAppTab(tab);
+    const b = $('#appDirty');
+    b.textContent = '⚠️ ' + msg; b.classList.add('error'); b.hidden = false;
+  }
+  // Any input/change inside the modal flags unsaved changes — except the API
+  // tab, whose key actions commit to the server immediately. Everything else
+  // (theme, categories, lanes, AI chat, notifications, auto-backup) is persisted
+  // by the main Save button, so it DOES flag unsaved changes.
+  const SELF_SAVE = '[data-tab="api"]';
   const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);
@@ -630,6 +645,8 @@
     loadBackupConfig();
     loadBackups();
     appModal.hidden = false;
+    // Move focus into the dialog for keyboard users.
+    requestAnimationFrame(() => { const t = $('#appTabs .modal-tab.active'); if (t) t.focus(); });
   }
   // ---- API key tab (managed live, independent of the Save button) ----
   async function loadApiKey() {
@@ -693,9 +710,12 @@
     const wrap = $('#' + containerId); wrap.innerHTML = '';
     WD_LABELS.forEach((lbl, i) => {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'wd' + (selected.includes(i) ? ' on' : '');
+      const on = selected.includes(i);
+      b.type = 'button'; b.className = 'wd' + (on ? ' on' : '');
       b.textContent = lbl; b.dataset.day = i; b.title = WD_FULL[i];
-      b.onclick = () => b.classList.toggle('on');
+      b.setAttribute('aria-label', WD_FULL[i]);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.onclick = () => { const now = b.classList.toggle('on'); b.setAttribute('aria-pressed', now ? 'true' : 'false'); };
       wrap.appendChild(b);
     });
   }
@@ -748,17 +768,6 @@
     };
   }
 
-  async function saveNotify(channel) {
-    const st = $(channel === 'email' ? '#emStatus' : '#dcStatus');
-    const body = channel === 'email' ? collectEmail() : collectDiscord();
-    st.textContent = 'Saving…'; st.className = 'ai-test-status';
-    try {
-      await api('/notifications/' + channel, { method: 'PUT', body });
-      st.textContent = '✓ Saved'; st.className = 'ai-test-status ok';
-    } catch (err) {
-      st.textContent = '✗ ' + (err.message || 'Save failed'); st.className = 'ai-test-status err';
-    }
-  }
   async function testNotify(channel) {
     const st = $(channel === 'email' ? '#emStatus' : '#dcStatus');
     const btn = $(channel === 'email' ? '#emTest' : '#dcTest');
@@ -772,8 +781,6 @@
       st.textContent = '✗ ' + (err.message || 'Test failed'); st.className = 'ai-test-status err';
     } finally { btn.disabled = false; }
   }
-  $('#emSave').onclick = () => saveNotify('email');
-  $('#dcSave').onclick = () => saveNotify('discord');
   $('#emTest').onclick = () => testNotify('email');
   $('#dcTest').onclick = () => testNotify('discord');
 
@@ -783,6 +790,7 @@
       const c = (state.settings && state.settings.backup) || (await api('/backups/config'));
       $('#autoBackupEnabled').checked = !!c.autoEnabled;
       $('#autoBackupFreq').value = c.frequency || 'weekly';
+      $('#autoBackupRetention').value = c.retention || 12;
     } catch {}
   }
   // ---- AI Chat settings tab ----
@@ -937,15 +945,19 @@
     $('#priorityEditor').appendChild(priorityRow({ id: '', name: '', color: '#a5d8ff', textColor: '#111827' }));
     markAppDirty();
   };
-  function dismissAppModal() { applyTheme(state.themeId); clearAppDirty(); appModal.hidden = true; }
+  function dismissAppModal() {
+    applyTheme(state.themeId); clearAppDirty(); appModal.hidden = true;
+    const b = $('#appSettingsBtn'); if (b) b.focus(); // restore focus to the trigger
+  }
   function guardedCloseAppModal() {
     if (!appDirty) { dismissAppModal(); return; }
     if (confirm('You have unsaved changes.\n\nOK to save them, or Cancel to discard.')) $('#appSave').click();
     else dismissAppModal();
   }
   $('#appSettingsBtn').onclick = openAppModal;
-  $('#appModalClose').onclick = guardedCloseAppModal;   // X → guarded
-  $('#appCancel').onclick = dismissAppModal;             // Cancel → discard
+  // Both the ✕ and Cancel behave the same: prompt if there are unsaved changes.
+  $('#appModalClose').onclick = guardedCloseAppModal;
+  $('#appCancel').onclick = guardedCloseAppModal;
   $('#appSave').onclick = async () => {
     const priorities = $$('#priorityEditor .priority-row').map((r) => {
       if (r.querySelector('.pr-none')) return { id: 'none', name: 'None', color: null, textColor: null };
@@ -961,10 +973,10 @@
     // Guardrails: never let the app be saved with no categories or no lane
     // colors — the board relies on at least one of each.
     if (priorities.filter((p) => p.id !== 'none').length === 0) {
-      setAppTab('categories'); toast('Add at least one category before saving.'); return;
+      showAppError('Add at least one category before saving.', 'categories'); return;
     }
     if (laneColors.length === 0) {
-      setAppTab('lanes'); toast('Add at least one lane color before saving.'); return;
+      showAppError('Add at least one lane color before saving.', 'lanes'); return;
     }
 
     const bd = (key) => ({
@@ -972,21 +984,46 @@
       textColor: $(`#badgeEditor [data-badge="${key}"] .bd-text`).value,
     });
     const badges = { due: bd('due'), tag: bd('tag'), source: bd('source') };
-    const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges, ...collectAIChat() } });
-    state.settings = s;
-    // Auto-backup config is now part of the main Save (no separate button).
+    const saveBtn = $('#appSave');
+    saveBtn.disabled = true;
     try {
-      const bc = await api('/backups/config', { method: 'PUT', body: { autoEnabled: $('#autoBackupEnabled').checked, frequency: $('#autoBackupFreq').value } });
-      state.settings.backup = bc;
-    } catch {}
-    state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
-    if (s.badges) state.badges = s.badges;
-    applyTheme(state.themeId);
-    clearAppDirty();
-    appModal.hidden = true; toast('Settings saved');
-    if (state.board) renderBoard();
-    renderInbox();
-    if (window.initAIChat) window.initAIChat(s);
+      const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges, ...collectAIChat() } });
+      state.settings = s;
+      // Auto-backup config (main Save, no separate button).
+      try {
+        const bc = await api('/backups/config', { method: 'PUT', body: { autoEnabled: $('#autoBackupEnabled').checked, frequency: $('#autoBackupFreq').value, retention: parseInt($('#autoBackupRetention').value, 10) || undefined } });
+        state.settings.backup = bc;
+      } catch (e) { toast('Auto-backup not saved: ' + (e.message || 'error')); }
+      // Notifications (main Save too). Validation errors keep the modal open on
+      // the offending sub-tab so nothing is silently dropped.
+      const failed = [];
+      for (const ch of ['email', 'discord']) {
+        try { await api('/notifications/' + ch, { method: 'PUT', body: ch === 'email' ? collectEmail() : collectDiscord() }); }
+        catch (e) { failed.push([ch, e.message || 'Save failed']); }
+      }
+      if (failed.length) {
+        const [ch, msg] = failed[0];
+        setAppTab('notify');
+        const sub = document.querySelector(`#notifySubtabs .notify-subtab[data-sub="${ch}"]`);
+        if (sub) sub.click();
+        const st = $(ch === 'email' ? '#emStatus' : '#dcStatus');
+        st.textContent = '✗ ' + msg; st.className = 'ai-test-status err';
+        toast('Fix the notification error to finish saving.');
+        return; // keep modal open + dirty
+      }
+      state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
+      if (s.badges) state.badges = s.badges;
+      applyTheme(state.themeId);
+      clearAppDirty();
+      appModal.hidden = true; toast('Settings saved');
+      if (state.board) renderBoard();
+      renderInbox();
+      if (window.initAIChat) window.initAIChat(state.settings);
+    } catch (e) {
+      toast('Save failed: ' + (e.message || 'error'));
+    } finally {
+      saveBtn.disabled = false;
+    }
   };
 
   // ---- Inbox ----
@@ -1011,10 +1048,10 @@
     (it.tags || []).forEach((t) => { badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`; });
     const src = state.badges.source;
     li.innerHTML =
-      `<button class="ic-del" title="Dismiss">✕</button>` +
+      `<button class="ic-del" title="Dismiss" aria-label="Dismiss inbox item">✕</button>` +
       `<div class="ic-title">${esc(it.subject)}</div>` +
       `<div class="ic-row">${badges}<span class="ic-src" style="background:${src.color};color:${src.textColor}">${esc(it.source || 'api')}</span></div>` +
-      `<button class="ic-menu" title="Send to a board">⋮</button>`;
+      `<button class="ic-menu" title="Send to a board" aria-label="Send to a board">⋮</button>`;
     li.querySelector('.ic-del').onclick = async (e) => {
       e.stopPropagation();
       await api('/inbox/' + it.id, { method: 'DELETE' });

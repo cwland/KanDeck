@@ -19,9 +19,11 @@ let keyCache = null;
 
 function key() {
   if (!keyCache) {
-    // Derive a stable 32-byte key from the app secret. Fixed salt is fine here:
-    // the secret is the entropy, and we need determinism across restarts.
-    keyCache = crypto.scryptSync(String(config.jwtSecret || 'kandeck'), 'kandeck-secrets-v1', 32);
+    // Prefer the dedicated SECRETS_KEY; fall back to JWT_SECRET for installs
+    // that predate it. Fixed salt is fine here: the secret is the entropy, and
+    // we need determinism across restarts.
+    const src = config.secretsKey || config.jwtSecret || 'kandeck';
+    keyCache = crypto.scryptSync(String(src), 'kandeck-secrets-v1', 32);
   }
   return keyCache;
 }

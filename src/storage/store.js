@@ -11,7 +11,6 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 
 /** Map<absPath, Promise> — tail of the write queue for each file path. */
 const locks = new Map();
@@ -106,4 +105,3 @@ export async function removeFile(filePath) {
 }
 
 export { ensureDir };
-export const TMPDIR = os.tmpdir();

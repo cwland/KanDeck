@@ -100,7 +100,7 @@
 
     <!-- ===== Switch board popup ===== -->
     <div class="modal-backdrop" id="switchModal" hidden>
-      <div class="modal modal-sm">
+      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="Switch board">
         <header class="modal-head">
           <h2>Switch board</h2>
           <button class="icon-btn" id="switchClose" title="Close">✕</button>
@@ -157,7 +157,7 @@
 
     <!-- ===== App settings modal (tabbed) ===== -->
     <div class="modal-backdrop" id="appModal" hidden>
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="App settings">
         <header class="modal-head">
           <h2>App settings</h2>
           <button class="icon-btn" id="appModalClose" title="Close">✕</button>
@@ -285,9 +285,9 @@
 
               <div class="ai-test-row">
                 <button type="button" class="btn ghost" id="emTest">Send test email</button>
-                <button type="button" class="btn primary" id="emSave">Save email settings</button>
                 <span class="ai-test-status" id="emStatus"></span>
               </div>
+              <p class="hint" style="margin-bottom:0">Saved when you click <b>Save</b> below.</p>
             </div>
 
             <!-- DISCORD -->
@@ -318,9 +318,9 @@
 
               <div class="ai-test-row">
                 <button type="button" class="btn ghost" id="dcTest">Send test notification</button>
-                <button type="button" class="btn primary" id="dcSave">Save Discord settings</button>
                 <span class="ai-test-status" id="dcStatus"></span>
               </div>
+              <p class="hint" style="margin-bottom:0">Saved when you click <b>Save</b> below.</p>
             </div>
           </section>
 
@@ -347,15 +347,21 @@
                 <label class="switch"><input type="checkbox" id="autoBackupEnabled" /><span></span></label>
                 <span class="ai-toggle-label">Automatic backups</span>
               </div>
-              <div class="field" style="max-width:220px">
-                <label>Frequency</label>
-                <select id="autoBackupFreq">
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
+              <div class="field-row">
+                <div class="field" style="max-width:200px">
+                  <label>Frequency</label>
+                  <select id="autoBackupFreq">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <div class="field" style="max-width:160px">
+                  <label>Keep last</label>
+                  <input id="autoBackupRetention" type="number" min="1" max="500" step="1" placeholder="12" />
+                </div>
               </div>
-              <p class="hint" style="margin-bottom:0">Applied when you click <b>Save</b> below.</p>
+              <p class="hint" style="margin-bottom:0">Applied when you click <b>Save</b> below. "Keep last" prunes older backups (manual and automatic).</p>
             </div>
 
             <label style="margin-top:16px">Backup history</label>
@@ -376,7 +382,7 @@
 
     <!-- ===== Board settings modal ===== -->
     <div class="modal-backdrop" id="boardModal" hidden>
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Board settings">
         <header class="modal-head">
           <h2 id="boardModalTitle">Board settings</h2>
           <button class="icon-btn" id="boardModalClose" title="Close">✕</button>

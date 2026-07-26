@@ -181,7 +181,7 @@ body.inbox-collapsed .inbox-panel {
 }
 .inbox-head b {
   display: inline-block; vertical-align: middle; margin-left: 4px;
-  font-size: .72rem; font-weight: 700; color: var(--text-dim);
+  font-size: .72rem; font-weight: 700; color: #44546a; /* fixed dark ink: bubble is always light in both themes */
   background: rgba(255, 255, 255, .85); border-radius: 10px; padding: 1px 8px;
 }
 .ghost-icon { background: transparent; color: var(--text-dim); }
@@ -283,6 +283,8 @@ body.inbox-collapsed .inbox-panel {
 /* Unsaved-changes banner in the app-settings modal */
 .dirty-banner { margin: 8px 18px 0; padding: 8px 12px; border-radius: 8px; background: #fff3bf; color: #8a5a00; font-size: .8rem; font-weight: 700; }
 html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
+.dirty-banner.error { background: #ffe3e3; color: #b02a37; }
+html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c9; }
 .priority-row .pr-none { flex: 1; color: var(--text-dim); font-style: italic; padding: 8px 10px; }
 .priority-row .pr-del { border: 0; background: var(--surface-2); color: var(--text-dim); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; }
 .priority-row .pr-del:hover { background: #ffe3e3; color: #e03131; }
@@ -342,7 +344,7 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
   color: var(--lane-text, var(--text)); padding: 2px 2px; word-break: break-word;
 }
 .col-count {
-  font-size: .75rem; color: var(--text-dim);
+  font-size: .75rem; color: #44546a; /* fixed dark ink: readable on the light pill in both themes */
   background: rgba(255, 255, 255, .85); border-radius: 10px; padding: 1px 8px; font-weight: 700;
 }
 .col-menu { border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 1rem; border-radius: 6px; width: 26px; height: 26px; }
@@ -470,7 +472,11 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
    vertical space the schedule used to take at the bottom). */
 .notify-cols { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
 .notify-cols .notify-col { flex: 1 1 240px; min-width: 220px; }
-.notify-cols .notify-col + .notify-col { border-left: 1px solid var(--border); padding-left: 22px; }
+/* Divider only when the two columns are actually side by side; when they wrap
+   on a narrow screen the border/indent would dangle. */
+@media (min-width: 560px) {
+  .notify-cols .notify-col + .notify-col { border-left: 1px solid var(--border); padding-left: 22px; }
+}
 .weekday-label { font-size: .78rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 12px 0 5px; }
 .field-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .field-row .field { flex: 1; min-width: 130px; }
@@ -578,7 +584,7 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
 .notify-content .nc-row { display: flex; align-items: center; gap: 6px; font-size: .92rem; color: var(--text); text-transform: none; font-weight: 400; letter-spacing: 0; }
 .notify-content input[type=checkbox] { accent-color: var(--accent); }
 .notify-content input.days-inp { width: 60px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
-.weekday-row { display: flex; gap: 6px; margin: 4px 0 6px; }
+.weekday-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
 .weekday-row .wd {
   width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
   background: var(--bg); color: var(--text-dim); cursor: pointer; font-size: .82rem; font-weight: 700;

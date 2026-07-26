@@ -5,7 +5,7 @@
  */
 import path from 'node:path';
 import config from '../config.js';
-import { newId, nowIso, slugify } from '../util.js';
+import { newId, nowIso, dueInDays } from '../util.js';
 import { getLaneColors, getPriorities, DEFAULT_LANE_COLORS } from './settings.js';
 import {
   readJson,
@@ -118,6 +118,25 @@ export async function listBoards() {
 
 export async function getBoard(id) {
   return readJson(boardFile(id), null);
+}
+
+/** Every card across all boards with its board + column context. By default
+ *  excludes archived and completed cards; opts can include either. Shared by
+ *  the notification engine and content builder. */
+export async function allCards({ includeComplete = false, includeArchived = false } = {}) {
+  const idx = await readIndex();
+  const out = [];
+  for (const entry of idx.boards) {
+    const board = await getBoard(entry.id);
+    if (!board) continue;
+    for (const col of board.columns)
+      for (const card of col.cards) {
+        if (!includeArchived && card.archived) continue;
+        if (!includeComplete && card.complete) continue;
+        out.push({ board, col, card });
+      }
+  }
+  return out;
 }
 
 export async function createBoard({ name, description = '' }) {
@@ -299,7 +318,6 @@ export function makeCard(input = {}) {
     alarm: !!input.alarm,
     alarmSent: false,
     priority: input.priority || 'none', // urgent|high|medium|low|none
-    color: input.color || null,
     tags: Array.isArray(input.tags) ? input.tags : [],
     source: input.source || null, // provenance (from inbox item or 'manual')
     archived: false,
@@ -338,7 +356,6 @@ export async function updateCard(boardId, cardId, patch) {
       'alarm',
       'alarmSent',
       'priority',
-      'color',
       'tags',
       'archived',
     ]) {
@@ -485,26 +502,17 @@ export async function queryTasks(opts = {}) {
         if (status === 'open' && isComplete) continue;
         if (status === 'complete' && !isComplete) continue;
 
-        // Compare at local midnight. dueDate may be date-only (YYYY-MM-DD) or a
-        // full ISO datetime (YYYY-MM-DDTHH:MM:SS) — take the leading date part
-        // either way so a time component doesn't break the day math.
-        let dueInDays = null, overdue = false;
-        if (card.dueDate) {
-          const m = String(card.dueDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
-          if (m) {
-            const dueMid = new Date(+m[1], +m[2] - 1, +m[3]);
-            dueInDays = Math.round((dueMid - startOfToday) / MS_DAY);
-            overdue = dueInDays < 0 && !isComplete;
-          }
-        }
+        // dueDate may be date-only or a full ISO datetime; dueInDays() handles both.
+        const dueDays = dueInDays(card.dueDate, now);
+        const overdue = dueDays != null && dueDays < 0 && !isComplete;
 
         if (due !== 'any') {
           if (due === 'none') { if (card.dueDate) continue; }
-          else if (dueInDays === null) continue;
-          else if (due === 'today') { if (dueInDays !== 0) continue; }
-          else if (due === 'tomorrow') { if (dueInDays !== 1) continue; }
-          else if (due === 'week') { if (dueInDays < 0 || dueInDays > 7) continue; }
-          else if (due === 'overdue') { if (!(dueInDays < 0) || isComplete) continue; }
+          else if (dueDays === null) continue;
+          else if (due === 'today') { if (dueDays !== 0) continue; }
+          else if (due === 'tomorrow') { if (dueDays !== 1) continue; }
+          else if (due === 'week') { if (dueDays < 0 || dueDays > 7) continue; }
+          else if (due === 'overdue') { if (!(dueDays < 0) || isComplete) continue; }
         }
 
         let completedDaysAgo = null;
@@ -527,7 +535,7 @@ export async function queryTasks(opts = {}) {
           boardId: b.id, boardName: b.name,
           columnId: col.id, columnName: col.name,
           cardId: card.id, subject: card.subject,
-          dueDate: card.dueDate || null, dueInDays, overdue,
+          dueDate: card.dueDate || null, dueInDays: dueDays, overdue,
           priority: card.priority || 'none', priorityName: prioName(card.priority || 'none'),
           tags: card.tags || [], source: card.source || null,
           complete: isComplete, completedAt: card.completedAt || null, completedDaysAgo,
@@ -573,4 +581,3 @@ export async function findCardAnywhere(cardId) {
   return null;
 }
 
-export { INDEX_FILE, DEFAULT_COLUMNS, sortColumn };

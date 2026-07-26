@@ -25,7 +25,11 @@ const router = Router();
 const wrap = (fn) => (req, res) =>
   Promise.resolve(fn(req, res)).catch((err) => {
     console.error('[api]', err);
-    res.status(400).json({ error: err.message || 'Bad request' });
+    // Don't leak filesystem paths / low-level errors to the client; keep clean
+    // validation messages (thrown Errors without path/errno text).
+    const msg = err && err.message ? String(err.message) : '';
+    const leaky = /[\/\\]|ENOENT|EACCES|EPERM|errno/i.test(msg);
+    res.status(400).json({ error: leaky || !msg ? 'Request failed' : msg });
   });
 
 // ---- Boards ----------------------------------------------------------------

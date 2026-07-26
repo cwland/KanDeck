@@ -66,6 +66,7 @@ const DEFAULT_NOTIFICATIONS = {
 const DEFAULT_BACKUP = {
   autoEnabled: false,
   frequency: 'weekly', // daily | weekly | monthly
+  retention: 12,       // how many backups to keep
 };
 
 const DEFAULTS = {
@@ -125,8 +126,14 @@ function fillBackup(b) {
   return {
     autoEnabled: !!b.autoEnabled,
     frequency: ['daily', 'weekly', 'monthly'].includes(b.frequency) ? b.frequency : 'weekly',
+    retention: Math.max(1, Math.min(500, parseInt(b.retention, 10) || 12)),
   };
 }
+
+// Accept only well-formed hex colors before persisting them (they get dropped
+// into style="..." and email HTML, so reject anything that could break out).
+const hexOk = (c) => typeof c === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c);
+const cleanHex = (c) => (hexOk(c) ? c : null);
 
 // Pick readable ink (dark on light bg, white on dark bg) for a custom color.
 function readableText(hex) {
@@ -192,6 +199,8 @@ export async function getSettings() {
   s.notifications = fillNotifications(s.notifications);
   s.notifications.email = { ...s.notifications.email, pass: '', passwordSet: !!s.notifications.email.pass };
   s.backup = fillBackup(s.backup);
+  // AI chat token is stored encrypted; the widget needs the real value client-side.
+  if (s.aiChatToken) s.aiChatToken = decrypt(s.aiChatToken);
   return s;
 }
 
@@ -276,6 +285,7 @@ export async function updateBackupConfig(patch = {}) {
     const b = fillBackup(s.backup);
     if (patch.autoEnabled !== undefined) b.autoEnabled = !!patch.autoEnabled;
     if (patch.frequency !== undefined && ['daily', 'weekly', 'monthly'].includes(patch.frequency)) b.frequency = patch.frequency;
+    if (patch.retention !== undefined) b.retention = Math.max(1, Math.min(500, parseInt(patch.retention, 10) || 12));
     s.backup = b;
     return s;
   }, DEFAULTS);
@@ -290,13 +300,6 @@ export async function getLaneColors() {
   return (await getSettings()).laneColors;
 }
 
-/** Default background color for a given category/priority id. */
-export async function priorityColor(id) {
-  if (!id || id === 'none') return null;
-  const p = (await getPriorities()).find((x) => x.id === id);
-  return p ? p.color : null;
-}
-
 function normalisePriorities(list) {
   const seen = new Set();
   let priorities = (Array.isArray(list) ? list : [])
@@ -307,8 +310,8 @@ function normalisePriorities(list) {
       return {
         id,
         name: p.name || id,
-        color: p.color || null,
-        textColor: p.textColor || null,
+        color: cleanHex(p.color),
+        textColor: cleanHex(p.textColor),
         order: i,
       };
     })
@@ -325,19 +328,21 @@ export async function updateSettings(patch = {}) {
   if (patch.theme !== undefined) next.theme = patch.theme;
   if (patch.priorities !== undefined) next.priorities = normalisePriorities(patch.priorities);
   if (patch.laneColors !== undefined)
-    next.laneColors = (Array.isArray(patch.laneColors) ? patch.laneColors : [])
-      .filter((c) => typeof c === 'string' && c);
+    next.laneColors = (Array.isArray(patch.laneColors) ? patch.laneColors : []).filter(hexOk);
   if (patch.badges !== undefined) {
     const b = patch.badges || {};
-    next.badges = {
-      due: { color: (b.due || {}).color || DEFAULT_BADGES.due.color, textColor: (b.due || {}).textColor || DEFAULT_BADGES.due.textColor },
-      tag: { color: (b.tag || {}).color || DEFAULT_BADGES.tag.color, textColor: (b.tag || {}).textColor || DEFAULT_BADGES.tag.textColor },
-      source: { color: (b.source || {}).color || DEFAULT_BADGES.source.color, textColor: (b.source || {}).textColor || DEFAULT_BADGES.source.textColor },
-    };
+    const badge = (k) => ({
+      color: cleanHex((b[k] || {}).color) || DEFAULT_BADGES[k].color,
+      textColor: cleanHex((b[k] || {}).textColor) || DEFAULT_BADGES[k].textColor,
+    });
+    next.badges = { due: badge('due'), tag: badge('tag'), source: badge('source') };
   }
   // AI chat (webhook-based, mirrors Auto Dashboard AI settings).
-  for (const k of ['aiChatWebhookUrl', 'aiChatToken', 'aiChatTitle'])
+  for (const k of ['aiChatWebhookUrl', 'aiChatTitle'])
     if (patch[k] !== undefined) next[k] = String(patch[k]);
+  // The AI chat bearer token is encrypted at rest (decrypted in getSettings for
+  // the client, which needs it to call the webhook directly).
+  if (patch.aiChatToken !== undefined) next.aiChatToken = encrypt(String(patch.aiChatToken));
   if (patch.aiChatEnabled !== undefined) next.aiChatEnabled = !!patch.aiChatEnabled;
   if (patch.aiChatHistoryLength !== undefined)
     next.aiChatHistoryLength = Math.max(1, Math.min(100, parseInt(patch.aiChatHistoryLength, 10) || 10));

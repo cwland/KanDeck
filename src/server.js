@@ -36,8 +36,9 @@ app.get(['/login', '/setup'], (req, res) => {
   res.sendFile(path.join(pub, 'login.html'));
 });
 
-// Gate the app shell.
-app.get('/', requireSession, (req, res) => {
+// Gate the app shell. Also redirect a direct /index.html hit through the gate
+// so the shell isn't served unauthenticated by the static handler below.
+app.get(['/', '/index.html'], requireSession, (req, res) => {
   res.sendFile(path.join(pub, 'index.html'));
 });
 
@@ -51,7 +52,23 @@ app.use((req, res) => {
   res.redirect('/');
 });
 
+// Refuse to run in production with a weak/default session secret — otherwise
+// anyone could forge a session cookie (and the secrets-at-rest key is weak too).
+function assertSecrets() {
+  const s = process.env.JWT_SECRET || '';
+  const weak = !s || s === 'change-me-to-a-long-random-string' || s.length < 32;
+  if (weak) {
+    const msg = 'JWT_SECRET is unset, default, or shorter than 32 chars. Set a strong random value (e.g. `openssl rand -base64 32`).';
+    if (config.env === 'production') {
+      console.error('FATAL:', msg);
+      process.exit(1);
+    }
+    console.warn('WARNING:', msg, '(allowed in development only)');
+  }
+}
+
 async function start() {
+  assertSecrets();
   await settingsStore.init();
   await inboxStore.init();
   await boardStore.init();

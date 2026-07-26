@@ -38,6 +38,10 @@ function scheduleDue(schedule, now) {
   return now >= scheduled;
 }
 
+// Channels currently mid-delivery — a belt-and-suspenders guard (alongside the
+// optimistic lastOccurrence write) so overlapping ticks never double-send.
+const inFlight = new Set();
+
 /**
  * Evaluate every enabled integration and send any that are due and not yet sent
  * for today's occurrence. Safe to call repeatedly (idempotent per day).
@@ -51,16 +55,24 @@ export async function evaluateSchedules(now = new Date()) {
     if (!c || !provider.enabled(c)) continue;
     if (!scheduleDue(c.schedule, now)) continue;
     if (c.lastOccurrence === key) continue; // already sent this occurrence
+    if (inFlight.has(channel)) continue;    // a prior tick is still delivering
+    inFlight.add(channel);
+    const prev = c.lastOccurrence;
     try {
+      // Claim the occurrence BEFORE the (possibly slow) send, so a second tick
+      // firing during delivery sees it as already-sent and skips.
+      await settings.setLastOccurrence(channel, key);
       const { sections } = await buildSections(c.content, now);
       await provider.deliver(c, sections);
-      await settings.setLastOccurrence(channel, key);
       results.push({ channel, sent: true });
       console.log(`[notify] sent ${channel} summary (${key})`);
     } catch (e) {
-      // Leave lastOccurrence unset so the next tick retries.
+      // Delivery failed — release the claim so the next tick retries today.
+      await settings.setLastOccurrence(channel, prev).catch(() => {});
       console.error(`[notify] ${channel} summary failed:`, e.message);
       results.push({ channel, sent: false, error: e.message });
+    } finally {
+      inFlight.delete(channel);
     }
   }
   return results;
@@ -69,9 +81,11 @@ export async function evaluateSchedules(now = new Date()) {
 let task = null;
 export function startScheduler() {
   if (task) return task;
-  // Every 5 minutes — the dedup key guarantees at most one send per day.
-  task = cron.schedule('*/5 * * * *', () => evaluateSchedules().catch((e) => console.error('[notify] scheduler', e)));
-  console.log('[notify] summary scheduler started (every 5m)');
+  // Every minute: the per-day dedup key guarantees at most one send per day,
+  // and minute granularity means the summary fires at the exact configured
+  // time (a 5-min cadence skipped times in the last window before midnight).
+  task = cron.schedule('* * * * *', () => evaluateSchedules().catch((e) => console.error('[notify] scheduler', e)));
+  console.log('[notify] summary scheduler started (per-minute)');
   return task;
 }
 

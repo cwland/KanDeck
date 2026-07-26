@@ -39,20 +39,16 @@ export const config = {
   appUrl: (process.env.APP_URL || '').replace(/\/+$/, ''),
 
   jwtSecret: process.env.JWT_SECRET || 'change-me-to-a-long-random-string',
+  // Dedicated key for encrypting secrets at rest (SMTP password, AI token).
+  // Decoupled from JWT_SECRET so rotating the session secret doesn't make
+  // stored secrets undecryptable. Falls back to jwtSecret for existing installs.
+  secretsKey: process.env.SECRETS_KEY || '',
   sessionTtl: process.env.SESSION_TTL || '7d',
   apiKey: process.env.API_KEY || '',
 
-  smtp: {
-    host: process.env.SMTP_HOST || '',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: (process.env.SMTP_SECURE || 'false') === 'true',
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
-    from: process.env.SMTP_FROM || 'KanDeck <no-reply@example.com>',
-    to: process.env.SMTP_TO || '',
-  },
-  discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL || '',
-
+  // Email/Discord are configured in the app (App Settings → Notifications),
+  // not via env. Backup schedule + retention are configured there too; the env
+  // vars below remain only as a fallback / default before the UI is used.
   backupCron: process.env.BACKUP_CRON || '0 3 * * 0',
   backupRetention: parseInt(process.env.BACKUP_RETENTION || '12', 10),
 };

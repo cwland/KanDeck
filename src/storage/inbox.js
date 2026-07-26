@@ -80,7 +80,10 @@ export async function removeItem(id) {
   return removed;
 }
 
-/** Move an inbox item onto a board column, creating a card and removing it. */
+/** Move an inbox item onto a board column, creating a card and removing it.
+ *  Returns null if the item or target board can't be found — the caller turns
+ *  that into a 404, and crucially the inbox item is NOT deleted, so a stale or
+ *  deleted board id can never silently lose the item. */
 export async function moveToBoard(id, boardId, columnId, index) {
   const items = await listItems();
   const item = items.find((i) => i.id === id);
@@ -89,15 +92,15 @@ export async function moveToBoard(id, boardId, columnId, index) {
     subject: item.subject,
     description: item.description,
     priority: item.priority,
-    color: item.color,
     dueDate: item.dueDate,
     alarm: item.alarm,
     tags: item.tags,
     source: item.source,
   });
+  if (!card) return null; // board missing/deleted — leave the inbox item intact
   if (typeof index === 'number') {
     await boards.moveCard(boardId, card.id, columnId, index).catch(() => {});
   }
   await removeItem(id);
-  return { boardId, columnId, card };
+  return { boardId, card };
 }

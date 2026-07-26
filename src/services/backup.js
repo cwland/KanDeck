@@ -30,11 +30,16 @@ export async function createBackup(reason = 'manual') {
   const index = await readJson(path.join(config.boardsDir, '_index.json'), { boards: [] });
   const snapshot = {
     kind: 'kandeck-backup',
-    version: 1,
+    version: 2, // v2 adds settings + config so a restore is a true full restore
     createdAt: new Date().toISOString(),
     reason,
     index,
     boards,
+    // App-level settings (theme, categories, notifications, backup config, …)
+    // and auth config (password hash + API key). Secrets inside settings stay
+    // encrypted. v1 backups won't have these; restore tolerates their absence.
+    settings: await readJson(config.settingsFile, null),
+    config: await readJson(config.configFile, null),
   };
   const stamp = fileStamp();
   const file = backupPath(stamp);
@@ -80,12 +85,21 @@ export async function restoreBackup(fileName) {
   for (const [id, board] of Object.entries(snap.boards || {}))
     if (board) await writeJsonAtomic(path.join(config.boardsDir, `${id}.json`), board);
   await writeJsonAtomic(path.join(config.boardsDir, '_index.json'), snap.index || { boards: [] });
-  return { restored: safe, boards: Object.keys(snap.boards || {}).length };
+  // v2+: restore app settings and auth config too. Absent on v1 backups → left
+  // as-is so restoring an old backup never wipes current settings.
+  if (snap.settings) await writeJsonAtomic(config.settingsFile, snap.settings);
+  if (snap.config) await writeJsonAtomic(config.configFile, snap.config);
+  return {
+    restored: safe,
+    boards: Object.keys(snap.boards || {}).length,
+    settings: !!snap.settings,
+  };
 }
 
 async function pruneOld() {
   const list = await listBackups();
-  const keep = config.backupRetention;
+  let keep = config.backupRetention;
+  try { keep = (await getBackupConfig()).retention || keep; } catch { /* fall back to env */ }
   if (list.length <= keep) return;
   for (const b of list.slice(keep))
     await fs.rm(path.join(config.backupsDir, b.file), { force: true });

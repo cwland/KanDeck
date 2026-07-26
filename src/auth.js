@@ -95,6 +95,15 @@ export function requireSession(req, res, next) {
   res.redirect('/login');
 }
 
+// Constant-time string compare (SHA-256 both sides so lengths always match and
+// timing doesn't leak the key or its length).
+function safeEqual(a, b) {
+  if (!a || !b) return false;
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 /** Guard for JSON API routes — accepts session cookie OR API key.
  *  Key may arrive as `Authorization: Bearer <key>` or `X-API-Key: <key>`, and
  *  is matched against the env API_KEY and/or the key stored in config.json. */
@@ -105,9 +114,9 @@ export async function requireApiAuth(req, res, next) {
     const m = header.match(/^Bearer\s+(.+)$/i);
     const key = m ? m[1].trim() : req.get('x-api-key');
     if (key) {
-      if (config.apiKey && key === config.apiKey) return next();
+      if (config.apiKey && safeEqual(key, config.apiKey)) return next();
       const stored = await getApiKey();
-      if (stored && key === stored) return next();
+      if (stored && safeEqual(key, stored)) return next();
     }
     res.status(401).json({ error: 'Unauthorized' });
   } catch (err) {

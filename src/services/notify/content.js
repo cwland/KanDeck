@@ -7,43 +7,17 @@
  * their own format (HTML email, Discord embeds, …) so adding a channel never
  * touches this logic.
  */
-import config from '../../config.js';
-import * as boards from '../../storage/boards.js';
+import { allCards } from '../../storage/boards.js';
 import { getPriorities } from '../../storage/settings.js';
-import { listJson } from '../../storage/store.js';
-
-async function allCards() {
-  const ids = (await listJson(config.boardsDir)).filter((id) => id !== '_index');
-  const out = [];
-  for (const id of ids) {
-    const board = await boards.getBoard(id);
-    if (!board) continue;
-    for (const col of board.columns)
-      for (const card of col.cards)
-        if (!card.archived) out.push({ board, col, card });
-  }
-  return out;
-}
-
-const MS_DAY = 86400000;
-const localMidnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-// dueDate may be date-only or a full ISO datetime — take the leading date.
-function dueInDaysOf(dueDate, startOfToday) {
-  const m = String(dueDate || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const dueMid = new Date(+m[1], +m[2] - 1, +m[3]);
-  return Math.round((dueMid - startOfToday) / MS_DAY);
-}
+import { dueInDays } from '../../util.js';
 
 /**
  * @returns {{ sections: Array<{key,title,emoji,tasks:Array}>, total: number, generatedAt: Date }}
  */
 export async function buildSections(content = {}, now = new Date()) {
-  const startOfToday = localMidnight(now);
-  const open = (await allCards()).filter(({ card }) => !card.complete);
+  const open = await allCards(); // excludes archived + completed
   const scored = open
-    .map((x) => ({ x, dueInDays: dueInDaysOf(x.card.dueDate, startOfToday) }))
+    .map((x) => ({ x, dueInDays: dueInDays(x.card.dueDate, now) }))
     .filter((o) => o.dueInDays !== null);
 
   // Use the app's actual category colors so notifications match the board.

@@ -163,13 +163,19 @@ KanDeck/
     ├── api/
     │   ├── routes.js       # REST API
     │   └── auth-routes.js  # login / setup / logout
+    ├── storage/
+    │   ├── settings.js     # app settings: theme, categories, notifications, backup
+    │   └── inbox.js        # inbox items + move-to-board
     ├── services/
-    │   ├── backup.js       # create/list/restore + cron schedule
-    │   └── notify.js       # SMTP + Discord, digest, alarms, webhook-on-move
+    │   ├── secrets.js      # AES-256-GCM encrypt/decrypt (SECRETS_KEY/JWT_SECRET)
+    │   ├── backup.js       # create/list/restore + settings-driven cron
+    │   └── notify/         # scheduler + content builder + email/discord providers
+    │       (plus notify.js — alarms + card-moved pings)
     └── public/
         ├── index.html      # app shell
-        ├── styles.css      # theming (light/dark), responsive, mobile
-        ├── palettes.js     # 20 preset palettes
+        ├── styles.css      # theming (light/dark gradients), responsive, mobile
+        ├── themes.js       # 20 theme presets (10 light + 10 dark)
+        ├── ai-chat.js/.css # floating AI chat widget
         ├── app.js          # all UI logic
         ├── login.html      # login / first-run setup
         └── vendor/sortable.min.js
@@ -199,16 +205,24 @@ curl -X POST http://localhost:8080/api/tasks \
   -d '{"subject":"Buy milk","priority":"high","alarm":true,"dueDate":"2026-08-01T09:00:00Z"}'
 ```
 
-## Notifications (spec 2.6) — configure in `.env`
-- SMTP email + Discord webhooks. Alarm scan runs every minute; daily digest at
-  08:00 (tasks due within the week). Webhook-on-move pings when a card enters a
-  board's notify column (default "Done"). All no-ops if channels are blank.
+## Notifications — configured in the app (App Settings → Notifications)
+- Email (SMTP) + Discord are configured in the UI, stored in `data/settings.json`
+  (SMTP password encrypted at rest). Two things use that config:
+  - **Scheduled summaries** (`src/services/notify/`): a per-minute scheduler
+    sends an email/Discord summary (upcoming N days / due today / past due) on a
+    configured time + weekdays, deduped once per day. Provider-agnostic: add a
+    channel by registering one provider in `notify/index.js`.
+  - **Real-time** (`src/services/notify.js`): per-card **alarms** (1-min scan)
+    and **card-moved** Discord pings — same settings config, escaped output.
+- API: `GET/PUT /api/notifications`, `POST /api/notifications/{email,discord}/test`.
 
-## Backups (spec 2.1)
-- Cron schedule via `BACKUP_CRON` (default weekly Sun 03:00), retention via
-  `BACKUP_RETENTION`. Manual **Backup now** / **Restore** buttons live in the
-  board ⚙️ settings modal. Restore takes a safety backup first.
-- Manual CLI: `npm run backup`.
+## Backups (App Settings → Backups)
+- Manual **Backup now** / **Restore**, plus **automatic** backups
+  (daily/weekly/monthly) with a **retention** count — all in the UI, stored in
+  `settings.backup`. `BACKUP_CRON` / `BACKUP_RETENTION` env are pre-UI fallbacks.
+- A backup is a full snapshot: boards **+ settings + config**; restore rewrites
+  all of them (older v1 backups without settings still restore). Restore takes a
+  safety backup first. Manual CLI: `npm run backup`.
 
 ## Deploy to the AMD64 server
 ```bash
@@ -222,9 +236,29 @@ docker compose up -d      # uses docker-compose.yml, bind-mounts ./data
 
 ---
 
+## Update 2026-07-26 (later 4) — integrations, notifications, review pass
+
+- **AI Chat** widget (App Settings → AI Chat) → n8n webhook; token encrypted at
+  rest. Sample workflow + `docs/AI-CHAT-SETUP.md`. Task-query endpoint
+  `GET /api/tasks/query` (due=today|week|overdue, status, completedWithin) for
+  assistants. **API key** managed in App Settings → API (`/api/apikey`).
+- **Notifications** rebuilt as the settings-driven, provider-agnostic system
+  above (summaries + alarms + card-moved), replacing the old env/digest engine.
+- **Inbox ⋮ "send to board"** menu; **auto-backup** UI (freq + retention);
+  Trello-style **gradient** background; **one Save** for all of App Settings
+  (Notifications/auto-backup included; API tab still self-saves).
+- **Review pass (security/cleanup):** production boot-guard on `JWT_SECRET`;
+  dedicated `SECRETS_KEY`; login rate-limiting; constant-time API-key compare;
+  encrypted AI token; hex-color validation; sanitized error responses; app shell
+  behind session. Fixed: send-to-board data-loss guard, backups include settings,
+  per-minute scheduler with double-send guard. Removed dead code (`palettes.js`,
+  `sendDigest`, unused exports, `card.color`, `sortablejs` dep); de-duplicated
+  `allCards`/`dueInDays` into shared helpers.
+
 ## Ideas / polish for later
 - Rich-text/Markdown rendering in the card description (currently stored as
   Markdown text; render with a small MD lib when displaying).
-- Per-board webhook config UI (currently via env + settings fields).
+- Per-board notify-column config UI (currently fixed to "Done").
+- Full focus-trap in modals (focus-on-open + restore is done; trap is not).
 - Multi-user roles (spec is single-user by design).
 - Optimistic drag-and-drop without full board refetch on every move.
