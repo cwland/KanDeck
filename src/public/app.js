@@ -98,30 +98,6 @@
     const m = A.map((x, i) => Math.round(x * ratio + B[i] * (1 - ratio)));
     return '#' + m.map((x) => x.toString(16).padStart(2, '0')).join('');
   }
-  // Rotate a hex color's hue by `deg` degrees (used to derive a complementary
-  // accent for the inbox that harmonizes with the main window).
-  function rotateHue(hex, deg) {
-    let [r, g, b] = hexToRgb(hex).map((v) => v / 255);
-    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
-    let h = 0; const l = (max + min) / 2;
-    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-    if (d !== 0) {
-      if (max === r) h = ((g - b) / d) % 6;
-      else if (max === g) h = (b - r) / d + 2;
-      else h = (r - g) / d + 4;
-      h *= 60; if (h < 0) h += 360;
-    }
-    h = (h + deg) % 360; if (h < 0) h += 360;
-    const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
-    let rp = 0, gp = 0, bp = 0;
-    if (h < 60) [rp, gp, bp] = [c, x, 0];
-    else if (h < 120) [rp, gp, bp] = [x, c, 0];
-    else if (h < 180) [rp, gp, bp] = [0, c, x];
-    else if (h < 240) [rp, gp, bp] = [0, x, c];
-    else if (h < 300) [rp, gp, bp] = [x, 0, c];
-    else [rp, gp, bp] = [c, 0, x];
-    return '#' + [rp, gp, bp].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('');
-  }
   function applyTheme(id) {
     const t = themeObj(id);
     if (!t) return;
@@ -130,24 +106,23 @@
     root.setAttribute('data-theme', t.dark ? 'dark' : 'light');
     const s = root.style;
     s.setProperty('--accent', t.accent);
-    // Complementary hue for the inbox — a distinct color that still harmonizes
-    // with the accent, kept a touch softer so the board stays the focal point.
-    const comp = rotateHue(t.accent, 180);
     // Trello-style vertical wash: a saturated accent tint under the menu that
     // fades lighter toward the bottom. The topbar is the darkest band, so the
-    // whole page reads dark-at-top → light-at-bottom.
+    // whole page reads dark-at-top → light-at-bottom. The inbox uses the SAME
+    // accent hue but a deeper shade, so it reads as a sibling panel of the main
+    // window rather than a contrasting color.
     if (t.dark) {
-      s.setProperty('--bg-grad-1', mix(t.accent, '#1d2125', 0.34)); // top: accent-tinted dark
-      s.setProperty('--bg-grad-2', mix(t.accent, '#1d2125', 0.06)); // bottom: near-black base
+      s.setProperty('--bg-grad-1', mix(t.accent, '#1d2125', 0.34)); // board top
+      s.setProperty('--bg-grad-2', mix(t.accent, '#1d2125', 0.06)); // board bottom
       s.setProperty('--topbar', mix(t.accent, '#12151a', 0.30));    // darkest band
-      s.setProperty('--inbox-grad-1', mix(comp, '#1d2125', 0.26));  // inbox top
-      s.setProperty('--inbox-grad-2', mix(comp, '#1d2125', 0.05));  // inbox bottom
+      s.setProperty('--inbox-grad-1', mix(t.accent, '#1d2125', 0.46)); // inbox top (richer)
+      s.setProperty('--inbox-grad-2', mix(t.accent, '#1d2125', 0.16)); // inbox bottom
     } else {
-      s.setProperty('--bg-grad-1', mix(t.accent, '#ffffff', 0.62)); // top: rich accent tint
-      s.setProperty('--bg-grad-2', mix(t.accent, '#ffffff', 0.16)); // bottom: pale tint
+      s.setProperty('--bg-grad-1', mix(t.accent, '#ffffff', 0.62)); // board top
+      s.setProperty('--bg-grad-2', mix(t.accent, '#ffffff', 0.16)); // board bottom
       s.setProperty('--topbar', t.accent);                          // darkest band
-      s.setProperty('--inbox-grad-1', mix(comp, '#ffffff', 0.50));  // inbox top
-      s.setProperty('--inbox-grad-2', mix(comp, '#ffffff', 0.12));  // inbox bottom
+      s.setProperty('--inbox-grad-1', mix(t.accent, '#ffffff', 0.76)); // inbox top (deeper shade)
+      s.setProperty('--inbox-grad-2', mix(t.accent, '#ffffff', 0.40)); // inbox bottom
     }
     // Cache the resolved vars so the inline <head> boot script can paint the
     // right theme on the very first frame (no blue→theme flash on reload).

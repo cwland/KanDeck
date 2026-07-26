@@ -12,8 +12,8 @@
   --surface: #ffffff;
   --surface-2: #ebecf0;
   --inbox-bg: #e6ebf4;
-  --inbox-grad-1: #d7b98a; /* top: complementary tint (JS overrides per theme) */
-  --inbox-grad-2: #f4ecdd; /* bottom: pale complementary tint */
+  --inbox-grad-1: #409bcf; /* top: deeper shade of the accent (JS overrides per theme) */
+  --inbox-grad-2: #99c9e5; /* bottom: lighter same-hue shade */
   --text: #172b4d;
   --text-dim: #5e6c84;
   --border: #dfe1e6;
@@ -30,8 +30,8 @@ html[data-theme='dark'] {
   --surface: #22272b;
   --surface-2: #2c333a;
   --inbox-bg: #282e35;
-  --inbox-grad-1: #39322a; /* top: complementary tinted dark (JS overrides) */
-  --inbox-grad-2: #1f2226; /* bottom: near-black base */
+  --inbox-grad-1: #104869; /* top: deeper accent-tinted shade (JS overrides) */
+  --inbox-grad-2: #192d3b; /* bottom: same-hue darker shade */
   --text: #dee4ea;
   --text-dim: #9fadbc;
   --border: #3c444d;
@@ -401,15 +401,16 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
 }
 .card-subject-input::placeholder { color: var(--text-dim); font-weight: 400; }
 .card-subject-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
-/* Tabbed modal (App settings) */
+/* Tabbed modal (App settings) — wider so all tabs sit on one line. */
+#appModal .modal { width: min(96vw, 800px); }
 .modal-tabs {
-  display: flex; gap: 2px; padding: 6px 16px 0; flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
+  display: flex; gap: 2px; padding: 6px 16px 0; flex-wrap: nowrap; overflow-x: auto;
+  border-bottom: 1px solid var(--border); scrollbar-width: thin;
 }
 .modal-tab {
   position: relative; border: 0; background: transparent; color: var(--text-dim);
-  padding: 9px 14px; font-weight: 700; font-size: .85rem; cursor: pointer;
-  border-radius: 8px 8px 0 0;
+  padding: 9px 13px; font-weight: 700; font-size: .85rem; cursor: pointer;
+  border-radius: 8px 8px 0 0; white-space: nowrap;
 }
 .modal-tab:hover { background: var(--surface-2); }
 .modal-tab.active { color: var(--accent); }
