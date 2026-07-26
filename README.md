@@ -14,11 +14,14 @@ your board.
 ![Self-hosted](https://img.shields.io/badge/self--hosted-single--user-blue)
 ![No database](https://img.shields.io/badge/storage-flat--file%20JSON-orange)
 
+![KanDeck board](docs/img/board-light.png)
+
 ---
 
 ## Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Quick start (local)](#quick-start-local)
 - [Docker](#docker)
 - [Configuration & secrets](#configuration--secrets)
@@ -55,6 +58,27 @@ your board.
 - **Security** — single password (bcrypt), JWT cookie sessions, login
   rate-limiting, API-key auth, and secrets encrypted at rest.
 - **No database.** Everything is flat-file JSON. Runs offline. Mobile-responsive.
+
+---
+
+## Screenshots
+
+A board with the inbox open — priority categories, due dates, tags, and a
+complete lane with check-off:
+
+![Board — light theme](docs/img/board-light.png)
+
+The same board in a dark theme (light and dark presets share an accent, so the
+🌓 button flips between them):
+
+![Board — dark theme](docs/img/board-dark.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/card-modal.png" alt="Card detail modal"><br><sub>Card details — description (Markdown), category, due date, and tags.</sub></td>
+    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Categories, Lane colors, AI Chat, Notifications, API, and Backups.</sub></td>
+  </tr>
+</table>
 
 ---
 
