@@ -235,13 +235,22 @@ body.inbox-collapsed .inbox-panel {
 
 /* ---- Priority editor (app settings) ---- */
 .hint { color: var(--text-dim); font-size: .8rem; margin: 4px 0 10px; }
-.priority-editor { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.priority-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.priority-row input[type=text] { flex: 1; min-width: 120px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
-.pr-colorfield { display: flex; align-items: center; gap: 4px; font-size: .7rem; color: var(--text-dim); }
+/* One grid across all rows so columns align (rows are display:contents). */
+.priority-editor {
+  list-style: none; margin: 0 0 10px; padding: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) max-content max-content max-content max-content;
+  gap: 8px; align-items: center;
+}
+.priority-row { display: contents; }
+.priority-row .pr-none { grid-column: 1 / -1; }
+.priority-row input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+.pr-colorfield { display: flex; align-items: center; gap: 4px; font-size: .7rem; color: var(--text-dim); justify-content: flex-start; }
 .pr-colorfield input[type=color] { width: 34px; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); padding: 2px; cursor: pointer; }
 .pr-preview { font-size: .72rem; font-weight: 800; padding: 3px 10px; border-radius: 12px; white-space: nowrap; box-shadow: inset 0 0 0 1px rgba(0,0,0,.06); }
-.badge-name { flex: 1; min-width: 110px; font-weight: 700; padding: 8px 2px; color: var(--text); }
+.badge-name { min-width: 110px; font-weight: 700; padding: 8px 2px; color: var(--text); }
+/* Unsaved-changes banner in the app-settings modal */
+.dirty-banner { margin: 8px 18px 0; padding: 8px 12px; border-radius: 8px; background: #fff3bf; color: #8a5a00; font-size: .8rem; font-weight: 700; }
+html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
 .priority-row .pr-none { flex: 1; color: var(--text-dim); font-style: italic; padding: 8px 10px; }
 .priority-row .pr-del { border: 0; background: var(--surface-2); color: var(--text-dim); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; }
 .priority-row .pr-del:hover { background: #ffe3e3; color: #e03131; }

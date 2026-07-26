@@ -561,8 +561,15 @@
   // ---- App settings modal (theme + categories + lane colors) ----
   const appModal = $('#appModal');
   let pendingTheme = state.themeId;
+  let appDirty = false;
+  function markAppDirty() { appDirty = true; $('#appDirty').hidden = false; }
+  function clearAppDirty() { appDirty = false; $('#appDirty').hidden = true; }
+  // Any input/change inside the modal flags unsaved changes.
+  appModal.addEventListener('input', markAppDirty);
+  appModal.addEventListener('change', markAppDirty);
   function openAppModal() {
     pendingTheme = state.themeId;
+    clearAppDirty();
     setAppTab('theme');
     renderThemeGrid();
     renderPriorityEditor();
@@ -586,7 +593,7 @@
       `<div class="tc-preview"><div class="tc-bar" style="background:${barBg}"></div>` +
       `<div class="tc-body" style="background:${bodyBg}"><div class="tc-chip" style="background:${t.accent}"></div></div></div>` +
       `<div class="tc-name">${esc(t.name)}</div>`;
-    card.onclick = () => { pendingTheme = t.id; applyTheme(t.id); $$('.theme-card').forEach((x) => x.classList.toggle('selected', x.dataset.id === t.id)); };
+    card.onclick = () => { pendingTheme = t.id; applyTheme(t.id); $$('.theme-card').forEach((x) => x.classList.toggle('selected', x.dataset.id === t.id)); markAppDirty(); };
     return card;
   }
   function renderThemeGrid() {
@@ -602,11 +609,11 @@
     const d = document.createElement('div'); d.className = 'lane-color-chip';
     const input = document.createElement('input'); input.type = 'color'; input.value = c || '#4dabf7';
     const del = document.createElement('button'); del.type = 'button'; del.className = 'lc-del'; del.textContent = '✕'; del.title = 'Remove';
-    del.onclick = () => d.remove();
+    del.onclick = () => { d.remove(); markAppDirty(); };
     d.append(input, del);
     return d;
   }
-  $('#addLaneColorBtn').onclick = () => $('#laneColorsEditor').appendChild(laneColorChip('#4dabf7'));
+  $('#addLaneColorBtn').onclick = () => { $('#laneColorsEditor').appendChild(laneColorChip('#4dabf7')); markAppDirty(); };
   function renderPriorityEditor() {
     const ul = $('#priorityEditor'); ul.innerHTML = '';
     state.priorities.forEach((p) => ul.appendChild(priorityRow(p)));
@@ -624,7 +631,8 @@
       preview.style.color = tx.querySelector('input').value;
     };
     [bg.querySelector('input'), tx.querySelector('input')].forEach((i) => i.addEventListener('input', refresh));
-    li.append(name, bg, tx, preview);
+    const spacer = document.createElement('span'); // empty 5th cell to keep the grid aligned
+    li.append(name, bg, tx, preview, spacer);
     refresh();
     return li;
   }
@@ -654,7 +662,7 @@
     const preview = document.createElement('span'); preview.className = 'pr-preview';
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'pr-del'; del.textContent = '🗑'; del.title = 'Remove';
-    del.onclick = () => li.remove();
+    del.onclick = () => { li.remove(); markAppDirty(); };
     const refresh = () => {
       preview.textContent = name.value.trim() || 'Preview';
       preview.style.background = bg.querySelector('input').value;
@@ -665,11 +673,19 @@
     refresh();
     return li;
   }
-  $('#addPriorityBtn').onclick = () =>
+  $('#addPriorityBtn').onclick = () => {
     $('#priorityEditor').appendChild(priorityRow({ id: '', name: '', color: '#a5d8ff', textColor: '#111827' }));
+    markAppDirty();
+  };
+  function dismissAppModal() { applyTheme(state.themeId); clearAppDirty(); appModal.hidden = true; }
+  function guardedCloseAppModal() {
+    if (!appDirty) { dismissAppModal(); return; }
+    if (confirm('You have unsaved changes.\n\nOK to save them, or Cancel to discard.')) $('#appSave').click();
+    else dismissAppModal();
+  }
   $('#appSettingsBtn').onclick = openAppModal;
-  $('#appModalClose').onclick = () => { applyTheme(state.themeId); appModal.hidden = true; };
-  $('#appCancel').onclick = () => { applyTheme(state.themeId); appModal.hidden = true; };
+  $('#appModalClose').onclick = guardedCloseAppModal;   // X → guarded
+  $('#appCancel').onclick = dismissAppModal;             // Cancel → discard
   $('#appSave').onclick = async () => {
     const priorities = $$('#priorityEditor .priority-row').map((r) => {
       if (r.querySelector('.pr-none')) return { id: 'none', name: 'None', color: null, textColor: null };
@@ -690,6 +706,7 @@
     state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
     if (s.badges) state.badges = s.badges;
     applyTheme(state.themeId);
+    clearAppDirty();
     appModal.hidden = true; toast('Settings saved');
     if (state.board) renderBoard();
     renderInbox();
@@ -849,7 +866,11 @@
   });
 
   // close modals on backdrop click / Esc (board modal rolls back an unsaved new board)
-  const dismiss = (m) => { if (m === boardModal) closeBoardModal(); else m.hidden = true; };
+  const dismiss = (m) => {
+    if (m === boardModal) closeBoardModal();
+    else if (m === appModal) guardedCloseAppModal();
+    else m.hidden = true;
+  };
   $$('.modal-backdrop').forEach((m) => (m.onclick = (e) => { if (e.target === m) dismiss(m); }));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal-backdrop').forEach((m) => { if (!m.hidden) dismiss(m); }); });
 
