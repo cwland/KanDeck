@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KanDeck</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/ai-chat.css" />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%82%EF%B8%8F%3C/text%3E%3C/svg%3E"
@@ -147,6 +148,7 @@
           <button type="button" class="modal-tab active" data-tab="theme">Theme</button>
           <button type="button" class="modal-tab" data-tab="categories">Categories</button>
           <button type="button" class="modal-tab" data-tab="lanes">Lane colors</button>
+          <button type="button" class="modal-tab" data-tab="ai">AI Chat</button>
           <button type="button" class="modal-tab" data-tab="backups">Backups</button>
         </nav>
         <div class="dirty-banner" id="appDirty" hidden>⚠️ You have unsaved changes — click Save to keep them.</div>
@@ -173,6 +175,45 @@
             <p class="hint">The palette of colors a lane can use. Pick a lane's color per board in Board settings.</p>
             <div class="lane-colors-editor" id="laneColorsEditor"></div>
             <button type="button" class="btn ghost" id="addLaneColorBtn">＋ Add color</button>
+          </section>
+
+          <section class="tab-panel" data-tab="ai">
+            <p class="hint">A floating chat bubble that talks to your n8n Chat Webhook. When enabled, it appears bottom-right on every board. Conversation history stays in this browser.</p>
+            <label class="ai-toggle-row">
+              <label class="switch"><input type="checkbox" id="aiEnabled" /><span></span></label>
+              <span>Enable AI Chat widget</span>
+            </label>
+
+            <div class="field">
+              <label>n8n Chat Webhook URL</label>
+              <input id="aiWebhookUrl" type="url" placeholder="https://your-n8n-host/webhook/kandeck-chat" autocomplete="off" />
+            </div>
+
+            <div class="field">
+              <label>Bearer token <small>(optional, recommended)</small></label>
+              <input id="aiToken" type="password" placeholder="Sent as Authorization: Bearer …" autocomplete="off" />
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label>Widget title</label>
+                <input id="aiTitle" type="text" placeholder="AI Assistant" />
+              </div>
+              <div class="field">
+                <label>Chat history length</label>
+                <input id="aiHistoryLength" type="number" min="1" max="100" step="1" placeholder="10" />
+              </div>
+              <div class="field">
+                <label>Response timeout <small>(s)</small></label>
+                <input id="aiTimeout" type="number" min="5" max="300" step="1" placeholder="60" />
+              </div>
+            </div>
+
+            <div class="ai-test-row">
+              <button type="button" class="btn ghost" id="aiTestBtn">Test connection</button>
+              <span class="ai-test-status" id="aiTestStatus"></span>
+            </div>
+            <p class="hint">Test uses the current (even unsaved) URL and token. The webhook receives <code>{ source, sessionId, message, timestamp }</code> and should reply with JSON <code>{ "reply": "…" }</code>.</p>
           </section>
 
           <section class="tab-panel" data-tab="backups">
@@ -249,6 +290,7 @@
 
     <script src="/vendor/sortable.min.js"></script>
     <script src="/themes.js"></script>
+    <script src="/ai-chat.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

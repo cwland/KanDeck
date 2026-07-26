@@ -490,3 +490,16 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
   }
   body.inbox-collapsed .inbox-panel { transform: translateX(-100%); }
 }
+
+/* ---- AI Chat settings tab ---- */
+.ai-toggle-row {
+  display: flex; align-items: center; gap: 10px;
+  margin: 6px 0 16px; font-weight: 600;
+}
+.ai-test-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 6px;
+}
+.ai-test-status { font-size: .85rem; color: var(--text-dim); }
+.ai-test-status.ok { color: #2b8a3e; font-weight: 600; }
+.ai-test-status.err { color: #b02a37; font-weight: 600; }

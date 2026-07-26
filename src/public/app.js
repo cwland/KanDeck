@@ -45,12 +45,14 @@
   function laneColorAt(i) { const l = state.laneColors; return l.length ? l[i % l.length] : '#838c91'; }
   async function loadSettings() {
     const s = await api('/settings');
+    state.settings = s;
     state.priorities = s.priorities || [];
     state.laneColors = s.laneColors || [];
     if (s.badges) state.badges = s.badges;
     state.themeId = s.theme || window.DEFAULT_THEME || 'light-blue';
     applyTheme(state.themeId);
     if (s.version) $('#inboxVersion').textContent = 'KanDeck v' + s.version;
+    if (window.initAIChat) window.initAIChat(s);
   }
 
   // ---- API ----
@@ -594,9 +596,60 @@
     renderPriorityEditor();
     renderBadgeEditor();
     renderLaneColorsEditor();
+    fillAIChatFields();
     loadBackups();
     appModal.hidden = false;
   }
+  // ---- AI Chat settings tab ----
+  function fillAIChatFields() {
+    const s = state.settings || {};
+    $('#aiEnabled').checked = s.aiChatEnabled === true;
+    $('#aiWebhookUrl').value = s.aiChatWebhookUrl || '';
+    $('#aiToken').value = s.aiChatToken || '';
+    $('#aiTitle').value = s.aiChatTitle || 'AI Assistant';
+    $('#aiHistoryLength').value = s.aiChatHistoryLength != null ? s.aiChatHistoryLength : 10;
+    $('#aiTimeout').value = s.aiChatTimeout != null ? s.aiChatTimeout : 60;
+    $('#aiTestStatus').textContent = '';
+    $('#aiTestStatus').className = 'ai-test-status';
+  }
+  function collectAIChat() {
+    return {
+      aiChatEnabled: $('#aiEnabled').checked,
+      aiChatWebhookUrl: $('#aiWebhookUrl').value.trim(),
+      aiChatToken: $('#aiToken').value.trim(),
+      aiChatTitle: $('#aiTitle').value.trim() || 'AI Assistant',
+      aiChatHistoryLength: parseInt($('#aiHistoryLength').value, 10) || 10,
+      aiChatTimeout: parseInt($('#aiTimeout').value, 10) || 60,
+    };
+  }
+  // Test button: POST a ping to the current (even unsaved) URL + token.
+  $('#aiTestBtn').onclick = async () => {
+    const url = $('#aiWebhookUrl').value.trim();
+    const token = $('#aiToken').value.trim();
+    const status = $('#aiTestStatus');
+    if (!url) { status.textContent = 'Enter a webhook URL first.'; status.className = 'ai-test-status err'; return; }
+    status.textContent = 'Testing…'; status.className = 'ai-test-status';
+    const btn = $('#aiTestBtn'); btn.disabled = true;
+    const ctrl = ('AbortController' in window) ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 15000) : null;
+    try {
+      const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+      if (token) headers.Authorization = 'Bearer ' + token;
+      const res = await fetch(url, {
+        method: 'POST', headers, cache: 'no-store', signal: ctrl && ctrl.signal,
+        body: JSON.stringify({ source: 'kandeck', sessionId: 'test', message: 'ping', timestamp: new Date().toISOString() }),
+      });
+      if (res.ok) { status.textContent = '✓ n8n answered (HTTP ' + res.status + ').'; status.className = 'ai-test-status ok'; }
+      else { status.textContent = '✗ HTTP ' + res.status + ' — check the URL and auth.'; status.className = 'ai-test-status err'; }
+    } catch (err) {
+      status.textContent = (err && err.name === 'AbortError')
+        ? '✗ Timed out — no response in 15s.'
+        : '✗ Couldn’t reach the webhook (network/CORS/cert).';
+      status.className = 'ai-test-status err';
+    } finally {
+      if (timer) clearTimeout(timer); btn.disabled = false;
+    }
+  };
   function setAppTab(tab) {
     $$('#appTabs .modal-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     $$('#appModal .tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.tab === tab));
@@ -722,7 +775,8 @@
       textColor: $(`#badgeEditor [data-badge="${key}"] .bd-text`).value,
     });
     const badges = { due: bd('due'), tag: bd('tag'), source: bd('source') };
-    const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges } });
+    const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges, ...collectAIChat() } });
+    state.settings = s;
     state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
     if (s.badges) state.badges = s.badges;
     applyTheme(state.themeId);
@@ -730,6 +784,7 @@
     appModal.hidden = true; toast('Settings saved');
     if (state.board) renderBoard();
     renderInbox();
+    if (window.initAIChat) window.initAIChat(s);
   };
 
   // ---- Inbox ----

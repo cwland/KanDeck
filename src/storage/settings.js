@@ -37,6 +37,13 @@ const DEFAULTS = {
   priorities: DEFAULT_PRIORITIES,
   laneColors: DEFAULT_LANE_COLORS,
   badges: DEFAULT_BADGES,
+  // AI chat (webhook-based, same shape as Auto Dashboard AI).
+  aiChatEnabled: false,
+  aiChatWebhookUrl: '',
+  aiChatToken: '',
+  aiChatHistoryLength: 10,
+  aiChatTimeout: 60,
+  aiChatTitle: 'AI Assistant',
 };
 
 // Pick readable ink (dark on light bg, white on dark bg) for a custom color.
@@ -153,6 +160,14 @@ export async function updateSettings(patch = {}) {
       source: { color: (b.source || {}).color || DEFAULT_BADGES.source.color, textColor: (b.source || {}).textColor || DEFAULT_BADGES.source.textColor },
     };
   }
+  // AI chat (webhook-based, mirrors Auto Dashboard AI settings).
+  for (const k of ['aiChatWebhookUrl', 'aiChatToken', 'aiChatTitle'])
+    if (patch[k] !== undefined) next[k] = String(patch[k]);
+  if (patch.aiChatEnabled !== undefined) next.aiChatEnabled = !!patch.aiChatEnabled;
+  if (patch.aiChatHistoryLength !== undefined)
+    next.aiChatHistoryLength = Math.max(1, Math.min(100, parseInt(patch.aiChatHistoryLength, 10) || 10));
+  if (patch.aiChatTimeout !== undefined)
+    next.aiChatTimeout = Math.max(5, Math.min(300, parseInt(patch.aiChatTimeout, 10) || 60));
   return updateJson(
     config.settingsFile,
     (s) => ({ ...DEFAULTS, ...(s || {}), ...next }),
