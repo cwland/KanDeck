@@ -118,6 +118,17 @@
       s.setProperty('--bg-grad-2', mix(t.accent, '#ffffff', 0.16)); // bottom: pale tint
       s.setProperty('--topbar', t.accent);                          // darkest band
     }
+    // Cache the resolved vars so the inline <head> boot script can paint the
+    // right theme on the very first frame (no blue→theme flash on reload).
+    try {
+      localStorage.setItem('kandeck.themeCache', JSON.stringify({
+        dark: !!t.dark,
+        accent: t.accent,
+        g1: s.getPropertyValue('--bg-grad-1'),
+        g2: s.getPropertyValue('--bg-grad-2'),
+        topbar: s.getPropertyValue('--topbar'),
+      }));
+    } catch (_) {}
   }
 
   // ---- Boards / tabs ----

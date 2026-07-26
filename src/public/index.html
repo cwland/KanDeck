@@ -6,6 +6,22 @@
     <title>KanDeck</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/ai-chat.css" />
+    <!-- Paint the saved theme before first render so there's no blue→theme flash. -->
+    <script>
+      (function () {
+        try {
+          var c = JSON.parse(localStorage.getItem('kandeck.themeCache') || 'null');
+          if (c && c.accent) {
+            var r = document.documentElement, s = r.style;
+            r.setAttribute('data-theme', c.dark ? 'dark' : 'light');
+            s.setProperty('--accent', c.accent);
+            if (c.g1) s.setProperty('--bg-grad-1', c.g1);
+            if (c.g2) s.setProperty('--bg-grad-2', c.g2);
+            if (c.topbar) s.setProperty('--topbar', c.topbar);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%82%EF%B8%8F%3C/text%3E%3C/svg%3E"
@@ -179,10 +195,10 @@
 
           <section class="tab-panel" data-tab="ai">
             <p class="hint">A floating chat bubble that talks to your n8n Chat Webhook. When enabled, it appears bottom-right on every board. Conversation history stays in this browser.</p>
-            <label class="ai-toggle-row">
+            <div class="ai-toggle-row">
               <label class="switch"><input type="checkbox" id="aiEnabled" /><span></span></label>
-              <span>Enable AI Chat widget</span>
-            </label>
+              <span class="ai-toggle-label">Enable AI Chat widget</span>
+            </div>
 
             <div class="field">
               <label>n8n Chat Webhook URL</label>

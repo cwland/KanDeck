@@ -418,7 +418,9 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
 .modal-body { padding: 8px 18px; }
 .modal-body label { display: block; font-size: .78rem; font-weight: 700; color: var(--text-dim); margin: 12px 0 5px; text-transform: uppercase; letter-spacing: .04em; }
 .modal-body small { text-transform: none; font-weight: 400; }
-.modal-body input[type=text], .modal-body input[type=date], .modal-body textarea, .modal-body select {
+.modal-body input[type=text], .modal-body input[type=date], .modal-body input[type=url],
+.modal-body input[type=password], .modal-body input[type=number], .modal-body input[type=email],
+.modal-body input[type=search], .modal-body textarea, .modal-body select {
   width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--text); font-size: .92rem; font-family: inherit;
 }
@@ -494,7 +496,11 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
 /* ---- AI Chat settings tab ---- */
 .ai-toggle-row {
   display: flex; align-items: center; gap: 10px;
-  margin: 6px 0 16px; font-weight: 600;
+  margin: 10px 0 16px;
+}
+.ai-toggle-label {
+  font-size: .95rem; font-weight: 600; color: var(--text);
+  text-transform: none; letter-spacing: 0;
 }
 .ai-test-row {
   display: flex; align-items: center; gap: 12px;
