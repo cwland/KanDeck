@@ -578,6 +578,10 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .notify-subtab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .notify-sub { display: none; }
 .notify-sub.active { display: block; }
+/* When a channel is disabled, dim everything except its enable toggle so it's
+   clear the fields are locked until you turn it on. */
+.notify-sub.notify-off > *:not(.ai-toggle-row) { opacity: .5; }
+.notify-sub :disabled { cursor: not-allowed; }
 .notify-content { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 6px; }
 .notify-content .nc-row { display: flex; align-items: center; gap: 6px; font-size: .92rem; color: var(--text); text-transform: none; font-weight: 400; letter-spacing: 0; }
 .notify-content input[type=checkbox] { accent-color: var(--accent); }

@@ -736,6 +736,9 @@
       $('#dcDueToday').checked = d.content.dueToday.enabled; $('#dcPastDue').checked = d.content.pastDue.enabled;
       $('#dcTime').value = d.schedule.time; renderWeekdays('dcDays', d.schedule.days);
       $('#dcStatus').textContent = ''; $('#dcStatus').className = 'ai-test-status';
+      // Lock/unlock each sub-panel to match its enable toggle.
+      setNotifyFieldsEnabled('email');
+      setNotifyFieldsEnabled('discord');
     } catch {}
   }
 
@@ -779,6 +782,23 @@
   }
   $('#emTest').onclick = () => testNotify('email');
   $('#dcTest').onclick = () => testNotify('discord');
+
+  // A channel's fields are editable only while its enable toggle is on. Turning
+  // it off locks (disables) every field in that sub-panel; turning it on unlocks
+  // them. The toggle itself is never disabled.
+  function setNotifyFieldsEnabled(channel) {
+    const sub = document.querySelector(`#appModal .notify-sub[data-sub="${channel}"]`);
+    if (!sub) return;
+    const toggleId = channel === 'email' ? 'emEnabled' : 'dcEnabled';
+    const on = $('#' + toggleId).checked;
+    sub.querySelectorAll('input, select, button').forEach((el) => {
+      if (el.id === toggleId) return;
+      el.disabled = !on;
+    });
+    sub.classList.toggle('notify-off', !on);
+  }
+  $('#emEnabled').addEventListener('change', () => setNotifyFieldsEnabled('email'));
+  $('#dcEnabled').addEventListener('change', () => setNotifyFieldsEnabled('discord'));
 
   // ---- Auto-backup config ----
   async function loadBackupConfig() {
@@ -994,8 +1014,14 @@
       // the offending sub-tab so nothing is silently dropped.
       const failed = [];
       for (const ch of ['email', 'discord']) {
-        try { await api('/notifications/' + ch, { method: 'PUT', body: ch === 'email' ? collectEmail() : collectDiscord() }); }
-        catch (e) { failed.push([ch, e.message || 'Save failed']); }
+        const on = $(ch === 'email' ? '#emEnabled' : '#dcEnabled').checked;
+        const st = $(ch === 'email' ? '#emStatus' : '#dcStatus');
+        // Enabled channels are connection-tested server-side before they save.
+        if (on) { st.textContent = 'Checking connection…'; st.className = 'ai-test-status'; }
+        try {
+          await api('/notifications/' + ch, { method: 'PUT', body: ch === 'email' ? collectEmail() : collectDiscord() });
+          if (on) { st.textContent = ''; st.className = 'ai-test-status'; }
+        } catch (e) { failed.push([ch, e.message || 'Save failed']); }
       }
       if (failed.length) {
         const [ch, msg] = failed[0];
