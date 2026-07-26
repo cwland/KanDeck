@@ -106,14 +106,17 @@
     root.setAttribute('data-theme', t.dark ? 'dark' : 'light');
     const s = root.style;
     s.setProperty('--accent', t.accent);
+    // Trello-style vertical wash: a saturated accent tint under the menu that
+    // fades lighter toward the bottom. The topbar is the darkest band, so the
+    // whole page reads dark-at-top → light-at-bottom.
     if (t.dark) {
-      s.setProperty('--bg-grad-1', mix(t.accent, '#22272b', 0.14));
-      s.setProperty('--bg-grad-2', '#1d2125');
-      s.setProperty('--topbar', mix(t.accent, '#161a1d', 0.22));
+      s.setProperty('--bg-grad-1', mix(t.accent, '#1d2125', 0.34)); // top: accent-tinted dark
+      s.setProperty('--bg-grad-2', mix(t.accent, '#1d2125', 0.06)); // bottom: near-black base
+      s.setProperty('--topbar', mix(t.accent, '#12151a', 0.30));    // darkest band
     } else {
-      s.setProperty('--bg-grad-1', mix(t.accent, '#ffffff', 0.12));
-      s.setProperty('--bg-grad-2', '#f4f5f7');
-      s.setProperty('--topbar', t.accent);
+      s.setProperty('--bg-grad-1', mix(t.accent, '#ffffff', 0.62)); // top: rich accent tint
+      s.setProperty('--bg-grad-2', mix(t.accent, '#ffffff', 0.16)); // bottom: pale tint
+      s.setProperty('--topbar', t.accent);                          // darkest band
     }
   }
 
@@ -659,8 +662,10 @@
     const card = document.createElement('div');
     card.className = 'theme-card' + (t.id === pendingTheme ? ' selected' : '');
     card.dataset.id = t.id;
-    const barBg = t.dark ? '#161a1d' : t.accent;
-    const bodyBg = t.dark ? '#22272b' : '#f4f5f7';
+    const barBg = t.dark ? mix(t.accent, '#12151a', 0.30) : t.accent;
+    const bodyTop = t.dark ? mix(t.accent, '#1d2125', 0.34) : mix(t.accent, '#ffffff', 0.62);
+    const bodyBot = t.dark ? mix(t.accent, '#1d2125', 0.06) : mix(t.accent, '#ffffff', 0.16);
+    const bodyBg = `linear-gradient(180deg, ${bodyTop}, ${bodyBot})`;
     card.innerHTML =
       `<div class="tc-preview"><div class="tc-bar" style="background:${barBg}"></div>` +
       `<div class="tc-body" style="background:${bodyBg}"><div class="tc-chip" style="background:${t.accent}"></div></div></div>` +
