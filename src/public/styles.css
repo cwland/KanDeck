@@ -227,9 +227,11 @@ body.inbox-collapsed .inbox-panel {
 /* ---- Priority editor (app settings) ---- */
 .hint { color: var(--text-dim); font-size: .8rem; margin: 4px 0 10px; }
 .priority-editor { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.priority-row { display: flex; align-items: center; gap: 8px; }
-.priority-row input[type=text] { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
-.priority-row input[type=color] { width: 40px; height: 38px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 2px; cursor: pointer; }
+.priority-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.priority-row input[type=text] { flex: 1; min-width: 120px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+.pr-colorfield { display: flex; align-items: center; gap: 4px; font-size: .7rem; color: var(--text-dim); }
+.pr-colorfield input[type=color] { width: 34px; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); padding: 2px; cursor: pointer; }
+.pr-preview { font-size: .72rem; font-weight: 800; padding: 3px 10px; border-radius: 12px; white-space: nowrap; box-shadow: inset 0 0 0 1px rgba(0,0,0,.06); }
 .priority-row .pr-none { flex: 1; color: var(--text-dim); font-style: italic; padding: 8px 10px; }
 .priority-row .pr-del { border: 0; background: var(--surface-2); color: var(--text-dim); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; }
 .priority-row .pr-del:hover { background: #ffe3e3; color: #e03131; }

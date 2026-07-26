@@ -34,6 +34,7 @@
   // ---- App-level categories (a.k.a. priorities) ----
   function priObj(id) { return (state.priorities || []).find((p) => p.id === id); }
   function priColor(id) { const p = priObj(id); return p ? p.color : null; }
+  function priText(id) { const p = priObj(id); return p && p.textColor ? p.textColor : null; }
   function priName(id) { const p = priObj(id); return p ? p.name : id; }
   function laneColorAt(i) { const l = state.laneColors; return l.length ? l[i % l.length] : '#838c91'; }
   async function loadSettings() {
@@ -183,7 +184,8 @@
     let badges = '';
     if (card.priority && card.priority !== 'none') {
       const pc = priColor(card.priority) || '#868e96';
-      badges += `<span class="badge" style="background:${pc};color:${textOn(pc)}">${esc(priName(card.priority))}</span>`;
+      const tc = priText(card.priority) || textOn(pc);
+      badges += `<span class="badge" style="background:${pc};color:${tc}">${esc(priName(card.priority))}</span>`;
     }
     if (card.dueDate) {
       const due = new Date(card.dueDate);
@@ -590,32 +592,52 @@
     const ul = $('#priorityEditor'); ul.innerHTML = '';
     state.priorities.forEach((p) => ul.appendChild(priorityRow(p)));
   }
+  function colorField(label, cls, val) {
+    const w = document.createElement('label'); w.className = 'pr-colorfield';
+    const span = document.createElement('span'); span.textContent = label;
+    const i = document.createElement('input'); i.type = 'color'; i.className = cls; i.value = val;
+    w.append(span, i);
+    return w;
+  }
   function priorityRow(p) {
     const li = document.createElement('li');
     li.className = 'priority-row'; li.dataset.id = p.id || '';
     if (p.id === 'none') {
-      li.innerHTML = '<span class="pr-none">None — no priority (always available)</span>';
+      li.innerHTML = '<span class="pr-none">None — no category (always available)</span>';
       return li;
     }
     const name = document.createElement('input');
-    name.type = 'text'; name.className = 'pr-name'; name.value = p.name || ''; name.placeholder = 'Priority name';
-    const color = document.createElement('input');
-    color.type = 'color'; color.className = 'pr-color'; color.value = p.color || '#4dabf7';
+    name.type = 'text'; name.className = 'pr-name'; name.value = p.name || ''; name.placeholder = 'Category name';
+    const bg = colorField('Bg', 'pr-color', p.color || '#a5d8ff');
+    const tx = colorField('Text', 'pr-text', p.textColor || '#111827');
+    const preview = document.createElement('span'); preview.className = 'pr-preview';
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'pr-del'; del.textContent = '🗑'; del.title = 'Remove';
     del.onclick = () => li.remove();
-    li.append(name, color, del);
+    const refresh = () => {
+      preview.textContent = name.value.trim() || 'Preview';
+      preview.style.background = bg.querySelector('input').value;
+      preview.style.color = tx.querySelector('input').value;
+    };
+    [name, bg.querySelector('input'), tx.querySelector('input')].forEach((i) => i.addEventListener('input', refresh));
+    li.append(name, bg, tx, preview, del);
+    refresh();
     return li;
   }
   $('#addPriorityBtn').onclick = () =>
-    $('#priorityEditor').appendChild(priorityRow({ id: '', name: '', color: '#4dabf7' }));
+    $('#priorityEditor').appendChild(priorityRow({ id: '', name: '', color: '#a5d8ff', textColor: '#111827' }));
   $('#appSettingsBtn').onclick = openAppModal;
   $('#appModalClose').onclick = () => { applyTheme(state.themeId); appModal.hidden = true; };
   $('#appCancel').onclick = () => { applyTheme(state.themeId); appModal.hidden = true; };
   $('#appSave').onclick = async () => {
     const priorities = $$('#priorityEditor .priority-row').map((r) => {
-      if (r.querySelector('.pr-none')) return { id: 'none', name: 'None', color: null };
-      return { id: r.dataset.id || undefined, name: r.querySelector('.pr-name').value.trim(), color: r.querySelector('.pr-color').value };
+      if (r.querySelector('.pr-none')) return { id: 'none', name: 'None', color: null, textColor: null };
+      return {
+        id: r.dataset.id || undefined,
+        name: r.querySelector('.pr-name').value.trim(),
+        color: r.querySelector('.pr-color').value,
+        textColor: r.querySelector('.pr-text').value,
+      };
     }).filter((p) => p.name);
     const laneColors = $$('#laneColorsEditor input[type=color]').map((i) => i.value);
     const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors } });
@@ -642,7 +664,8 @@
     let badges = '';
     if (it.priority && it.priority !== 'none') {
       const pc = priColor(it.priority) || '#868e96';
-      badges += `<span class="tag-chip" style="background:${pc};color:${textOn(pc)}">${esc(priName(it.priority))}</span>`;
+      const tc = priText(it.priority) || textOn(pc);
+      badges += `<span class="tag-chip" style="background:${pc};color:${tc}">${esc(priName(it.priority))}</span>`;
     }
     (it.tags || []).forEach((t) => { badges += `<span class="ic-src">${esc(t)}</span>`; });
     li.innerHTML =
