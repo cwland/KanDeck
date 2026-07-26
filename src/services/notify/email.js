@@ -1,9 +1,9 @@
 /**
  * Email notification provider (SMTP via nodemailer).
  *
- * Settings-driven (host/port/user/pass/encryption/from/to) so it's independent
- * of the env-based alarm mailer. Renders a branded, responsive HTML summary and
- * exposes verify() so the UI can validate SMTP before enabling/saving.
+ * Settings-driven (host/port/user/pass/encryption/from/to). Renders a branded,
+ * responsive HTML summary and exposes verify() so the UI can validate SMTP
+ * before enabling/saving.
  */
 import nodemailer from 'nodemailer';
 import config from '../../config.js';

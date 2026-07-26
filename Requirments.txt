@@ -2,7 +2,7 @@
 1. System Architecture & Tech Stack Context
 * Target Deployment: Local Mac development environment moving to an x86_64 / AMD64 Docker container hosted on your web server.
 * Storage Model: Flat-file system (JSON / YAML) — No database required.
-* Interface Style: Multi-tab, drag-and-drop Kanban interface heavily inspired by Trello with bright, high-contrast themes and responsive zoom controls.
+* Interface Style: Multi-tab, drag-and-drop Kanban interface with bright, high-contrast themes and responsive zoom controls.
 * Application Name: KanDeck
 Setup Git files git ignore etc 
 2. Technical Requirements Specification
@@ -44,7 +44,6 @@ Setup Git files git ignore etc
    * Description (Rich text or Markdown supported)
    * Created Date (Auto-generated timestamp)
    * Due Date & Time
-   * Alarm / Reminder Toggle (Checkbox to trigger notification engine)
    * Priority level & visual color-code tags.
    * Sorting & Ordering Rules:
    * Manual Drag-and-Drop: Intuitive card reordering within columns and between columns.
@@ -57,13 +56,13 @@ Setup Git files git ignore etc
    * Discord Webhooks: Structured Discord embeds for instant task alerts.
    * Configurable Alert Thresholds:
    * Daily Digest: Single summary notification sent daily containing tasks due within the current week.
-   * Alarm Trigger: Real-time alert dispatched strictly when a task's Alarm checkbox is active and its scheduled reminder threshold is met.
+   * Card-Moved Ping: Real-time Discord alert dispatched when a card lands in a board's configured notify lane.
 2.7 REST API & Workflow Integration (n8n / Webhooks)
    * API Endpoints:
    * GET /api/boards - Fetch list of all active boards and summary meta.
    * GET /api/boards/{id} - Fetch complete schema, columns, and cards for a board.
    * POST /api/tasks - Create a new task programmatically via external tools (e.g., n8n workflows).
-   * PUT /api/tasks/{id} - Update task status, move across columns, or clear alarms.
+   * PUT /api/tasks/{id} - Update task status or move across columns.
    * API Security (Added Requirement):
    * Bearer Token / API Key authentication header for external workflow requests.
 3. Recommended Additions (Gaps Identified)

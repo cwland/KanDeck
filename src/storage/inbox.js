@@ -28,7 +28,6 @@ export async function addItem(input = {}) {
     description: input.description || '',
     priority: input.priority || 'none',
     dueDate: input.dueDate || null,
-    alarm: !!input.alarm,
     tags: Array.isArray(input.tags) ? input.tags : [],
     source: input.source || 'api',
     createdAt: nowIso(),
@@ -53,7 +52,7 @@ export async function updateItem(id, patch = {}) {
       inbox = inbox || { items: [] };
       const item = inbox.items.find((i) => i.id === id);
       if (item) {
-        for (const k of ['subject', 'description', 'priority', 'dueDate', 'alarm', 'tags', 'source']) {
+        for (const k of ['subject', 'description', 'priority', 'dueDate', 'tags', 'source']) {
           if (patch[k] !== undefined) item[k] = patch[k];
         }
         updated = item;
@@ -93,7 +92,6 @@ export async function moveToBoard(id, boardId, columnId, index) {
     description: item.description,
     priority: item.priority,
     dueDate: item.dueDate,
-    alarm: item.alarm,
     tags: item.tags,
     source: item.source,
   });

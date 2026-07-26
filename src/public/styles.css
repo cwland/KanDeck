@@ -232,7 +232,7 @@ body.inbox-collapsed .inbox-panel {
 .send-menu .sm-empty { padding: 8px 10px; color: var(--text-dim); font-size: .82rem; }
 .inbox-version { padding: 10px 14px; margin: 0; font-size: .72rem; color: var(--text-dim); border-top: 1px solid var(--border); text-align: center; letter-spacing: .03em; }
 
-/* ---- Floating Trello-style switcher (hovering pill) ---- */
+/* ---- Floating board switcher (hovering pill) ---- */
 .bottombar {
   position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 30;
   display: flex; align-items: center; gap: 4px;
@@ -397,7 +397,6 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .badge { font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; line-height: 1.4; }
 .badge.due { background: var(--surface-2); color: var(--text-dim); }
 .badge.due.overdue { background: #ffe3e3; color: #c92a2a; }
-.badge.alarm { background: transparent; padding: 0; font-size: .8rem; }
 .tag-chip { font-size: .66rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
 .add-card {
   margin: 4px 8px 10px; border: 0; background: transparent;
@@ -480,7 +479,6 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .weekday-label { font-size: .78rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 12px 0 5px; }
 .field-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .field-row .field { flex: 1; min-width: 130px; }
-.alarm-field { max-width: 90px; }
 .color-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch { width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
 .swatch.none { background: var(--surface-2); position: relative; }

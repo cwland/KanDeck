@@ -315,8 +315,6 @@ export function makeCard(input = {}) {
     description: input.description || '',
     createdAt: nowIso(),
     dueDate: input.dueDate || null,
-    alarm: !!input.alarm,
-    alarmSent: false,
     priority: input.priority || 'none', // urgent|high|medium|low|none
     tags: Array.isArray(input.tags) ? input.tags : [],
     source: input.source || null, // provenance (from inbox item or 'manual')
@@ -353,16 +351,12 @@ export async function updateCard(boardId, cardId, patch) {
       'subject',
       'description',
       'dueDate',
-      'alarm',
-      'alarmSent',
       'priority',
       'tags',
       'archived',
     ]) {
       if (patch[key] !== undefined) card[key] = patch[key];
     }
-    // Re-arm the alarm when it's (re)enabled, unless caller set alarmSent explicitly.
-    if (patch.alarm === true && patch.alarmSent === undefined) card.alarmSent = false;
     if (col.autoSort) sortColumn(col, board.settings.autoSortKey);
     return card;
   });

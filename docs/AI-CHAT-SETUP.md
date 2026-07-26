@@ -155,7 +155,7 @@ when the system prompt tells it *when* to reach for the tools and *how* to map a
 question to the query parameters. This is the prompt shipped in the sample:
 
 ```
-You are the assistant embedded in KanDeck, a personal Trello-style kanban app.
+You are the assistant embedded in KanDeck, a personal kanban app.
 Help the user with their tasks, boards, priorities, and schedule. Be concise.
 
 TOOLS

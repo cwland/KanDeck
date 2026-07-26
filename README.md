@@ -36,20 +36,20 @@ your board.
 
 - **Boards, columns, cards** with drag-and-drop (within and between columns);
   add / rename / reorder / delete columns per board.
-- **Cards** with subject, Markdown description, due date, priority, tags, an
-  optional **alarm**, a per-board **complete** lane, and archive.
+- **Cards** with subject, Markdown description, due date, priority, tags, a
+  per-board **complete** lane, and archive.
 - **App-level categories** (priorities) with editable, high-contrast colors that
   apply across every board.
 - **Inbox** — a capture area fed by the REST API / webhooks. Drag items onto a
   board, or use each card's **⋮ "send to board"** menu.
 - **Search-as-you-type** across all boards; jumps straight to the card.
-- **Themes** — 20 presets (10 light + 10 dark) with a Trello-style gradient;
+- **Themes** — 20 presets (10 light + 10 dark) with a vertical gradient wash;
   category and badge colors are user-editable with automatically-readable text.
 - **AI Chat** — an optional floating chat bubble backed by an n8n workflow, so
   you can ask "what's due today?" or "add buy dog food due Friday."
 - **REST API** with a date-filtered task-query endpoint built for assistants.
-- **Notifications** — scheduled email + Discord task summaries, per-card alarms,
-  and card-moved pings.
+- **Notifications** — scheduled email + Discord task summaries plus card-moved
+  Discord pings.
 - **Backups** — manual and automatic (daily / weekly / monthly with retention);
   a full snapshot of boards **and** settings, with one-click restore.
 - **Security** — single password (bcrypt), JWT cookie sessions, login
@@ -167,7 +167,7 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 | `GET` | `/api/boards` | List boards + summary meta |
 | `GET` | `/api/boards/:id` | Full board (columns + cards) |
 | `POST` | `/api/tasks` | Create a task (no `boardId` → Inbox; with `boardId` → that board) |
-| `PUT` | `/api/tasks/:id` | Update / move / clear alarm |
+| `PUT` | `/api/tasks/:id` | Update or move a task |
 | `GET` | `/api/tasks/query` | **Date-filtered task query** (see below) |
 | `GET` | `/api/search?q=` | Search cards across all boards |
 | `GET` | `/api/inbox` · `POST` `/api/inbox` · `POST` `/api/inbox/:id/move` | Inbox |
@@ -231,7 +231,7 @@ Configured in **App Settings → Notifications** (no env vars):
 
 - **Scheduled summaries** — an email and/or Discord digest of your tasks
   (upcoming N days · due today · past due) on a time + weekday schedule you pick.
-- **Per-card alarms** and **card-moved** Discord pings.
+- **Card-moved** Discord pings when a card lands in a board's notify lane.
 
 Email uses SMTP you provide (the password is encrypted at rest); Discord uses a
 webhook URL. Each has a **Test** button that validates the connection before you

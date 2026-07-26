@@ -39,7 +39,7 @@ enable and configure, to the destinations you specify:
 | Feature | Outbound request | Configured by you |
 |---------|------------------|-------------------|
 | **AI Chat** | Your browser POSTs your chat messages to the **n8n webhook URL** you enter. From there, your n8n workflow may call an LLM provider (e.g. OpenAI) — that is your workflow's behavior, not KanDeck's. | App Settings → AI Chat |
-| **Email notifications** | The server connects to the **SMTP server** you configure to send task summaries / alarms. | App Settings → Notifications |
+| **Email notifications** | The server connects to the **SMTP server** you configure to send task summaries. | App Settings → Notifications |
 | **Discord notifications** | The server POSTs task summaries / pings to the **Discord webhook URL** you configure. | App Settings → Notifications |
 
 If you enable none of these, KanDeck makes no outbound requests at all beyond

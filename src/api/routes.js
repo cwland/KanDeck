@@ -5,7 +5,7 @@
  *   GET  /api/boards            list boards + summary meta
  *   GET  /api/boards/:id        full board schema (columns + cards)
  *   POST /api/tasks             create a task/card programmatically
- *   PUT  /api/tasks/:id         update a task (status/move/clear alarm)
+ *   PUT  /api/tasks/:id         update a task (status/move)
  *
  * Plus board/column/card management used by the web UI.
  * All routes are mounted under /api and protected by requireApiAuth.
@@ -154,7 +154,7 @@ router.post('/tasks', wrap(async (req, res) => {
   res.status(201).json({ target: 'inbox', item });
 }));
 
-// Spec endpoint: update a task (edit fields, move columns, clear alarm).
+// Spec endpoint: update a task (edit fields, move columns).
 router.put('/tasks/:id', wrap(async (req, res) => {
   const located = await boards.findCardAnywhere(req.params.id);
   if (!located) return res.status(404).json({ error: 'Task not found' });

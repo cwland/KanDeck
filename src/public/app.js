@@ -106,7 +106,7 @@
     root.setAttribute('data-theme', t.dark ? 'dark' : 'light');
     const s = root.style;
     s.setProperty('--accent', t.accent);
-    // Trello-style vertical wash: a saturated accent tint under the menu that
+    // Vertical accent wash: a saturated accent tint under the menu that
     // fades lighter toward the bottom. The topbar is the darkest band, so the
     // whole page reads dark-at-top → light-at-bottom. The inbox uses the SAME
     // accent hue but a deeper shade, so it reads as a sibling panel of the main
@@ -225,7 +225,6 @@
       const dstyle = overdue ? '' : `style="background:${state.badges.due.color};color:${state.badges.due.textColor}"`;
       badges += `<span class="badge due ${overdue ? 'overdue' : ''}" ${dstyle}>📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
-    if (card.alarm) badges += `<span class="badge alarm" title="Alarm on">⏰</span>`;
     if (cf.source && card.source) {
       const s = state.badges.source;
       badges += `<span class="tag-chip" style="background:${s.color};color:${s.textColor}">${esc(card.source)}</span>`;
@@ -364,7 +363,6 @@
     $('#cardDesc').value = card.description || '';
     $('#cardPriority').value = card.priority || 'none';
     $('#cardDue').value = toDateInput(card.dueDate);
-    $('#cardAlarm').checked = !!card.alarm;
     $('#cardTags').value = (card.tags || []).join(', ');
     $('#cardCreated').textContent = 'Created ' + new Date(card.createdAt).toLocaleString();
     $('#cardDelete').style.display = '';
@@ -382,7 +380,6 @@
     $('#cardDesc').value = '';
     $('#cardPriority').value = priObj('low') ? 'low' : (state.priorities[1]?.id || 'none');
     $('#cardDue').value = '';
-    $('#cardAlarm').checked = false;
     $('#cardTags').value = '';
     $('#cardCreated').textContent = '';
     $('#cardDelete').style.display = 'none';
@@ -399,7 +396,6 @@
       description: $('#cardDesc').value,
       priority: $('#cardPriority').value,
       dueDate: $('#cardDue').value ? new Date($('#cardDue').value + 'T00:00:00').toISOString() : null,
-      alarm: $('#cardAlarm').checked,
       tags: $('#cardTags').value.split(',').map((t) => t.trim()).filter(Boolean),
     };
     if (state.editingInboxId) {
@@ -1128,7 +1124,6 @@
     $('#cardDesc').value = item.description || '';
     $('#cardPriority').value = item.priority || 'none';
     $('#cardDue').value = toDateInput(item.dueDate);
-    $('#cardAlarm').checked = !!item.alarm;
     $('#cardTags').value = (item.tags || []).join(', ');
     const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Api');
     $('#cardCreated').textContent = 'Inbox item · Source: ' + cap(item.source || 'api');

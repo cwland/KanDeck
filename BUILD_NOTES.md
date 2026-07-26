@@ -85,7 +85,7 @@ and a real drag from inbox into a column — no console errors.
   un-marked (server-side, `board.settings.completeColumnId`).
 - **Hover-to-complete circle:** hovering a card slides in a circle on the left;
   click it to complete — the card animates and moves to the complete lane and the
-  circle goes green with a check (Trello-style). Clicking a completed card's check
+  circle goes green with a check. Clicking a completed card's check
   moves it back out.
 - **Completed date:** cards gain `completedAt` (auto-set on complete, cleared on
   un-complete), shown as a green `✓ <date>` badge and in the card modal.
@@ -93,7 +93,7 @@ and a real drag from inbox into a column — no console errors.
   complete lane only shows cards completed within N days; older ones hide (never
   deleted) with a "＋N older completed" hint, and **searching reveals them**.
 - **Backups moved to App settings** (they're app-wide, not per-board).
-- **Switcher** restyled to a floating Trello-style pill (hovering, rounded,
+- **Switcher** restyled to a floating pill (hovering, rounded,
   active item tinted + underlined).
 
 ---
@@ -170,7 +170,7 @@ KanDeck/
     │   ├── secrets.js      # AES-256-GCM encrypt/decrypt (SECRETS_KEY/JWT_SECRET)
     │   ├── backup.js       # create/list/restore + settings-driven cron
     │   └── notify/         # scheduler + content builder + email/discord providers
-    │       (plus notify.js — alarms + card-moved pings)
+    │       (plus notify.js — card-moved pings)
     └── public/
         ├── index.html      # app shell
         ├── styles.css      # theming (light/dark gradients), responsive, mobile
@@ -189,8 +189,8 @@ KanDeck/
 Spec endpoints:
 - `GET  /api/boards` — list + summary meta (columns, cardCount)
 - `GET  /api/boards/:id` — full schema
-- `POST /api/tasks` — create card (`{boardId?, columnId?, subject, priority, dueDate, alarm, tags[]}`)
-- `PUT  /api/tasks/:id` — update / move (`toColumnId`,`index`) / clear alarm
+- `POST /api/tasks` — create card (`{boardId?, columnId?, subject, priority, dueDate, tags[]}`)
+- `PUT  /api/tasks/:id` — update / move (`toColumnId`,`index`)
 
 Also: board CRUD + reorder, column CRUD + reorder, card create/move/delete,
 `GET /boards/:id/archived`, and backups (`GET/POST /backups`, `POST /backups/restore`).
@@ -202,7 +202,7 @@ Auth: browser uses a JWT httpOnly cookie; external tools use
 ```bash
 curl -X POST http://localhost:8080/api/tasks \
   -H "Authorization: Bearer $API_KEY" -H "content-type: application/json" \
-  -d '{"subject":"Buy milk","priority":"high","alarm":true,"dueDate":"2026-08-01T09:00:00Z"}'
+  -d '{"subject":"Buy milk","priority":"high","dueDate":"2026-08-01"}'
 ```
 
 ## Notifications — configured in the app (App Settings → Notifications)
@@ -212,8 +212,8 @@ curl -X POST http://localhost:8080/api/tasks \
     sends an email/Discord summary (upcoming N days / due today / past due) on a
     configured time + weekdays, deduped once per day. Provider-agnostic: add a
     channel by registering one provider in `notify/index.js`.
-  - **Real-time** (`src/services/notify.js`): per-card **alarms** (1-min scan)
-    and **card-moved** Discord pings — same settings config, escaped output.
+  - **Real-time** (`src/services/notify.js`): **card-moved** Discord pings when a
+    card lands in a board's notify lane — same settings config, escaped output.
 - API: `GET/PUT /api/notifications`, `POST /api/notifications/{email,discord}/test`.
 
 ## Backups (App Settings → Backups)
@@ -243,9 +243,9 @@ docker compose up -d      # uses docker-compose.yml, bind-mounts ./data
   `GET /api/tasks/query` (due=today|week|overdue, status, completedWithin) for
   assistants. **API key** managed in App Settings → API (`/api/apikey`).
 - **Notifications** rebuilt as the settings-driven, provider-agnostic system
-  above (summaries + alarms + card-moved), replacing the old env/digest engine.
+  above (summaries + card-moved), replacing the old env/digest engine.
 - **Inbox ⋮ "send to board"** menu; **auto-backup** UI (freq + retention);
-  Trello-style **gradient** background; **one Save** for all of App Settings
+  vertical **gradient** background; **one Save** for all of App Settings
   (Notifications/auto-backup included; API tab still self-saves).
 - **Review pass (security/cleanup):** production boot-guard on `JWT_SECRET`;
   dedicated `SECRETS_KEY`; login rate-limiting; constant-time API-key compare;
