@@ -126,15 +126,69 @@ GET /api/tasks/query?status=complete&completedWithin=3
 Other useful read endpoints: `GET /api/boards` (list), `GET /api/boards/:id` (one
 board with cards), `GET /api/search?q=<text>` (text search).
 
+### Creating tasks from chat (optional)
+
+To let the user *add* tasks by chatting ("add buy dog food due Friday"), give the
+agent a second HTTP Request tool that **POSTs to `/api/tasks`** with a JSON body
+of `{ subject, dueDate?, priority?, description?, source: "assistant" }` and the
+same `X-API-Key` header. With no `boardId`, the task lands in the user's **Inbox**
+to file onto a board.
+
 ### Wire it into n8n
 
-Add an **HTTP Request** tool to the AI Agent (see
+The ready-made sample
 [`../templates/n8n/kandeck-chat-sample.json`](../templates/n8n/kandeck-chat-sample.json)
-for a starting point), point it at
-`https://<your-kandeck-host>/api/tasks/query`, add an `X-API-Key` header with your
-key, and let the model supply the query parameters via `$fromAI`. Then add a line
-to the agent's system prompt telling it that KanDeck questions ("what's due…",
-"what did I finish…") should call that tool.
+already includes **both** tools (`KanDeck Tasks` read + `Add KanDeck Task` create)
+wired to the agent, plus the system prompt below. Import it, replace the three
+placeholders (`REPLACE_WITH_YOUR_CHAT_TOKEN`, `REPLACE_WITH_YOUR_KANDECK_URL`,
+`REPLACE_WITH_YOUR_KANDECK_API_KEY`), attach your model credential, and activate.
+
+> **Two different secrets, don't mix them up:** the **chat token** secures the
+> widget → n8n webhook (set it in App Settings → AI Chat); the **KanDeck API key**
+> lets n8n call back into KanDeck's API (generate it in App Settings → API). They
+> are not the same value.
+
+### The system prompt that makes it useful
+
+Tool descriptions alone often aren't enough — the agent answers much more reliably
+when the system prompt tells it *when* to reach for the tools and *how* to map a
+question to the query parameters. This is the prompt shipped in the sample:
+
+```
+You are the assistant embedded in KanDeck, a personal Trello-style kanban app.
+Help the user with their tasks, boards, priorities, and schedule. Be concise.
+
+TOOLS
+- "KanDeck Tasks" — look up the user's tasks. Use it for ANY question about
+  what's on their board: what's due today, tomorrow, or this week, what's
+  overdue, or what they've completed recently. It does all date math
+  server-side, so just call it and report what it returns — NEVER guess or
+  calculate dates yourself. Map the question to parameters:
+    due = today | tomorrow | week (next 7 days) | overdue | none | any
+    status = open | complete | all   (use complete for finished-task questions)
+    completedWithin = <integer days> (only for "what did I finish in the last N days")
+    plus optional board, priority (urgent|high|medium|low), and q (text search).
+  Examples: "what's due today" -> due=today, status=open.
+            "anything overdue?" -> due=overdue, status=open.
+            "what did I finish this week" -> status=complete, completedWithin=7.
+- "Add KanDeck Task" — create a task. Use it whenever the user asks to add,
+  create, capture, or jot down a task or reminder. Provide subject (required);
+  optionally dueDate as an absolute YYYY-MM-DD (convert relative dates like
+  "Friday" using today's date), priority (urgent|high|medium|low), and a short
+  description. New tasks land in the user's KanDeck Inbox — tell them that.
+
+HOW TO ANSWER
+- For task lookups, present a short, scannable list: task title, which board
+  it's on, and the due date / days until due / days-ago-completed. Group
+  sensibly (overdue first, then by due date). If nothing matches, say so.
+- Reading the user's tasks is NOT a change — don't ask for confirmation and
+  don't announce that you're calling a tool.
+- Use light formatting and the occasional emoji where it aids clarity.
+```
+
+If you already run an assistant (a shared "Logic" workflow), you don't need the
+sample's webhook — just add those two HTTP Request tools to your existing agent
+and append the **TOOLS** and **HOW TO ANSWER** sections above to its prompt.
 
 ---
 

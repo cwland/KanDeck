@@ -1,71 +1,287 @@
 # 🗂️ KanDeck
 
-A flat-file, Trello-style Kanban app — bright, high-contrast, drag-and-drop —
-with a REST API for automation (n8n / webhooks), notifications, theming, and a
-Docker path to production. **No database**: all state lives in local JSON files.
+A dead-simple, **self-hosted, single-user** Kanban board — no accounts, no cloud,
+no clutter. All of your data lives in plain JSON files on your own machine.
+
+KanDeck started as a search for a genuinely simple kanban board that I could
+self-host and actually own. It's a single-user app: you set one password and
+your boards are yours. Beyond the board itself it can plug an **AI chat
+assistant** into your workflow via [n8n](https://n8n.io), and it exposes a
+**REST API** so other apps and automations can create and review the tasks on
+your board.
+
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Self-hosted](https://img.shields.io/badge/self--hosted-single--user-blue)
+![No database](https://img.shields.io/badge/storage-flat--file%20JSON-orange)
+
+---
+
+## Contents
+
+- [Features](#features)
+- [Quick start (local)](#quick-start-local)
+- [Docker](#docker)
+- [Configuration & secrets](#configuration--secrets)
+- [Using KanDeck](#using-kandeck)
+- [REST API](#rest-api)
+- [AI Chat (n8n)](#ai-chat-n8n)
+- [Notifications](#notifications)
+- [Backups](#backups)
+- [Building the Docker image (CI)](#building-the-docker-image-ci)
+- [Privacy & License](#privacy--license)
+
+---
 
 ## Features
-- Multi-board navigation (switch-board popup), per-board settings.
-- **Drag-and-drop** cards within/between columns; add/rename/reorder/delete columns.
-- Cards with subject, Markdown description, due date, **alarm**, priority
-  (app-level categories with editable colors), tags, complete lane, archive.
-- **Inbox** for incoming items (REST/webhook) → drag onto a board, or use each
-  card's **⋮ "send to board"** menu.
-- **Auto-sort** columns by priority or due date.
-- **Themes:** 20 presets (10 light + 10 dark) with a Trello-style gradient;
-  category/badge colors are user-editable with computed-contrast text.
-- Persistent per-board **zoom**. Mobile-responsive.
-- **Search-as-you-type** across all boards.
-- **Auth:** single-user password login (bcrypt), JWT cookie sessions, login
-  rate-limiting.
-- **REST API** with API-key auth (managed in App Settings → API), incl. a
-  date-filtered task-query endpoint for assistants.
-- **Notifications:** scheduled email + Discord task summaries (upcoming / due
-  today / past due, with a weekly schedule), plus per-card alarms and
-  card-moved pings — all configured in App Settings → Notifications. Secrets
-  (SMTP password) are encrypted at rest.
-- **AI Chat:** an optional floating chat bubble that talks to an n8n Chat
-  Webhook. Enable it in App Settings → AI Chat. A ready-to-import n8n workflow
-  ships at [`templates/n8n/kandeck-chat-sample.json`](templates/n8n/kandeck-chat-sample.json);
-  full setup in [`docs/AI-CHAT-SETUP.md`](docs/AI-CHAT-SETUP.md).
-- **Backups:** manual + automatic (daily/weekly/monthly, with retention), full
-  snapshot of boards **and settings**; create/restore in App Settings → Backups.
 
-## Quick start
+- **Boards, columns, cards** with drag-and-drop (within and between columns);
+  add / rename / reorder / delete columns per board.
+- **Cards** with subject, Markdown description, due date, priority, tags, an
+  optional **alarm**, a per-board **complete** lane, and archive.
+- **App-level categories** (priorities) with editable, high-contrast colors that
+  apply across every board.
+- **Inbox** — a capture area fed by the REST API / webhooks. Drag items onto a
+  board, or use each card's **⋮ "send to board"** menu.
+- **Search-as-you-type** across all boards; jumps straight to the card.
+- **Themes** — 20 presets (10 light + 10 dark) with a Trello-style gradient;
+  category and badge colors are user-editable with automatically-readable text.
+- **AI Chat** — an optional floating chat bubble backed by an n8n workflow, so
+  you can ask "what's due today?" or "add buy dog food due Friday."
+- **REST API** with a date-filtered task-query endpoint built for assistants.
+- **Notifications** — scheduled email + Discord task summaries, per-card alarms,
+  and card-moved pings.
+- **Backups** — manual and automatic (daily / weekly / monthly with retention);
+  a full snapshot of boards **and** settings, with one-click restore.
+- **Security** — single password (bcrypt), JWT cookie sessions, login
+  rate-limiting, API-key auth, and secrets encrypted at rest.
+- **No database.** Everything is flat-file JSON. Runs offline. Mobile-responsive.
+
+---
+
+## Quick start (local)
+
+Requires **Node.js ≥ 18**.
+
 ```bash
+git clone https://github.com/cwland/KanDeck.git
+cd KanDeck
 npm install
-cp .env.example .env      # set a strong JWT_SECRET (and SECRETS_KEY); see below
-npm run dev               # http://localhost:8080
+cp .env.example .env          # then edit — at minimum set a strong JWT_SECRET
+npm run dev                   # http://localhost:8080  (auto-reload via nodemon)
 ```
-On first visit you'll set the application password. Email/Discord notifications,
-backup schedule, and the API key are all configured in the app — not via env.
 
-### Secrets
-- `JWT_SECRET` — signs session cookies. **Required in production** (the server
-  refuses to start with a default/short value). Generate: `openssl rand -base64 32`.
-- `SECRETS_KEY` — encrypts secrets at rest (SMTP password, AI token). Optional
-  but recommended; decoupled from `JWT_SECRET`. Keep both in a gitignored `.env`.
+On first visit you'll be asked to **create the application password**. That's it —
+there's no signup, no external service.
+
+For a plain (non-reloading) run: `npm start`.
+
+---
 
 ## Docker
-```bash
-docker compose up -d      # bind-mounts ./data on the host
+
+The published image is multi-arch (amd64 + arm64). Use it directly, or build
+from source.
+
+### docker-compose (recommended)
+
+Create a `.env` next to your `docker-compose.yml` with your secrets (see
+[Configuration](#configuration--secrets)), then:
+
+```yaml
+services:
+  kandeck:
+    image: ghcr.io/cwland/kandeck:latest   # or: build: .
+    container_name: kandeck
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DATA_DIR: /app/data
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}   # required, >= 32 chars
+      SECRETS_KEY: ${SECRETS_KEY:-}                        # recommended
+      SESSION_TTL: ${SESSION_TTL:-7d}
+      API_KEY: ${API_KEY:-}                               # optional; you can also make one in the UI
+    volumes:
+      - ./data:/app/data                                  # your data lives here
 ```
-Cross-build for an Intel/AMD server from an Apple-Silicon Mac:
+
 ```bash
-./scripts/build-amd64.sh
+docker compose up -d
 ```
+
+> Email/Discord notifications, backup schedule, and the API key are configured
+> **in the app** (App Settings), not via environment variables.
+
+Your boards, settings, and backups persist in the bind-mounted `./data` directory
+and survive container rebuilds.
+
+### Behind a reverse proxy
+
+KanDeck speaks plain HTTP; terminate TLS at a reverse proxy (Caddy, Nginx Proxy
+Manager, Traefik, …). Use a **trusted certificate** — the AI chat widget calls
+your n8n webhook directly from the browser and a self-signed cert will block it.
+
+---
+
+## Configuration & secrets
+
+All configuration is via environment variables (or a `.env` file). The full list
+is in [`.env.example`](.env.example). The ones that matter:
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `JWT_SECRET` | **Yes (production)** | Signs session cookies. The server **refuses to start** in production if this is unset, the default, or shorter than 32 characters. Generate with `openssl rand -base64 32`. |
+| `SECRETS_KEY` | Recommended | Encrypts secrets at rest (SMTP password, AI token). Decoupled from `JWT_SECRET` so you can rotate the session secret independently. If blank, `JWT_SECRET` is used. Generate with `openssl rand -base64 32`. |
+| `API_KEY` | Optional | A static API key for external tools. You can also generate/rotate one in **App Settings → API**. |
+| `DATA_DIR` | Optional | Where the JSON store lives (default `./data`). |
+| `SESSION_TTL` | Optional | Session lifetime (default `7d`). |
+| `BACKUP_CRON`, `BACKUP_RETENTION` | Optional | Pre-UI fallbacks; the real schedule/retention are set in **App Settings → Backups**. |
+
+Keep your `.env` **out of source control** (it's already gitignored).
+
+---
+
+## Using KanDeck
+
+- **Switch boards** from the bottom bar → *Switch board*. Create a new board with
+  the **＋** next to the search.
+- **App Settings** (⚙️, top-right) is tabbed: Theme, Categories, Lane colors,
+  AI Chat, Notifications, API, Backups. A single **Save** applies everything
+  (the API tab acts immediately).
+- **Board Settings** (⚙️, board area) manages that board's lanes, the complete
+  lane, card display fields, and per-board options.
+- **Inbox**: items arriving via the API land here for triage — drag them onto a
+  board or use the card's **⋮** menu to send it to a board's first column.
+
+---
 
 ## REST API
-`Authorization: Bearer <API_KEY>` (or an active browser session).
+
+All endpoints are under `/api` and require auth: either an active browser session
+or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 
 | Method | Path | Purpose |
-| ------ | ---- | ------- |
-| GET  | `/api/boards` | list boards + summary meta |
-| GET  | `/api/boards/:id` | full board schema |
-| POST | `/api/tasks` | create a card |
-| PUT  | `/api/tasks/:id` | update / move / clear alarm |
+|--------|------|---------|
+| `GET` | `/api/boards` | List boards + summary meta |
+| `GET` | `/api/boards/:id` | Full board (columns + cards) |
+| `POST` | `/api/tasks` | Create a task (no `boardId` → Inbox; with `boardId` → that board) |
+| `PUT` | `/api/tasks/:id` | Update / move / clear alarm |
+| `GET` | `/api/tasks/query` | **Date-filtered task query** (see below) |
+| `GET` | `/api/search?q=` | Search cards across all boards |
+| `GET` | `/api/inbox` · `POST` `/api/inbox` · `POST` `/api/inbox/:id/move` | Inbox |
 
-See `BUILD_NOTES.md` for the full endpoint list and architecture notes.
+### Create a task
 
-## License
-MIT
+```bash
+curl -X POST https://kandeck.example.com/api/tasks \
+  -H "X-API-Key: $KANDECK_API_KEY" -H "content-type: application/json" \
+  -d '{"subject":"Buy milk","priority":"high","dueDate":"2026-08-01"}'
+```
+
+### Query tasks (built for assistants)
+
+`GET /api/tasks/query` returns a flat, **date-filtered** list of cards across all
+boards, with the date math done server-side:
+
+| Param | Values |
+|-------|--------|
+| `due` | `today` · `tomorrow` · `week` (next 7 days) · `overdue` · `none` · `any` |
+| `status` | `open` · `complete` · `all` (defaults to `open`, or `complete` when `completedWithin` is set) |
+| `completedWithin` | integer N — completed within the last N days |
+| `board` · `priority` · `q` · `limit` | optional filters |
+
+```bash
+curl "https://kandeck.example.com/api/tasks/query?due=today" -H "X-API-Key: $KANDECK_API_KEY"
+curl "https://kandeck.example.com/api/tasks/query?status=complete&completedWithin=7" -H "X-API-Key: $KANDECK_API_KEY"
+```
+
+Each task carries `boardName`, `columnName`, `subject`, `dueDate`, `dueInDays`,
+`overdue`, `priority`/`priorityName`, `complete`, `completedDaysAgo`, plus a
+top-level `summary` and `today`.
+
+---
+
+## AI Chat (n8n)
+
+KanDeck ships an optional floating chat widget that talks to an
+[n8n](https://n8n.io) workflow — enable it in **App Settings → AI Chat**. Give the
+n8n agent KanDeck's API and it can answer real questions about your board and even
+add tasks:
+
+> *"What's due today?"* · *"Anything overdue?"* · *"What did I finish this week?"*
+> · *"Add buy dog food due Friday."*
+
+A ready-to-import workflow is at
+[`templates/n8n/kandeck-chat-sample.json`](templates/n8n/kandeck-chat-sample.json)
+— it includes the webhook + auth gate, the AI agent, **both** KanDeck task tools
+(read + create), and the system prompt that makes the agent map questions to the
+right query. Full walkthrough (security, the two tokens, the recommended prompt)
+is in **[`docs/AI-CHAT-SETUP.md`](docs/AI-CHAT-SETUP.md)**.
+
+The chat widget stores its conversation locally in your browser; only your typed
+messages are sent to the webhook URL you configure.
+
+---
+
+## Notifications
+
+Configured in **App Settings → Notifications** (no env vars):
+
+- **Scheduled summaries** — an email and/or Discord digest of your tasks
+  (upcoming N days · due today · past due) on a time + weekday schedule you pick.
+- **Per-card alarms** and **card-moved** Discord pings.
+
+Email uses SMTP you provide (the password is encrypted at rest); Discord uses a
+webhook URL. Each has a **Test** button that validates the connection before you
+rely on it.
+
+---
+
+## Backups
+
+In **App Settings → Backups**:
+
+- **Backup now** / **Restore** at any time.
+- **Automatic backups** — daily / weekly / monthly, with a "keep last N" retention.
+- Each backup is a full snapshot of **boards *and* settings** (secrets stay
+  encrypted). Restore takes a safety backup first, and older backups are pruned to
+  your retention count. Backups are labeled Automated vs Manual in the list.
+
+CLI: `npm run backup` makes a one-off snapshot.
+
+---
+
+## Building the Docker image (CI)
+
+A GitHub Actions workflow
+([`.github/workflows/docker-build.yml`](.github/workflows/docker-build.yml))
+builds a **multi-arch image (linux/amd64 + linux/arm64)** and publishes it to the
+GitHub Container Registry on every push to `main` and on version tags:
+
+- `ghcr.io/<owner>/kandeck:latest` — default branch
+- `ghcr.io/<owner>/kandeck:vX.Y.Z` and `:X.Y` — when you push a `vX.Y.Z` tag
+- `ghcr.io/<owner>/kandeck:sha-<commit>` — always
+
+It authenticates with the built-in `GITHUB_TOKEN` (no secrets to configure).
+After the first run, set the package to **Public** in your repo's Packages
+settings if you want anyone to pull it. To cut a release:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without
+CI, use [`scripts/build-amd64.sh`](scripts/build-amd64.sh).
+
+---
+
+## Privacy & License
+
+- **Privacy:** KanDeck has no telemetry and never phones home; your data stays in
+  local files and it only contacts services **you** configure (n8n / SMTP /
+  Discord). See [`PRIVACY.md`](PRIVACY.md).
+- **License:** [MIT](LICENSE) — do essentially anything you want with it.
+
+Contributions and forks welcome. KanDeck is single-user by design.
