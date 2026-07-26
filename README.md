@@ -25,6 +25,7 @@ your board.
 - [Quick start (local)](#quick-start-local)
 - [Docker](#docker)
 - [Configuration & secrets](#configuration--secrets)
+- [Reset a forgotten password](#reset-a-forgotten-password)
 - [Using KanDeck](#using-kandeck)
 - [REST API](#rest-api)
 - [AI Chat (n8n)](#ai-chat-n8n)
@@ -164,6 +165,41 @@ is in [`.env.example`](.env.example). The ones that matter:
 | `BACKUP_CRON`, `BACKUP_RETENTION` | Optional | Pre-UI fallbacks; the real schedule/retention are set in **App Settings → Backups**. |
 
 Keep your `.env` **out of source control** (it's already gitignored).
+
+---
+
+## Reset a forgotten password
+
+KanDeck is single-user and offline, so there's no email-based "forgot password"
+flow — but because you host it yourself, resetting takes one command. The
+password is only ever stored as a **bcrypt hash** in `config.json`, so this
+doesn't recover the old password; it clears or replaces it. Your boards,
+settings, and backups are left untouched.
+
+**Local / bare-metal:**
+
+```bash
+npm run reset-password                  # clears it → the app asks you to set a new one on next load
+npm run reset-password -- "new-pass"    # …or set a new password directly (min 6 chars)
+```
+
+**Docker** — run it inside the running container:
+
+```bash
+docker compose exec kandeck npm run reset-password
+# or set one directly:
+docker compose exec kandeck npm run reset-password -- "new-pass"
+```
+
+(Not using compose? `docker exec -it kandeck npm run reset-password`.)
+
+**If the container won't start** (so you can't exec into it), edit the file
+directly on the host — it lives in your bind-mounted data dir at
+`./data/config.json`. Set `"passwordHash": null` (or delete the file) and
+reload; the app returns to the first-run "create password" screen.
+
+> Passing a password as an argument leaves it in your shell history. The
+> no-argument form (clear, then set a new one in the UI) avoids that.
 
 ---
 

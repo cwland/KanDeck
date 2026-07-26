@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon --watch src --ext js,json,html,css,mjs src/server.js",
-    "backup": "node src/services/backup.js --once"
+    "backup": "node src/services/backup.js --once",
+    "reset-password": "node src/reset-password.js"
   },
   "engines": {
     "node": ">=18"

@@ -39,6 +39,17 @@ export async function verifyPassword(plain) {
   return bcrypt.compare(plain || '', c.passwordHash);
 }
 
+// Clear the stored password so the app returns to first-run setup. Other
+// config fields (e.g. the API key) are preserved.
+export async function clearPassword() {
+  await updateJson(
+    config.configFile,
+    (c) => ({ ...(c || {}), passwordHash: null, createdAt: null }),
+    {}
+  );
+  return true;
+}
+
 // ---- API key (for external apps: n8n, scripts, integrations) ---------------
 // Stored in config.json alongside the password hash so it's managed from the
 // app (App Settings → API), separate from the theme/prefs settings blob. The
