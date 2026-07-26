@@ -224,7 +224,11 @@
         } finally { await refresh(); }
       }, 260);
     } else {
-      const dest = state.board.columns.find((c) => c.id !== completeCol) || state.board.columns[0];
+      // Un-complete: return the card to the column it came from (if it still
+      // exists), else fall back to the first non-complete lane.
+      const cols = state.board.columns;
+      const origin = card.prevColumnId ? cols.find((c) => c.id === card.prevColumnId) : null;
+      const dest = origin || cols.find((c) => c.id !== completeCol) || cols[0];
       if (dest) await api(`/boards/${state.boardId}/cards/${card.id}/move`, { method: 'POST', body: { toColumnId: dest.id, index: 0 } });
       await refresh();
     }

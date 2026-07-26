@@ -302,6 +302,7 @@ export function makeCard(input = {}) {
     archived: false,
     complete: false, // set true when the card lives in the board's complete lane
     completedAt: null, // auto-set when the card becomes complete
+    prevColumnId: null, // column it came from when completed (for un-complete)
     order: 0,
   };
 }
@@ -356,6 +357,7 @@ export async function moveCard(boardId, cardId, toColumnId, toIndex) {
     const found = findCard(board, cardId);
     if (!found) return null;
     const { col: fromCol, card } = found;
+    const wasComplete = !!card.complete;
     const toCol = board.columns.find((c) => c.id === toColumnId) || fromCol;
     fromCol.cards = fromCol.cards.filter((k) => k.id !== cardId);
     const idx = Math.max(0, Math.min(toIndex ?? toCol.cards.length, toCol.cards.length));
@@ -363,8 +365,13 @@ export async function moveCard(boardId, cardId, toColumnId, toIndex) {
     // Complete status follows the lane: set when entering the complete lane,
     // cleared when leaving it. completedAt is stamped on the transition.
     card.complete = toCol.id === board.settings.completeColumnId;
-    if (card.complete) { if (!card.completedAt) card.completedAt = nowIso(); }
-    else card.completedAt = null;
+    if (card.complete) {
+      if (!card.completedAt) card.completedAt = nowIso();
+      if (!wasComplete) card.prevColumnId = fromCol.id; // remember origin for un-complete
+    } else {
+      card.completedAt = null;
+      card.prevColumnId = null;
+    }
     if (toCol.autoSort) sortColumn(toCol, board.settings.autoSortKey);
     fromCol.cards.forEach((c, i) => (c.order = i));
     toCol.cards.forEach((c, i) => (c.order = i));
