@@ -53,7 +53,7 @@ export async function updateItem(id, patch = {}) {
       inbox = inbox || { items: [] };
       const item = inbox.items.find((i) => i.id === id);
       if (item) {
-        for (const k of ['subject', 'description', 'priority', 'dueDate', 'alarm', 'tags']) {
+        for (const k of ['subject', 'description', 'priority', 'dueDate', 'alarm', 'tags', 'source']) {
           if (patch[k] !== undefined) item[k] = patch[k];
         }
         updated = item;

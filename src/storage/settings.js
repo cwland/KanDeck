@@ -29,6 +29,7 @@ const DEFAULT_LANE_COLORS = [
 const DEFAULT_BADGES = {
   due: { color: '#d0ebff', textColor: '#1864ab' }, // pastel blue / dark blue
   tag: { color: '#e5dbff', textColor: '#5f3dc4' }, // pastel lavender / deep purple
+  source: { color: '#c3fae8', textColor: '#0b7285' }, // pastel teal / dark teal
 };
 
 const DEFAULTS = {
@@ -94,6 +95,7 @@ export async function getSettings() {
   s.badges = {
     due: { ...DEFAULT_BADGES.due, ...((s.badges || {}).due || {}) },
     tag: { ...DEFAULT_BADGES.tag, ...((s.badges || {}).tag || {}) },
+    source: { ...DEFAULT_BADGES.source, ...((s.badges || {}).source || {}) },
   };
   return s;
 }
@@ -148,6 +150,7 @@ export async function updateSettings(patch = {}) {
     next.badges = {
       due: { color: (b.due || {}).color || DEFAULT_BADGES.due.color, textColor: (b.due || {}).textColor || DEFAULT_BADGES.due.textColor },
       tag: { color: (b.tag || {}).color || DEFAULT_BADGES.tag.color, textColor: (b.tag || {}).textColor || DEFAULT_BADGES.tag.textColor },
+      source: { color: (b.source || {}).color || DEFAULT_BADGES.source.color, textColor: (b.source || {}).textColor || DEFAULT_BADGES.source.textColor },
     };
   }
   return updateJson(

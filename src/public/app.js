@@ -10,7 +10,7 @@
     board: null,      // active full board
     priorities: [],   // app-level categories (id, name, color)
     laneColors: [],   // app-level lane color palette
-    badges: { due: { color: '#d0ebff', textColor: '#1864ab' }, tag: { color: '#e5dbff', textColor: '#5f3dc4' } },
+    badges: { due: { color: '#d0ebff', textColor: '#1864ab' }, tag: { color: '#e5dbff', textColor: '#5f3dc4' }, source: { color: '#c3fae8', textColor: '#0b7285' } },
     themeId: window.DEFAULT_THEME || 'light-blue',
     inbox: [],        // inbox items
     zoom: 100,        // current board zoom %
@@ -371,7 +371,8 @@
       tags: $('#cardTags').value.split(',').map((t) => t.trim()).filter(Boolean),
     };
     if (state.editingInboxId) {
-      await api(`/inbox/${state.editingInboxId}`, { method: 'PUT', body });
+      // A human touched it → mark the source as manual.
+      await api(`/inbox/${state.editingInboxId}`, { method: 'PUT', body: { ...body, source: 'manual' } });
       cardModal.hidden = true; loadInbox(); return;
     }
     if (state.editingCardId) {
@@ -640,6 +641,7 @@
     const ul = $('#badgeEditor'); ul.innerHTML = '';
     ul.appendChild(badgeRow('Due date', 'due', state.badges.due, '📅 Aug 1'));
     ul.appendChild(badgeRow('Tags / labels', 'tag', state.badges.tag, 'label'));
+    ul.appendChild(badgeRow('Source (inbox)', 'source', state.badges.source, 'MANUAL'));
   }
   function colorField(label, cls, val) {
     const w = document.createElement('label'); w.className = 'pr-colorfield';
@@ -701,7 +703,7 @@
       color: $(`#badgeEditor [data-badge="${key}"] .bd-color`).value,
       textColor: $(`#badgeEditor [data-badge="${key}"] .bd-text`).value,
     });
-    const badges = { due: bd('due'), tag: bd('tag') };
+    const badges = { due: bd('due'), tag: bd('tag'), source: bd('source') };
     const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges } });
     state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
     if (s.badges) state.badges = s.badges;
@@ -732,10 +734,11 @@
       badges += `<span class="tag-chip" style="background:${pc};color:${tc}">${esc(priName(it.priority))}</span>`;
     }
     (it.tags || []).forEach((t) => { badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`; });
+    const src = state.badges.source;
     li.innerHTML =
       `<button class="ic-del" title="Dismiss">✕</button>` +
       `<div class="ic-title">${esc(it.subject)}</div>` +
-      `<div class="ic-row">${badges}<span class="ic-src">${esc(it.source || 'api')}</span></div>`;
+      `<div class="ic-row">${badges}<span class="ic-src" style="background:${src.color};color:${src.textColor}">${esc(it.source || 'api')}</span></div>`;
     li.querySelector('.ic-del').onclick = async (e) => {
       e.stopPropagation();
       await api('/inbox/' + it.id, { method: 'DELETE' });
@@ -757,7 +760,8 @@
     $('#cardDue').value = toDateInput(item.dueDate);
     $('#cardAlarm').checked = !!item.alarm;
     $('#cardTags').value = (item.tags || []).join(', ');
-    $('#cardCreated').textContent = 'Inbox item · source: ' + (item.source || 'api');
+    const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Api');
+    $('#cardCreated').textContent = 'Inbox item · Source: ' + cap(item.source || 'api');
     $('#cardDelete').style.display = '';
     $('#cardArchive').style.display = 'none';
     cardModal.hidden = false;
