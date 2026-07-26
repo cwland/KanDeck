@@ -677,11 +677,25 @@
     } catch { st.textContent = '✗ Could not remove key'; st.className = 'ai-test-status err'; }
   };
   $('#apiKeyCopy').onclick = async () => {
-    const v = $('#apiKeyField').value;
+    const field = $('#apiKeyField');
+    const v = field.value;
     const st = $('#apiKeyStatus');
     if (!v) { st.textContent = 'Nothing to copy'; st.className = 'ai-test-status'; return; }
-    try { await navigator.clipboard.writeText(v); st.textContent = '✓ Copied'; st.className = 'ai-test-status ok'; }
-    catch { $('#apiKeyField').select(); st.textContent = 'Press ⌘/Ctrl-C to copy'; st.className = 'ai-test-status'; }
+    // Select first (so the user sees it and execCommand has a range to copy).
+    field.focus(); field.select();
+    try { field.setSelectionRange(0, v.length); } catch (_) {}
+    let ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(v);
+        ok = true;
+      }
+    } catch (_) {}
+    // Fallback for insecure contexts / older browsers where the async API is
+    // blocked — the classic execCommand copies the current selection.
+    if (!ok) { try { ok = document.execCommand('copy'); } catch (_) { ok = false; } }
+    st.textContent = ok ? '✓ Copied to clipboard' : 'Selected — press ⌘/Ctrl-C to copy';
+    st.className = ok ? 'ai-test-status ok' : 'ai-test-status';
   };
   // ---- AI Chat settings tab ----
   function fillAIChatFields() {

@@ -485,12 +485,14 @@ export async function queryTasks(opts = {}) {
         if (status === 'open' && isComplete) continue;
         if (status === 'complete' && !isComplete) continue;
 
-        // Due date is date-only (YYYY-MM-DD); compare at local midnight.
+        // Compare at local midnight. dueDate may be date-only (YYYY-MM-DD) or a
+        // full ISO datetime (YYYY-MM-DDTHH:MM:SS) — take the leading date part
+        // either way so a time component doesn't break the day math.
         let dueInDays = null, overdue = false;
         if (card.dueDate) {
-          const d = new Date(card.dueDate + 'T00:00:00');
-          if (!Number.isNaN(d.getTime())) {
-            const dueMid = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          const m = String(card.dueDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) {
+            const dueMid = new Date(+m[1], +m[2] - 1, +m[3]);
             dueInDays = Math.round((dueMid - startOfToday) / MS_DAY);
             overdue = dueInDays < 0 && !isComplete;
           }
