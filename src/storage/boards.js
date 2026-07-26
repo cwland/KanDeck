@@ -149,6 +149,8 @@ export async function createBoard({ name, description = '' }) {
       // Complete lane shows only cards completed within this many days
       // (0 = show all). Older ones hide from view but are never deleted.
       completeWindowDays: 0,
+      // Which fields render on cards (priority + due date on by default).
+      cardFields: { priority: true, dueDate: true, tags: false, source: false },
     },
     columns,
   };
@@ -299,6 +301,7 @@ export function makeCard(input = {}) {
     priority: input.priority || 'none', // urgent|high|medium|low|none
     color: input.color || null,
     tags: Array.isArray(input.tags) ? input.tags : [],
+    source: input.source || null, // provenance (from inbox item or 'manual')
     archived: false,
     complete: false, // set true when the card lives in the board's complete lane
     completedAt: null, // auto-set when the card becomes complete

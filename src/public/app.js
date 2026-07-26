@@ -38,6 +38,10 @@
   function priColor(id) { const p = priObj(id); return p ? p.color : null; }
   function priText(id) { const p = priObj(id); return p && p.textColor ? p.textColor : null; }
   function priName(id) { const p = priObj(id); return p ? p.name : id; }
+  // Which fields to show on cards (per board; priority + due date on by default).
+  function cardFields() {
+    return { priority: true, dueDate: true, tags: false, source: false, ...((state.board && state.board.settings.cardFields) || {}) };
+  }
   function laneColorAt(i) { const l = state.laneColors; return l.length ? l[i % l.length] : '#838c91'; }
   async function loadSettings() {
     const s = await api('/settings');
@@ -184,20 +188,25 @@
     li.className = 'card' + (card.complete ? ' complete' : ''); // cards are always white
     li.dataset.id = card.id;
 
+    const cf = cardFields();
     let badges = '';
-    if (card.priority && card.priority !== 'none') {
+    if (cf.priority && card.priority && card.priority !== 'none') {
       const pc = priColor(card.priority) || '#868e96';
       const tc = priText(card.priority) || textOn(pc);
       badges += `<span class="badge" style="background:${pc};color:${tc}">${esc(priName(card.priority))}</span>`;
     }
-    if (card.dueDate) {
+    if (cf.dueDate && card.dueDate) {
       const due = new Date(card.dueDate);
       const overdue = due < new Date();
       const dstyle = overdue ? '' : `style="background:${state.badges.due.color};color:${state.badges.due.textColor}"`;
       badges += `<span class="badge due ${overdue ? 'overdue' : ''}" ${dstyle}>📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
     if (card.alarm) badges += `<span class="badge alarm" title="Alarm on">⏰</span>`;
-    (card.tags || []).forEach((t) => {
+    if (cf.source && card.source) {
+      const s = state.badges.source;
+      badges += `<span class="tag-chip" style="background:${s.color};color:${s.textColor}">${esc(card.source)}</span>`;
+    }
+    if (cf.tags) (card.tags || []).forEach((t) => {
       badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`;
     });
 
@@ -378,7 +387,7 @@
     if (state.editingCardId) {
       await api(`/tasks/${state.editingCardId}`, { method: 'PUT', body });
     } else {
-      await api(`/boards/${state.boardId}/cards`, { method: 'POST', body: { ...body, columnId: state.newCardColumnId } });
+      await api(`/boards/${state.boardId}/cards`, { method: 'POST', body: { ...body, columnId: state.newCardColumnId, source: 'manual' } });
     }
     cardModal.hidden = true; refresh();
   }
@@ -407,6 +416,9 @@
     $('#bmName').value = b.name;
     $('#bmDesc').value = b.description || '';
     $('#bmCompleteWindow').value = b.settings.completeWindowDays || 0;
+    const cf = cardFields();
+    $('#cfPriority').checked = cf.priority; $('#cfDue').checked = cf.dueDate;
+    $('#cfTags').checked = cf.tags; $('#cfSource').checked = cf.source;
     renderLaneEditor(b.columns);
     loadArchive();
     boardModal.hidden = false;
@@ -531,7 +543,13 @@
       body: {
         name,
         description: $('#bmDesc').value,
-        settings: { completeWindowDays: Math.max(0, parseInt($('#bmCompleteWindow').value, 10) || 0) },
+        settings: {
+          completeWindowDays: Math.max(0, parseInt($('#bmCompleteWindow').value, 10) || 0),
+          cardFields: {
+            priority: $('#cfPriority').checked, dueDate: $('#cfDue').checked,
+            tags: $('#cfTags').checked, source: $('#cfSource').checked,
+          },
+        },
       },
     });
     await saveLanes();

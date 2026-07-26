@@ -216,6 +216,16 @@
           </div>
 
           <div class="field">
+            <label>Show on cards</label>
+            <div class="card-fields">
+              <label><input type="checkbox" id="cfPriority" /> Priority</label>
+              <label><input type="checkbox" id="cfDue" /> Due date</label>
+              <label><input type="checkbox" id="cfTags" /> Labels</label>
+              <label><input type="checkbox" id="cfSource" /> Source</label>
+            </div>
+          </div>
+
+          <div class="field">
             <label>Completed items window <small>(days; 0 = show all)</small></label>
             <input id="bmCompleteWindow" type="number" min="0" step="1" />
             <p class="hint">The complete lane shows only items completed within this many days. Older ones drop off the board (never deleted) and reappear when you search.</p>

@@ -93,6 +93,7 @@ export async function moveToBoard(id, boardId, columnId, index) {
     dueDate: item.dueDate,
     alarm: item.alarm,
     tags: item.tags,
+    source: item.source,
   });
   if (typeof index === 'number') {
     await boards.moveCard(boardId, card.id, columnId, index).catch(() => {});
