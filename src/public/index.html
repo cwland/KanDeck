@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KanDeck</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%82%EF%B8%8F%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <!-- ===== Top bar ===== -->
+    <header class="topbar">
+      <div class="brand">🗂️ <span>KanDeck</span></div>
+
+      <div class="search" id="searchWrap">
+        <div class="search-box">
+          <input id="search" type="search" placeholder="Search cards…" title="Search cards across all boards" autocomplete="off" />
+          <div class="search-results" id="searchResults" hidden></div>
+        </div>
+        <button class="icon-btn" id="addBoardBtn" title="New board">＋</button>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" id="appSettingsBtn" title="App settings">⚙️</button>
+        <button class="icon-btn" id="logoutBtn" title="Log out">⏻</button>
+      </div>
+    </header>
+
+    <!-- ===== Content row: Inbox panel + Board ===== -->
+    <div class="content-row">
+      <aside class="inbox-panel" id="inboxPanel">
+        <header class="inbox-head">
+          <span>📥 Inbox <b id="inboxCount">0</b></span>
+          <button class="icon-btn ghost-icon" id="inboxHide" title="Hide inbox">✕</button>
+        </header>
+        <ul class="inbox-list" id="inboxList"></ul>
+        <p class="inbox-version" id="inboxVersion"></p>
+      </aside>
+
+      <div class="main-area" id="mainArea">
+        <div class="board-header" id="boardHeader">
+          <div class="board-meta">
+            <h1 id="boardName">—</h1>
+            <p id="boardDesc"></p>
+          </div>
+          <div class="board-tools">
+            <label class="autosort" title="Automatically sort cards in every lane">
+              <input type="checkbox" id="autoSort" />
+              <span>Auto-sort</span>
+              <select id="autoSortKey" title="Sort key">
+                <option value="priority">by priority</option>
+                <option value="due">by due date</option>
+              </select>
+            </label>
+            <button class="tool-btn" id="boardSettingsBtn" title="Board settings">⚙️</button>
+          </div>
+        </div>
+        <main class="board" id="board"></main>
+      </div>
+    </div>
+
+    <!-- ===== Floating zoom bubble (bottom-right): left half = out, right = in ===== -->
+    <div class="zoom-bubble" id="zoomBubble">
+      <span class="zb-label" id="zbLabel">100%</span>
+      <div class="zb-halves" role="group" aria-label="Zoom">
+        <button class="zb-half zb-out" id="zbOut" title="Zoom out" aria-label="Zoom out">−</button>
+        <button class="zb-half zb-in" id="zbIn" title="Zoom in" aria-label="Zoom in">＋</button>
+      </div>
+    </div>
+
+    <!-- ===== Bottom toggle bar ===== -->
+    <div class="bottombar">
+      <button class="bb-btn" id="bbInbox" data-view="inbox" title="Show the inbox panel">📥 Inbox</button>
+      <button class="bb-btn active" id="bbBoard" data-view="board" title="Show the board only">🗂 Board</button>
+      <span class="bb-sep"></span>
+      <button class="bb-btn" id="bbSwitch" title="Switch to another board">🔀 Switch board</button>
+    </div>
+
+    <!-- ===== Switch board popup ===== -->
+    <div class="modal-backdrop" id="switchModal" hidden>
+      <div class="modal modal-sm">
+        <header class="modal-head">
+          <h2>Switch board</h2>
+          <button class="icon-btn" id="switchClose" title="Close">✕</button>
+        </header>
+        <div class="modal-body">
+          <ul class="board-list" id="boardList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Card modal ===== -->
+    <div class="modal-backdrop" id="cardModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true">
+        <header class="modal-head">
+          <input id="cardSubject" class="card-subject-input" placeholder="Card title" />
+          <button class="icon-btn" id="cardClose" title="Close">✕</button>
+        </header>
+        <div class="modal-body">
+          <label>Description <small>(Markdown supported)</small></label>
+          <textarea id="cardDesc" rows="5" placeholder="Add a more detailed description…"></textarea>
+
+          <div class="field-row">
+            <div class="field">
+              <label>Category</label>
+              <select id="cardPriority"></select>
+            </div>
+            <div class="field">
+              <label>Due date</label>
+              <input id="cardDue" type="date" />
+            </div>
+            <div class="field alarm-field">
+              <label>Alarm</label>
+              <label class="switch">
+                <input type="checkbox" id="cardAlarm" /><span></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Tags <small>(comma separated)</small></label>
+            <input id="cardTags" type="text" placeholder="design, backend, urgent" />
+          </div>
+
+          <p class="created-at" id="cardCreated"></p>
+        </div>
+        <footer class="modal-foot">
+          <button class="btn danger" id="cardDelete">Delete</button>
+          <button class="btn ghost" id="cardArchive">Archive</button>
+          <span class="spacer"></span>
+          <button class="btn primary" id="cardSave">Save</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ===== App settings modal (tabbed) ===== -->
+    <div class="modal-backdrop" id="appModal" hidden>
+      <div class="modal">
+        <header class="modal-head">
+          <h2>App settings</h2>
+          <button class="icon-btn" id="appModalClose" title="Close">✕</button>
+        </header>
+        <nav class="modal-tabs" id="appTabs">
+          <button type="button" class="modal-tab active" data-tab="theme">Theme</button>
+          <button type="button" class="modal-tab" data-tab="categories">Categories</button>
+          <button type="button" class="modal-tab" data-tab="lanes">Lane colors</button>
+          <button type="button" class="modal-tab" data-tab="backups">Backups</button>
+        </nav>
+        <div class="modal-body">
+          <section class="tab-panel active" data-tab="theme">
+            <p class="hint">Pick an app-wide theme. Light and dark variants share an accent, so the 🌓 button flips between them.</p>
+            <div class="theme-group-label">Light</div>
+            <div class="theme-grid" id="themeGridLight"></div>
+            <div class="theme-group-label">Dark</div>
+            <div class="theme-grid" id="themeGridDark"></div>
+          </section>
+
+          <section class="tab-panel" data-tab="categories">
+            <p class="hint">Categories apply across all boards and show as a colored badge on cards.</p>
+            <ul class="priority-editor" id="priorityEditor"></ul>
+            <button type="button" class="btn ghost" id="addPriorityBtn">＋ Add category</button>
+          </section>
+
+          <section class="tab-panel" data-tab="lanes">
+            <p class="hint">The palette of colors a lane can use. Pick a lane's color per board in Board settings.</p>
+            <div class="lane-colors-editor" id="laneColorsEditor"></div>
+            <button type="button" class="btn ghost" id="addLaneColorBtn">＋ Add color</button>
+          </section>
+
+          <section class="tab-panel" data-tab="backups">
+            <p class="hint">Backups cover the whole app (all boards + settings). Restore from Board settings history is unaffected.</p>
+            <div class="backup-tools">
+              <button type="button" class="btn ghost" id="appBackupNow">＋ Backup now</button>
+              <button type="button" class="btn ghost" id="appBackupRefresh">↻ Refresh list</button>
+            </div>
+            <ul class="backup-list" id="backupList"></ul>
+          </section>
+        </div>
+        <footer class="modal-foot">
+          <span class="spacer"></span>
+          <button class="btn ghost" id="appCancel">Cancel</button>
+          <button class="btn primary" id="appSave">Save</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ===== Board settings modal ===== -->
+    <div class="modal-backdrop" id="boardModal" hidden>
+      <div class="modal">
+        <header class="modal-head">
+          <h2 id="boardModalTitle">Board settings</h2>
+          <button class="icon-btn" id="boardModalClose" title="Close">✕</button>
+        </header>
+        <div class="modal-body">
+          <div class="field">
+            <label>Board name</label>
+            <input id="bmName" type="text" />
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <input id="bmDesc" type="text" />
+          </div>
+
+          <div class="field">
+            <label>Lanes <small>(drag to reorder · ◉ marks the complete lane)</small></label>
+            <ul class="lane-editor" id="laneEditor"></ul>
+            <button type="button" class="btn ghost" id="addLaneBtn">＋ Add lane</button>
+          </div>
+
+          <div class="field">
+            <label>Completed items window <small>(days; 0 = show all)</small></label>
+            <input id="bmCompleteWindow" type="number" min="0" step="1" />
+            <p class="hint">The complete lane shows only items completed within this many days. Older ones drop off the board (never deleted) and reappear when you search.</p>
+          </div>
+
+          <div class="field">
+            <label>Archived cards</label>
+            <ul class="archive-list" id="archiveList"></ul>
+          </div>
+        </div>
+        <footer class="modal-foot">
+          <button class="btn danger" id="bmDelete">Delete board</button>
+          <span class="spacer"></span>
+          <button class="btn ghost" id="bmCancel">Cancel</button>
+          <button class="btn primary" id="bmSave">Save</button>
+        </footer>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <script src="/vendor/sortable.min.js"></script>
+    <script src="/themes.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

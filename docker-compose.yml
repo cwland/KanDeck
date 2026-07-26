@@ -1,0 +1,37 @@
+# KanDeck — docker-compose for the host web server.
+# Data persists on the host via a bind mount so backups & boards survive
+# container rebuilds.
+services:
+  kandeck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kandeck:latest
+    container_name: kandeck
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      DATA_DIR: /app/data
+      # Secrets — set these in a .env file next to this compose file.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      API_KEY: ${API_KEY:-}
+      SESSION_TTL: ${SESSION_TTL:-7d}
+      # Notifications (optional)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-KanDeck <no-reply@example.com>}
+      SMTP_TO: ${SMTP_TO:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      # Backups
+      BACKUP_CRON: ${BACKUP_CRON:-0 3 * * 0}
+      BACKUP_RETENTION: ${BACKUP_RETENTION:-12}
+    volumes:
+      # Host-side bind mount → survives rebuilds (spec: bind-mounted host dir).
+      - ./data:/app/data

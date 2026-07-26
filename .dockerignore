@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log*
+.git
+.gitignore
+.env
+.env.local
+data/boards/*.json
+data/backups/*
+!data/boards/.gitkeep
+!data/backups/.gitkeep
+*.tar.gz
+_to_delete
+BUILD_NOTES.md
+Requirments.txt
+*.md

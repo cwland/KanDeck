@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KanDeck — Sign in</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; display: grid; place-items: center;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6 40%, #ec4899);
+        color: #111;
+      }
+      .card {
+        width: min(92vw, 380px); background: #fff; border-radius: 16px;
+        padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      }
+      h1 { margin: 0 0 4px; font-size: 1.6rem; }
+      .logo { font-size: 2.4rem; }
+      p.sub { margin: 0 0 20px; color: #555; font-size: .92rem; }
+      label { display: block; font-size: .8rem; font-weight: 600; margin: 14px 0 6px; }
+      input {
+        width: 100%; padding: 12px 14px; border: 1px solid #d1d5db;
+        border-radius: 10px; font-size: 1rem;
+      }
+      button {
+        margin-top: 20px; width: 100%; padding: 12px; border: 0; border-radius: 10px;
+        background: #6366f1; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
+      }
+      button:hover { background: #4f46e5; }
+      .msg { margin-top: 14px; font-size: .85rem; min-height: 1.2em; }
+      .msg.err { color: #dc2626; }
+    </style>
+  </head>
+  <body>
+    <form class="card" id="form">
+      <div class="logo">🗂️</div>
+      <h1>KanDeck</h1>
+      <p class="sub" id="subtitle">Sign in to continue</p>
+      <label id="pwLabel" for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required />
+      <div id="confirmWrap" style="display:none">
+        <label for="confirm">Confirm password</label>
+        <input id="confirm" type="password" autocomplete="new-password" />
+      </div>
+      <button id="submit" type="submit">Sign in</button>
+      <div class="msg" id="msg"></div>
+    </form>
+    <script>
+      let mode = 'login';
+      const el = (id) => document.getElementById(id);
+      async function detect() {
+        const r = await fetch('/api/auth/status');
+        const { passwordSet } = await r.json();
+        if (!passwordSet) {
+          mode = 'setup';
+          el('subtitle').textContent = 'Create your application password';
+          el('pwLabel').textContent = 'New password (min 6 chars)';
+          el('confirmWrap').style.display = 'block';
+          el('submit').textContent = 'Create password';
+          el('password').autocomplete = 'new-password';
+        }
+      }
+      el('form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = el('msg');
+        msg.textContent = ''; msg.className = 'msg';
+        const password = el('password').value;
+        if (mode === 'setup' && password !== el('confirm').value) {
+          msg.textContent = 'Passwords do not match'; msg.className = 'msg err'; return;
+        }
+        const url = mode === 'setup' ? '/api/auth/setup' : '/api/auth/login';
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) { window.location.href = '/'; }
+        else { msg.textContent = data.error || 'Something went wrong'; msg.className = 'msg err'; }
+      });
+      detect();
+    </script>
+  </body>
+</html>

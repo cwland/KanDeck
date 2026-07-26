@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.local
+
+# Runtime data (flat-file store & backups) — keep the folders, ignore contents
+/data/boards/*.json
+/data/backups/*
+/data/config.json
+/data/settings.json
+/data/inbox.json
+!/data/boards/.gitkeep
+!/data/backups/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build/packaging artifacts
+*.tar.gz
+dist/
+_to_delete/

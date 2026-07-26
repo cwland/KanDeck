@@ -1,0 +1,791 @@
+/* ===================== KanDeck front-end ===================== */
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const THEMES = window.THEMES || [];
+
+  const state = {
+    boards: [],       // summary list
+    boardId: null,    // active board id
+    board: null,      // active full board
+    priorities: [],   // app-level categories (id, name, color)
+    laneColors: [],   // app-level lane color palette
+    themeId: window.DEFAULT_THEME || 'light-blue',
+    inbox: [],        // inbox items
+    zoom: 100,        // current board zoom %
+    search: '',
+    editingCardId: null,
+    editingColumnId: null,
+    newBoardId: null, // set while configuring a brand-new board (rollback on cancel)
+  };
+
+  // Close the board modal; if it's an unsaved brand-new board, roll it back.
+  function closeBoardModal() {
+    boardModal.hidden = true;
+    if (state.newBoardId) {
+      const id = state.newBoardId; state.newBoardId = null;
+      state.boardId = null; // don't try to reopen the board we're deleting
+      api('/boards/' + id, { method: 'DELETE' })
+        .then(() => loadBoards())
+        .catch(() => {});
+    }
+  }
+
+  // ---- App-level categories (a.k.a. priorities) ----
+  function priObj(id) { return (state.priorities || []).find((p) => p.id === id); }
+  function priColor(id) { const p = priObj(id); return p ? p.color : null; }
+  function priName(id) { const p = priObj(id); return p ? p.name : id; }
+  function laneColorAt(i) { const l = state.laneColors; return l.length ? l[i % l.length] : '#838c91'; }
+  async function loadSettings() {
+    const s = await api('/settings');
+    state.priorities = s.priorities || [];
+    state.laneColors = s.laneColors || [];
+    state.themeId = s.theme || window.DEFAULT_THEME || 'light-blue';
+    applyTheme(state.themeId);
+    if (s.version) $('#inboxVersion').textContent = 'KanDeck v' + s.version;
+  }
+
+  // ---- API ----
+  async function api(path, opts = {}) {
+    const res = await fetch('/api' + path, {
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      ...opts,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (res.status === 401) { window.location.href = '/login'; throw new Error('unauth'); }
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    return res.status === 204 ? null : res.json();
+  }
+
+  // ---- Contrast helper: pick black/white text for any bg (WCAG AA) ----
+  function textOn(hex) {
+    if (!hex) return 'inherit';
+    const c = hex.replace('#', '');
+    const r = parseInt(c.substr(0, 2), 16) / 255;
+    const g = parseInt(c.substr(2, 2), 16) / 255;
+    const b = parseInt(c.substr(4, 2), 16) / 255;
+    const lin = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+    const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    // contrast vs white vs black; choose the higher.
+    const cWhite = 1.05 / (L + 0.05);
+    const cBlack = (L + 0.05) / 0.05;
+    return cBlack >= cWhite ? '#000000' : '#ffffff';
+  }
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2200);
+  }
+
+  // ---- Theme (app-level presets: 10 light + 10 dark) ----
+  function themeObj(id) { return THEMES.find((t) => t.id === id) || THEMES[0]; }
+  function hexToRgb(h) { const c = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(c.substr(i, 2), 16)); }
+  function mix(a, b, ratio) {
+    const A = hexToRgb(a), B = hexToRgb(b);
+    const m = A.map((x, i) => Math.round(x * ratio + B[i] * (1 - ratio)));
+    return '#' + m.map((x) => x.toString(16).padStart(2, '0')).join('');
+  }
+  function applyTheme(id) {
+    const t = themeObj(id);
+    if (!t) return;
+    state.themeId = t.id;
+    const root = document.documentElement;
+    root.setAttribute('data-theme', t.dark ? 'dark' : 'light');
+    const s = root.style;
+    s.setProperty('--accent', t.accent);
+    if (t.dark) {
+      s.setProperty('--bg-grad-1', mix(t.accent, '#22272b', 0.14));
+      s.setProperty('--bg-grad-2', '#1d2125');
+      s.setProperty('--topbar', mix(t.accent, '#161a1d', 0.22));
+    } else {
+      s.setProperty('--bg-grad-1', mix(t.accent, '#ffffff', 0.12));
+      s.setProperty('--bg-grad-2', '#f4f5f7');
+      s.setProperty('--topbar', t.accent);
+    }
+  }
+
+  // ---- Boards / tabs ----
+  async function loadBoards(selectId) {
+    const { boards } = await api('/boards');
+    state.boards = boards;
+    const target = selectId || state.boardId || boards[0]?.id;
+    if (target) await openBoard(target);
+    else { state.board = null; $('#board').innerHTML = ''; }
+  }
+
+  async function openBoard(id) {
+    state.boardId = id;
+    state.board = await api('/boards/' + id);
+    const s = state.board.settings;
+    setZoom(s.zoom, false);
+    $('#autoSort').checked = !!s.autoSort;
+    $('#autoSortKey').value = s.autoSortKey || 'priority';
+    renderHeader();
+    renderBoard();
+  }
+
+  // ---- Switch-board popup (replaces the old top tabs) ----
+  const switchModal = $('#switchModal');
+  function openSwitchModal() {
+    const ul = $('#boardList'); ul.innerHTML = '';
+    state.boards.forEach((b) => {
+      const li = document.createElement('li');
+      if (b.id === state.boardId) li.className = 'current';
+      li.innerHTML =
+        `<span class="bl-name">${esc(b.name)}</span>` +
+        `<span class="bl-meta">${b.cardCount || 0} cards · ${b.columns || 0} lanes</span>`;
+      li.onclick = async () => { switchModal.hidden = true; await openBoard(b.id); };
+      ul.appendChild(li);
+    });
+    switchModal.hidden = false;
+  }
+  $('#bbSwitch').onclick = openSwitchModal;
+  $('#switchClose').onclick = () => (switchModal.hidden = true);
+
+  function renderHeader() {
+    $('#boardName').textContent = state.board.name;
+    $('#boardDesc').textContent = state.board.description || '';
+  }
+
+  // ---- Zoom (floating split bubble: left half out, right half in) ----
+  function setZoom(z, persist = true) {
+    z = Math.max(60, Math.min(140, z));
+    state.zoom = z;
+    document.documentElement.style.setProperty('--z', z / 100);
+    const lbl = $('#zbLabel'); if (lbl) lbl.textContent = z + '%';
+    if (persist && state.board) {
+      state.board.settings.zoom = z;
+      api('/boards/' + state.boardId, { method: 'PUT', body: { settings: { zoom: z } } }).catch(() => {});
+    }
+  }
+  $('#zbOut').onclick = () => setZoom((state.zoom || 100) - 10);
+  $('#zbIn').onclick = () => setZoom((state.zoom || 100) + 10);
+
+  // ---- Render board columns + cards ----
+  function cardMatchesSearch(card) {
+    if (!state.search) return true;
+    const q = state.search.toLowerCase();
+    return (
+      card.subject.toLowerCase().includes(q) ||
+      (card.description || '').toLowerCase().includes(q) ||
+      (card.tags || []).some((t) => t.toLowerCase().includes(q))
+    );
+  }
+
+  function renderCard(card) {
+    const li = document.createElement('li');
+    li.className = 'card' + (card.complete ? ' complete' : ''); // cards are always white
+    li.dataset.id = card.id;
+
+    let badges = '';
+    if (card.priority && card.priority !== 'none') {
+      const pc = priColor(card.priority) || '#868e96';
+      badges += `<span class="badge" style="background:${pc};color:${textOn(pc)}">${esc(priName(card.priority))}</span>`;
+    }
+    if (card.dueDate) {
+      const due = new Date(card.dueDate);
+      const overdue = due < new Date();
+      badges += `<span class="badge due ${overdue ? 'overdue' : ''}">📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
+    }
+    if (card.alarm) badges += `<span class="badge alarm" title="Alarm on">⏰</span>`;
+    (card.tags || []).forEach((t) => {
+      const col = laneColorAt(Math.abs(hash(t)));
+      badges += `<span class="tag-chip" style="background:${col};color:${textOn(col)}">${esc(t)}</span>`;
+    });
+
+    li.innerHTML =
+      `<div class="card-main">` +
+      `<div class="card-title">${esc(card.subject)}</div>` +
+      (badges ? `<div class="card-badges">${badges}</div>` : '') +
+      `</div>` +
+      `<button class="card-check" title="Mark complete"><span class="chk">✓</span></button>`;
+    li.querySelector('.card-check').onclick = (e) => { e.stopPropagation(); toggleComplete(card, li); };
+    li.onclick = () => openCardModal(card);
+    return li;
+  }
+
+  // Complete = live in the board's complete lane. Clicking the circle moves the
+  // card there (with a quick animation); clicking a completed card's check moves
+  // it back out. Dragging in/out also flips complete (handled server-side).
+  async function toggleComplete(card, li) {
+    const completeCol = state.board?.settings?.completeColumnId;
+    if (!completeCol) { toast('Pick a complete lane in Board settings first'); return; }
+    if (!card.complete) {
+      li.classList.add('completing');
+      setTimeout(async () => {
+        try {
+          await api(`/boards/${state.boardId}/cards/${card.id}/move`, { method: 'POST', body: { toColumnId: completeCol, index: 0 } });
+        } finally { await refresh(); }
+      }, 260);
+    } else {
+      const dest = state.board.columns.find((c) => c.id !== completeCol) || state.board.columns[0];
+      if (dest) await api(`/boards/${state.boardId}/cards/${card.id}/move`, { method: 'POST', body: { toColumnId: dest.id, index: 0 } });
+      await refresh();
+    }
+  }
+
+  function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i) | 0; return h; }
+
+  function renderBoard() {
+    const board = $('#board');
+    board.innerHTML = '';
+    state.board.columns.forEach((col) => {
+      const wrap = document.createElement('section');
+      wrap.className = 'column';
+      wrap.dataset.id = col.id;
+      // Lane color drives the header (cards stay white). Lanes are added,
+      // deleted, recolored and reordered only in Board settings.
+      if (col.color) {
+        wrap.style.setProperty('--lane', col.color);
+        wrap.style.setProperty('--lane-text', textOn(col.color));
+      }
+      const isComplete = col.id === state.board.settings.completeColumnId;
+      if (isComplete) wrap.classList.add('is-complete-lane');
+      let visible = col.cards.filter((c) => !c.archived && cardMatchesSearch(c));
+      // Complete lane fall-off: hide cards completed longer ago than the window
+      // (unless a search is active — search reveals older completed cards).
+      let hiddenOlder = 0;
+      if (isComplete && !state.search) {
+        const days = state.board.settings.completeWindowDays || 0;
+        if (days > 0) {
+          const cutoff = Date.now() - days * 864e5;
+          const before = visible.length;
+          visible = visible.filter((c) => !c.completedAt || Date.parse(c.completedAt) >= cutoff);
+          hiddenOlder = before - visible.length;
+        }
+      }
+      wrap.innerHTML = `
+        <div class="column-head">
+          <span class="column-title">${esc(col.name)}</span>
+          ${isComplete ? '<span class="lane-complete-badge" title="Complete lane">◉</span>' : ''}
+          <span class="col-count">${visible.length}</span>
+        </div>
+        <ul class="cards" data-col="${col.id}"></ul>
+        ${hiddenOlder > 0 ? `<div class="lane-hidden-hint">＋${hiddenOlder} older completed · search to find</div>` : ''}
+        <button class="add-card">＋ Add a card</button>`;
+      const ul = $('.cards', wrap);
+      visible.forEach((c) => ul.appendChild(renderCard(c)));
+
+      $('.add-card', wrap).onclick = () => openNewCardModal(col.id);
+
+      makeSortable(ul);
+      board.appendChild(wrap);
+    });
+  }
+
+  // ---- Drag & drop ----
+  function makeSortable(ul) {
+    if (typeof Sortable === 'undefined') return; // resilient if lib fails to load
+    new Sortable(ul, {
+      group: 'cards',
+      animation: 150,
+      draggingClass: 'dragging',
+      ghostClass: 'dragging',
+      onEnd: async (evt) => {
+        const cardId = evt.item.dataset.id;
+        const toColumnId = evt.to.dataset.col;
+        const index = evt.newIndex;
+        try {
+          await api(`/boards/${state.boardId}/cards/${cardId}/move`, { method: 'POST', body: { toColumnId, index } });
+          await refresh(); // re-render so complete status (check) updates
+        } catch (e) { toast('Move failed'); refresh(); }
+      },
+    });
+  }
+  async function refresh() { state.board = await api('/boards/' + state.boardId); renderHeader(); renderBoard(); }
+  async function refreshQuiet() { state.board = await api('/boards/' + state.boardId); }
+
+  // ---- Card modal ----
+  const cardModal = $('#cardModal');
+  function toDateInput(iso) {
+    if (!iso) return '';
+    const d = new Date(iso); const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  function buildPriorityOptions() {
+    const sel = $('#cardPriority'); sel.innerHTML = '';
+    (state.priorities || []).forEach((p) => {
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = p.name;
+      sel.appendChild(o);
+    });
+  }
+
+  function openCardModal(card) {
+    state.editingCardId = card.id;
+    state.newCardColumnId = null;
+    buildPriorityOptions();
+    $('#cardSubject').value = card.subject;
+    $('#cardDesc').value = card.description || '';
+    $('#cardPriority').value = card.priority || 'none';
+    $('#cardDue').value = toDateInput(card.dueDate);
+    $('#cardAlarm').checked = !!card.alarm;
+    $('#cardTags').value = (card.tags || []).join(', ');
+    $('#cardCreated').textContent = 'Created ' + new Date(card.createdAt).toLocaleString();
+    $('#cardDelete').style.display = '';
+    $('#cardArchive').style.display = '';
+    cardModal.hidden = false;
+  }
+
+  // New card: same modal as editing, blank, defaults to Low priority.
+  function openNewCardModal(columnId) {
+    state.editingCardId = null;
+    state.newCardColumnId = columnId;
+    buildPriorityOptions();
+    $('#cardSubject').value = '';
+    $('#cardDesc').value = '';
+    $('#cardPriority').value = priObj('low') ? 'low' : (state.priorities[1]?.id || 'none');
+    $('#cardDue').value = '';
+    $('#cardAlarm').checked = false;
+    $('#cardTags').value = '';
+    $('#cardCreated').textContent = '';
+    $('#cardDelete').style.display = 'none';
+    $('#cardArchive').style.display = 'none';
+    cardModal.hidden = false;
+    setTimeout(() => $('#cardSubject').focus(), 30);
+  }
+
+  async function saveCard() {
+    const subject = $('#cardSubject').value.trim();
+    if (!subject) { toast('Card title is required'); $('#cardSubject').focus(); return; }
+    const body = {
+      subject,
+      description: $('#cardDesc').value,
+      priority: $('#cardPriority').value,
+      dueDate: $('#cardDue').value ? new Date($('#cardDue').value + 'T00:00:00').toISOString() : null,
+      alarm: $('#cardAlarm').checked,
+      tags: $('#cardTags').value.split(',').map((t) => t.trim()).filter(Boolean),
+    };
+    if (state.editingCardId) {
+      await api(`/tasks/${state.editingCardId}`, { method: 'PUT', body });
+    } else {
+      await api(`/boards/${state.boardId}/cards`, { method: 'POST', body: { ...body, columnId: state.newCardColumnId } });
+    }
+    cardModal.hidden = true; refresh();
+  }
+
+  $('#cardSave').onclick = saveCard;
+  $('#cardClose').onclick = () => (cardModal.hidden = true);
+  $('#cardDelete').onclick = async () => {
+    if (!confirm('Delete this card?')) return;
+    await api(`/boards/${state.boardId}/cards/${state.editingCardId}`, { method: 'DELETE' });
+    cardModal.hidden = true; refresh();
+  };
+  $('#cardArchive').onclick = async () => {
+    await api(`/tasks/${state.editingCardId}`, { method: 'PUT', body: { archived: true } });
+    cardModal.hidden = true; refresh(); toast('Card archived');
+  };
+
+  // ---- Board settings modal ----
+  const boardModal = $('#boardModal');
+  function openBoardModal() {
+    const b = state.board;
+    $('#bmName').value = b.name;
+    $('#bmDesc').value = b.description || '';
+    $('#bmCompleteWindow').value = b.settings.completeWindowDays || 0;
+    renderLaneEditor(b.columns);
+    loadArchive();
+    boardModal.hidden = false;
+  }
+
+  // ---- Lane manager (board settings) ----
+  function renderLaneEditor(columns) {
+    const ul = $('#laneEditor'); ul.innerHTML = '';
+    columns.forEach((c) => ul.appendChild(laneRow(c)));
+    if (typeof Sortable !== 'undefined') {
+      new Sortable(ul, { animation: 150, handle: '.lane-grip', ghostClass: 'dragging' });
+    }
+  }
+  function laneRow(col) {
+    const li = document.createElement('li');
+    li.className = 'lane-row'; li.dataset.id = col.id || '';
+    li.dataset.color = col.color || '';
+    const grip = document.createElement('span'); grip.className = 'lane-grip'; grip.textContent = '⠿'; grip.title = 'Drag to reorder';
+    const name = document.createElement('input');
+    name.type = 'text'; name.className = 'lane-name'; name.value = col.name || ''; name.placeholder = 'Lane name';
+    const sw = document.createElement('div'); sw.className = 'lane-swatches';
+    (state.laneColors || []).forEach((c) => {
+      const d = document.createElement('div');
+      d.className = 'lane-sw' + (col.color === c ? ' selected' : '');
+      d.style.background = c; d.dataset.color = c;
+      d.onclick = () => { $$('.lane-sw', sw).forEach((x) => x.classList.remove('selected')); d.classList.add('selected'); li.dataset.color = c; };
+      sw.appendChild(d);
+    });
+    // Radio marking this lane as the "complete" lane (only one per board).
+    const comp = document.createElement('label'); comp.className = 'lane-complete'; comp.title = 'Cards dragged here are marked complete';
+    const radio = document.createElement('input');
+    radio.type = 'radio'; radio.name = 'completeLane'; radio.className = 'lane-complete-radio';
+    radio.checked = col.id && col.id === state.board.settings.completeColumnId;
+    comp.append(radio, document.createTextNode('✓'));
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'lane-del'; del.textContent = '🗑'; del.title = 'Delete lane';
+    del.onclick = () => li.remove();
+    li.append(grip, name, sw, comp, del);
+    return li;
+  }
+  $('#addLaneBtn').onclick = () => {
+    const next = laneColorAt($('#laneEditor').children.length);
+    $('#laneEditor').appendChild(laneRow({ id: '', name: '', color: next }));
+  };
+
+  // Reconcile the lane editor against the board: update, create, delete, reorder.
+  async function saveLanes() {
+    const rows = $$('#laneEditor .lane-row');
+    const existingIds = state.board.columns.map((c) => c.id);
+    const orderedIds = []; const keptIds = [];
+    let completeIdx = -1;
+    rows.forEach((r, i) => { if (r.querySelector('.lane-complete-radio')?.checked) completeIdx = i; });
+    for (const r of rows) {
+      const id = r.dataset.id;
+      const name = r.querySelector('.lane-name').value.trim() || 'Lane';
+      const color = r.dataset.color || null;
+      if (id) {
+        keptIds.push(id);
+        orderedIds.push(id);
+        await api(`/boards/${state.boardId}/columns/${id}`, { method: 'PUT', body: { name, color } });
+      } else {
+        const col = await api(`/boards/${state.boardId}/columns`, { method: 'POST', body: { name, color } });
+        orderedIds.push(col.id);
+      }
+    }
+    for (const id of existingIds)
+      if (!keptIds.includes(id)) await api(`/boards/${state.boardId}/columns/${id}`, { method: 'DELETE' });
+    await api(`/boards/${state.boardId}/columns/reorder`, { method: 'POST', body: { order: orderedIds } });
+    // Persist which lane is the complete lane (row order === orderedIds order).
+    const completeColumnId = completeIdx >= 0 ? orderedIds[completeIdx] : null;
+    await api('/boards/' + state.boardId, { method: 'PUT', body: { settings: { completeColumnId } } });
+  }
+
+  async function loadBackups() {
+    const ul = $('#backupList'); ul.innerHTML = '<li class="b-name">Loading…</li>';
+    try {
+      const { backups } = await api('/backups');
+      ul.innerHTML = '';
+      if (!backups.length) { ul.innerHTML = ''; return; }
+      backups.forEach((b) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="b-name">${new Date(b.createdAt).toLocaleString()}</span>`;
+        const btn = document.createElement('button');
+        btn.className = 'mini-btn'; btn.textContent = 'Restore';
+        btn.onclick = async () => {
+          if (!confirm('Restore this backup? Current boards will be replaced (a safety backup is taken first).')) return;
+          await api('/backups/restore', { method: 'POST', body: { file: b.file } });
+          boardModal.hidden = true; toast('Backup restored'); await loadBoards();
+        };
+        li.appendChild(btn); ul.appendChild(li);
+      });
+    } catch { ul.innerHTML = ''; }
+  }
+
+  async function loadArchive() {
+    const ul = $('#archiveList'); ul.innerHTML = '';
+    try {
+      const { archived } = await api('/boards/' + state.boardId + '/archived');
+      if (!archived.length) return;
+      archived.forEach((c) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${esc(c.subject)} <small style="color:var(--text-dim)">· ${esc(c.columnName)}</small></span>`;
+        const btn = document.createElement('button');
+        btn.className = 'mini-btn'; btn.textContent = 'Unarchive';
+        btn.onclick = async () => { await api('/tasks/' + c.id, { method: 'PUT', body: { archived: false } }); loadArchive(); refresh(); };
+        li.appendChild(btn); ul.appendChild(li);
+      });
+    } catch {}
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'appBackupNow') api('/backups', { method: 'POST' }).then(() => { toast('Backup created'); loadBackups(); });
+    if (e.target.id === 'appBackupRefresh') loadBackups();
+  });
+  $('#boardSettingsBtn').onclick = () => { if (state.board) { state.newBoardId = null; openBoardModal(); } };
+  $('#boardModalClose').onclick = $('#bmCancel').onclick = closeBoardModal;
+  $('#bmSave').onclick = async () => {
+    const name = $('#bmName').value.trim();
+    if (!name) { toast('Board title is required'); $('#bmName').focus(); return; }
+    await api('/boards/' + state.boardId, {
+      method: 'PUT',
+      body: {
+        name,
+        description: $('#bmDesc').value,
+        settings: { completeWindowDays: Math.max(0, parseInt($('#bmCompleteWindow').value, 10) || 0) },
+      },
+    });
+    await saveLanes();
+    state.newBoardId = null; // committed — no rollback
+    boardModal.hidden = true;
+    await loadBoards(state.boardId);
+    toast('Board saved');
+  };
+  $('#bmDelete').onclick = async () => {
+    if (!confirm('Delete this entire board? This cannot be undone.')) return;
+    await api('/boards/' + state.boardId, { method: 'DELETE' });
+    boardModal.hidden = true;
+    state.boardId = null;
+    await loadBoards();
+  };
+
+  // ---- New board ----
+  // Create with defaults, switch to it, then open the full board configuration
+  // window so the whole board (name, lanes, complete lane, window) can be set.
+  $('#addBoardBtn').onclick = async () => {
+    const b = await api('/boards', { method: 'POST', body: { name: 'New Board' } });
+    state.newBoardId = b.id; // rolled back if the config is closed without saving
+    await loadBoards(b.id);
+    openBoardModal();
+    setTimeout(() => { $('#bmName').focus(); $('#bmName').select(); }, 30);
+  };
+
+  // ---- App settings modal (theme + categories + lane colors) ----
+  const appModal = $('#appModal');
+  let pendingTheme = state.themeId;
+  function openAppModal() {
+    pendingTheme = state.themeId;
+    setAppTab('theme');
+    renderThemeGrid();
+    renderPriorityEditor();
+    renderLaneColorsEditor();
+    loadBackups();
+    appModal.hidden = false;
+  }
+  function setAppTab(tab) {
+    $$('#appTabs .modal-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+    $$('#appModal .tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.tab === tab));
+  }
+  $$('#appTabs .modal-tab').forEach((b) => (b.onclick = () => setAppTab(b.dataset.tab)));
+  function themeCard(t) {
+    const card = document.createElement('div');
+    card.className = 'theme-card' + (t.id === pendingTheme ? ' selected' : '');
+    card.dataset.id = t.id;
+    const barBg = t.dark ? '#161a1d' : t.accent;
+    const bodyBg = t.dark ? '#22272b' : '#f4f5f7';
+    card.innerHTML =
+      `<div class="tc-preview"><div class="tc-bar" style="background:${barBg}"></div>` +
+      `<div class="tc-body" style="background:${bodyBg}"><div class="tc-chip" style="background:${t.accent}"></div></div></div>` +
+      `<div class="tc-name">${esc(t.name)}</div>`;
+    card.onclick = () => { pendingTheme = t.id; applyTheme(t.id); $$('.theme-card').forEach((x) => x.classList.toggle('selected', x.dataset.id === t.id)); };
+    return card;
+  }
+  function renderThemeGrid() {
+    const light = $('#themeGridLight'); const dark = $('#themeGridDark');
+    light.innerHTML = ''; dark.innerHTML = '';
+    THEMES.forEach((t) => (t.dark ? dark : light).appendChild(themeCard(t)));
+  }
+  function renderLaneColorsEditor() {
+    const wrap = $('#laneColorsEditor'); wrap.innerHTML = '';
+    (state.laneColors || []).forEach((c) => wrap.appendChild(laneColorChip(c)));
+  }
+  function laneColorChip(c) {
+    const d = document.createElement('div'); d.className = 'lane-color-chip';
+    const input = document.createElement('input'); input.type = 'color'; input.value = c || '#4dabf7';
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'lc-del'; del.textContent = '✕'; del.title = 'Remove';
+    del.onclick = () => d.remove();
+    d.append(input, del);
+    return d;
+  }
+  $('#addLaneColorBtn').onclick = () => $('#laneColorsEditor').appendChild(laneColorChip('#4dabf7'));
+  function renderPriorityEditor() {
+    const ul = $('#priorityEditor'); ul.innerHTML = '';
+    state.priorities.forEach((p) => ul.appendChild(priorityRow(p)));
+  }
+  function priorityRow(p) {
+    const li = document.createElement('li');
+    li.className = 'priority-row'; li.dataset.id = p.id || '';
+    if (p.id === 'none') {
+      li.innerHTML = '<span class="pr-none">None — no priority (always available)</span>';
+      return li;
+    }
+    const name = document.createElement('input');
+    name.type = 'text'; name.className = 'pr-name'; name.value = p.name || ''; name.placeholder = 'Priority name';
+    const color = document.createElement('input');
+    color.type = 'color'; color.className = 'pr-color'; color.value = p.color || '#4dabf7';
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'pr-del'; del.textContent = '🗑'; del.title = 'Remove';
+    del.onclick = () => li.remove();
+    li.append(name, color, del);
+    return li;
+  }
+  $('#addPriorityBtn').onclick = () =>
+    $('#priorityEditor').appendChild(priorityRow({ id: '', name: '', color: '#4dabf7' }));
+  $('#appSettingsBtn').onclick = openAppModal;
+  $('#appModalClose').onclick = () => { applyTheme(state.themeId); appModal.hidden = true; };
+  $('#appCancel').onclick = () => { applyTheme(state.themeId); appModal.hidden = true; };
+  $('#appSave').onclick = async () => {
+    const priorities = $$('#priorityEditor .priority-row').map((r) => {
+      if (r.querySelector('.pr-none')) return { id: 'none', name: 'None', color: null };
+      return { id: r.dataset.id || undefined, name: r.querySelector('.pr-name').value.trim(), color: r.querySelector('.pr-color').value };
+    }).filter((p) => p.name);
+    const laneColors = $$('#laneColorsEditor input[type=color]').map((i) => i.value);
+    const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors } });
+    state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
+    applyTheme(state.themeId);
+    appModal.hidden = true; toast('Settings saved');
+    if (state.board) renderBoard();
+    renderInbox();
+  };
+
+  // ---- Inbox ----
+  async function loadInbox() {
+    try { const { items } = await api('/inbox'); state.inbox = items; renderInbox(); } catch {}
+  }
+  function renderInbox() {
+    $('#inboxCount').textContent = state.inbox.length;
+    const ul = $('#inboxList'); ul.innerHTML = '';
+    state.inbox.forEach((it) => ul.appendChild(renderInboxCard(it)));
+    makeInboxSortable(ul);
+  }
+  function renderInboxCard(it) {
+    const li = document.createElement('li');
+    li.className = 'inbox-card'; li.dataset.inboxId = it.id;
+    let badges = '';
+    if (it.priority && it.priority !== 'none') {
+      const pc = priColor(it.priority) || '#868e96';
+      badges += `<span class="tag-chip" style="background:${pc};color:${textOn(pc)}">${esc(priName(it.priority))}</span>`;
+    }
+    (it.tags || []).forEach((t) => { badges += `<span class="ic-src">${esc(t)}</span>`; });
+    li.innerHTML =
+      `<div class="ic-title">${esc(it.subject)}</div>` +
+      `<div class="ic-row">${badges}<span class="ic-src">${esc(it.source || 'api')}</span>` +
+      `<button class="ic-del" title="Dismiss">✕</button></div>`;
+    li.querySelector('.ic-del').onclick = async (e) => {
+      e.stopPropagation();
+      await api('/inbox/' + it.id, { method: 'DELETE' });
+      loadInbox();
+    };
+    return li;
+  }
+  function makeInboxSortable(ul) {
+    if (typeof Sortable === 'undefined') return;
+    new Sortable(ul, {
+      group: { name: 'cards', pull: true, put: false },
+      animation: 150, ghostClass: 'dragging',
+      onEnd: async (evt) => {
+        const toCol = evt.to.dataset.col;
+        if (!toCol || evt.to === evt.from) return; // dropped back in inbox
+        const inboxId = evt.item.dataset.inboxId;
+        try {
+          await api(`/inbox/${inboxId}/move`, {
+            method: 'POST',
+            body: { boardId: state.boardId, columnId: toCol, index: evt.newIndex },
+          });
+          await Promise.all([loadInbox(), refresh()]);
+          toast('Filed to board');
+        } catch (e) { toast('Move failed'); loadInbox(); refresh(); }
+      },
+    });
+  }
+  // ---- Inbox / Board bottom toggle ----
+  function setView(v) {
+    const boardOnly = v === 'board';
+    document.body.classList.toggle('inbox-collapsed', boardOnly);
+    $('#bbInbox').classList.toggle('active', !boardOnly);
+    $('#bbBoard').classList.toggle('active', boardOnly);
+  }
+  $('#bbInbox').onclick = () => setView('inbox');
+  $('#bbBoard').onclick = () => setView('board');
+  $('#inboxHide').onclick = () => setView('board');
+
+  // ---- Top bar controls ----
+  $('#autoSort').onchange = async (e) => {
+    state.board.settings.autoSort = e.target.checked;
+    await api('/boards/' + state.boardId, { method: 'PUT', body: { settings: { autoSort: e.target.checked } } });
+    // apply to all columns
+    for (const col of state.board.columns)
+      await api(`/boards/${state.boardId}/columns/${col.id}`, { method: 'PUT', body: { autoSort: e.target.checked } });
+    refresh();
+  };
+  $('#autoSortKey').onchange = async (e) => {
+    await api('/boards/' + state.boardId, { method: 'PUT', body: { settings: { autoSortKey: e.target.value } } });
+    if (state.board.settings.autoSort) { for (const col of state.board.columns) await api(`/boards/${state.boardId}/columns/${col.id}`, { method: 'PUT', body: { autoSort: true } }); }
+    refresh();
+  };
+  $('#logoutBtn').onclick = async () => { await api('/auth/logout', { method: 'POST' }); window.location.href = '/login'; };
+
+  // ---- Search-as-you-type finder (all boards; current board first) ----
+  const searchBox = $('#searchResults');
+  let searchTimer;
+  function hideSearch() { searchBox.hidden = true; searchBox.innerHTML = ''; }
+  function findCardInBoard(id) {
+    for (const c of state.board.columns) { const k = c.cards.find((x) => x.id === id); if (k) return k; }
+    return null;
+  }
+  async function openSearchResult(r) {
+    hideSearch();
+    if (r.boardId !== state.boardId) await openBoard(r.boardId);
+    const card = state.board && findCardInBoard(r.cardId);
+    if (card) openCardModal(card);
+  }
+  function renderSearchResults(results, q) {
+    searchBox.innerHTML = '';
+    if (!results.length) { searchBox.innerHTML = '<div class="sr-empty">No matching cards</div>'; searchBox.hidden = false; return; }
+    const cur = results.filter((r) => r.boardId === state.boardId);
+    const others = results.filter((r) => r.boardId !== state.boardId);
+    const addGroup = (label, items) => {
+      if (!items.length) return;
+      const h = document.createElement('div'); h.className = 'sr-group'; h.textContent = label; searchBox.appendChild(h);
+      items.slice(0, 25).forEach((r) => {
+        const it = document.createElement('div'); it.className = 'sr-item';
+        it.innerHTML =
+          `<span class="sr-title">${r.complete ? '<span class="sr-check">✓ </span>' : ''}${esc(r.subject)}</span>` +
+          `<span class="sr-meta">${esc(r.boardName)} · ${esc(r.columnName)}</span>`;
+        it.onclick = () => openSearchResult(r);
+        searchBox.appendChild(it);
+      });
+    };
+    addGroup('This board', cur);
+    addGroup('Other boards', others);
+    searchBox.hidden = false;
+  }
+  async function runSearch(q) {
+    try {
+      const { results } = await api('/search?q=' + encodeURIComponent(q));
+      renderSearchResults(results, q);
+    } catch { hideSearch(); }
+  }
+  $('#search').oninput = (e) => {
+    const q = e.target.value.trim();
+    clearTimeout(searchTimer);
+    if (!q) { hideSearch(); return; }
+    searchTimer = setTimeout(() => runSearch(q), 140);
+  };
+  $('#search').onkeydown = (e) => {
+    if (e.key === 'Escape') { hideSearch(); e.target.blur(); }
+    if (e.key === 'Enter') { const first = searchBox.querySelector('.sr-item'); if (first) first.click(); }
+  };
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-box')) hideSearch();
+  });
+
+  // close modals on backdrop click / Esc (board modal rolls back an unsaved new board)
+  const dismiss = (m) => { if (m === boardModal) closeBoardModal(); else m.hidden = true; };
+  $$('.modal-backdrop').forEach((m) => (m.onclick = (e) => { if (e.target === m) dismiss(m); }));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal-backdrop').forEach((m) => { if (!m.hidden) dismiss(m); }); });
+
+  // ---- Live updates (SSE): refresh inbox/board the moment events arrive ----
+  function connectEvents() {
+    if (typeof EventSource === 'undefined') return;
+    let es;
+    try { es = new EventSource('/api/events'); } catch { return; }
+    es.addEventListener('inbox', () => loadInbox());
+    es.addEventListener('card', (e) => {
+      try {
+        const p = JSON.parse(e.data || '{}');
+        // Refresh the current board when a card there changes, but don't yank
+        // the board out from under an open modal.
+        if (p.boardId && p.boardId === state.boardId && $('#cardModal').hidden && $('#boardModal').hidden) refresh();
+      } catch {}
+    });
+    // EventSource auto-reconnects on error; nothing to do.
+  }
+
+  // ---- Go ----
+  (async () => {
+    await loadSettings();
+    await loadBoards();
+    await loadInbox();
+    setView(window.innerWidth <= 640 ? 'board' : 'inbox');
+    connectEvents();
+  })().catch((e) => console.error(e));
+})();
