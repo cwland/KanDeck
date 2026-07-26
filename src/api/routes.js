@@ -14,6 +14,7 @@ import { Router } from 'express';
 import * as boards from '../storage/boards.js';
 import * as inbox from '../storage/inbox.js';
 import * as settings from '../storage/settings.js';
+import { getApiKey, setApiKey, generateApiKeyValue } from '../auth.js';
 import { events } from '../events.js';
 import { createBackup, listBackups, restoreBackup } from '../services/backup.js';
 import config from '../config.js';
@@ -126,6 +127,13 @@ router.post('/boards/:id/cards', wrap(async (req, res) => {
   res.status(201).json(card);
 }));
 
+// Read-only task query for external assistants (n8n) — flattened cards across
+// all boards with server-side date filtering. See boards.queryTasks for params.
+// e.g. GET /api/tasks/query?due=today  ·  ?due=week  ·  ?status=complete&completedWithin=3
+router.get('/tasks/query', wrap(async (req, res) => {
+  res.json(await boards.queryTasks(req.query || {}));
+}));
+
 // Spec endpoint: create a task programmatically.
 // Routing: with a boardId it goes straight to that board; with no boardId it
 // lands in the Inbox for triage ("all new requests come into the inbox").
@@ -225,6 +233,25 @@ router.put('/settings', wrap(async (req, res) => {
 router.put('/settings/priorities', wrap(async (req, res) => {
   const priorities = await settings.updatePriorities(req.body?.priorities || []);
   res.json({ priorities });
+}));
+
+// ---- API key management (for external apps) --------------------------------
+// Behind requireApiAuth, so only an authenticated session (or an existing key)
+// can read or rotate it.
+
+router.get('/apikey', wrap(async (req, res) => {
+  res.json({ apiKey: await getApiKey() });
+}));
+
+router.post('/apikey', wrap(async (req, res) => {
+  const key = generateApiKeyValue();
+  await setApiKey(key);
+  res.status(201).json({ apiKey: key });
+}));
+
+router.delete('/apikey', wrap(async (req, res) => {
+  await setApiKey(null);
+  res.json({ apiKey: '' });
 }));
 
 // ---- Inbox -----------------------------------------------------------------

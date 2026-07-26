@@ -4,6 +4,7 @@
  *   - Browser sessions use a signed JWT in an httpOnly cookie.
  *   - External API calls use a Bearer token / API key (spec 2.7).
  */
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import config from './config.js';
@@ -36,6 +37,26 @@ export async function verifyPassword(plain) {
   const c = await getAppConfig();
   if (!c || !c.passwordHash) return false;
   return bcrypt.compare(plain || '', c.passwordHash);
+}
+
+// ---- API key (for external apps: n8n, scripts, integrations) ---------------
+// Stored in config.json alongside the password hash so it's managed from the
+// app (App Settings → API), separate from the theme/prefs settings blob. The
+// legacy env var API_KEY still works too (checked in requireApiAuth).
+
+export async function getApiKey() {
+  const c = await getAppConfig();
+  return (c && c.apiKey) || '';
+}
+
+export async function setApiKey(key) {
+  await updateJson(config.configFile, (c) => ({ ...(c || {}), apiKey: key || null }), {});
+  return key || '';
+}
+
+/** Generate a fresh random API key (prefixed so it's recognizable in logs). */
+export function generateApiKeyValue() {
+  return 'kd_' + crypto.randomBytes(24).toString('hex');
 }
 
 export function issueToken() {
@@ -74,14 +95,24 @@ export function requireSession(req, res, next) {
   res.redirect('/login');
 }
 
-/** Guard for JSON API routes — accepts session cookie OR Bearer API key. */
-export function requireApiAuth(req, res, next) {
-  if (validCookie(req)) return next();
-  const header = req.get('authorization') || '';
-  const m = header.match(/^Bearer\s+(.+)$/i);
-  const key = m ? m[1].trim() : req.get('x-api-key');
-  if (config.apiKey && key && key === config.apiKey) return next();
-  res.status(401).json({ error: 'Unauthorized' });
+/** Guard for JSON API routes — accepts session cookie OR API key.
+ *  Key may arrive as `Authorization: Bearer <key>` or `X-API-Key: <key>`, and
+ *  is matched against the env API_KEY and/or the key stored in config.json. */
+export async function requireApiAuth(req, res, next) {
+  try {
+    if (validCookie(req)) return next();
+    const header = req.get('authorization') || '';
+    const m = header.match(/^Bearer\s+(.+)$/i);
+    const key = m ? m[1].trim() : req.get('x-api-key');
+    if (key) {
+      if (config.apiKey && key === config.apiKey) return next();
+      const stored = await getApiKey();
+      if (stored && key === stored) return next();
+    }
+    res.status(401).json({ error: 'Unauthorized' });
+  } catch (err) {
+    res.status(401).json({ error: 'Unauthorized' });
+  }
 }
 
 export { COOKIE };

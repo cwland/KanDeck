@@ -85,14 +85,56 @@ https://<your-n8n-host>/webhook/kandeck-chat
 KanDeck does **not** send board contents in the chat request — only
 `{ source, sessionId, message, timestamp }`. So out of the box the assistant is a
 general helper. To let it answer questions about your actual cards, give the n8n
-**AI Agent** an **HTTP Request tool** that calls KanDeck's REST API:
+**AI Agent** an **HTTP Request tool** that calls KanDeck's REST API.
 
-- `GET /api/boards` — list boards
-- `GET /api/boards/:id` — a board with its columns and cards
-- `GET /api/search?q=<text>` — search cards across all boards
+### Get an API key
 
-Authenticate the tool with an `X-API-Key` header (set `API_KEY` in KanDeck's
-environment). The agent can then look up cards on demand and answer with real data.
+In KanDeck, open **App Settings → API** and click **Generate new key**. Copy the
+value; the agent will send it as an `X-API-Key` header. (A legacy `API_KEY`
+environment variable also works if you prefer.)
+
+### The task-query endpoint (built for assistants)
+
+`GET /api/tasks/query` returns a **flat, date-filtered list of cards across all
+boards**, with the date math already done server-side — ideal for "what's due
+today / this week / completed N days ago" questions. Query parameters:
+
+| Param             | Values                                            | Meaning |
+|-------------------|---------------------------------------------------|---------|
+| `due`             | `today` `tomorrow` `week` `overdue` `none` `any`  | Due-date window (`week` = next 7 days incl. today) |
+| `status`          | `open` `complete` `all`                           | Defaults to `open`, or `complete` when `completedWithin` is set |
+| `completedWithin` | integer N                                         | Only cards completed within the last N days |
+| `board`           | board id or name substring                        | Limit to one board |
+| `priority`        | category id (e.g. `high`)                          | Filter by priority |
+| `q`               | text                                              | Match subject/description/tags |
+| `limit`           | integer (default 200)                             | Cap results |
+
+Each task includes `boardName`, `columnName`, `subject`, `dueDate`, `dueInDays`,
+`overdue`, `priority`/`priorityName`, `tags`, `complete`, `completedAt`,
+`completedDaysAgo`. The response also carries `today`, the applied `filters`, and a
+`summary` (`dueToday`, `overdue`, `dueThisWeek`, `completed`).
+
+Examples:
+
+```
+GET /api/tasks/query?due=today
+GET /api/tasks/query?due=week
+GET /api/tasks/query?due=overdue
+GET /api/tasks/query?status=complete&completedWithin=3
+```
+
+Other useful read endpoints: `GET /api/boards` (list), `GET /api/boards/:id` (one
+board with cards), `GET /api/search?q=<text>` (text search).
+
+### Wire it into n8n
+
+Add an **HTTP Request** tool to the AI Agent (see
+[`../templates/n8n/kandeck-chat-sample.json`](../templates/n8n/kandeck-chat-sample.json)
+for a starting point), point it at
+`https://<your-kandeck-host>/api/tasks/query`, add an `X-API-Key` header with your
+key, and let the model supply the query parameters via `$fromAI`. Then add a line
+to the agent's system prompt telling it that KanDeck questions ("what's due…",
+"what did I finish…") should call that tool.
 
 ---
 

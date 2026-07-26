@@ -514,3 +514,10 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
 .ai-test-status { font-size: .85rem; color: var(--text-dim); }
 .ai-test-status.ok { color: #2b8a3e; font-weight: 600; }
 .ai-test-status.err { color: #b02a37; font-weight: 600; }
+
+/* ---- API key row ---- */
+.apikey-row { display: flex; gap: 8px; align-items: center; }
+.apikey-row input {
+  flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem;
+}
+.apikey-row .btn { flex: 0 0 auto; }

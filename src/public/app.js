@@ -644,9 +644,45 @@
     renderBadgeEditor();
     renderLaneColorsEditor();
     fillAIChatFields();
+    loadApiKey();
     loadBackups();
     appModal.hidden = false;
   }
+  // ---- API key tab (managed live, independent of the Save button) ----
+  async function loadApiKey() {
+    try {
+      const { apiKey } = await api('/apikey');
+      $('#apiKeyField').value = apiKey || '';
+      $('#apiKeyStatus').textContent = apiKey ? '' : '';
+      $('#apiKeyStatus').className = 'ai-test-status';
+    } catch {}
+  }
+  $('#apiKeyGen').onclick = async () => {
+    if ($('#apiKeyField').value && !confirm('Generate a new API key?\n\nThis replaces the current key — any app using the old one will stop working until updated.')) return;
+    const st = $('#apiKeyStatus');
+    try {
+      const { apiKey } = await api('/apikey', { method: 'POST' });
+      $('#apiKeyField').value = apiKey;
+      st.textContent = '✓ New key generated'; st.className = 'ai-test-status ok';
+    } catch { st.textContent = '✗ Could not generate key'; st.className = 'ai-test-status err'; }
+  };
+  $('#apiKeyClear').onclick = async () => {
+    if (!$('#apiKeyField').value) return;
+    if (!confirm('Remove the API key?\n\nExternal apps using it will lose access.')) return;
+    const st = $('#apiKeyStatus');
+    try {
+      await api('/apikey', { method: 'DELETE' });
+      $('#apiKeyField').value = '';
+      st.textContent = 'Key removed'; st.className = 'ai-test-status';
+    } catch { st.textContent = '✗ Could not remove key'; st.className = 'ai-test-status err'; }
+  };
+  $('#apiKeyCopy').onclick = async () => {
+    const v = $('#apiKeyField').value;
+    const st = $('#apiKeyStatus');
+    if (!v) { st.textContent = 'Nothing to copy'; st.className = 'ai-test-status'; return; }
+    try { await navigator.clipboard.writeText(v); st.textContent = '✓ Copied'; st.className = 'ai-test-status ok'; }
+    catch { $('#apiKeyField').select(); st.textContent = 'Press ⌘/Ctrl-C to copy'; st.className = 'ai-test-status'; }
+  };
   // ---- AI Chat settings tab ----
   function fillAIChatFields() {
     const s = state.settings || {};

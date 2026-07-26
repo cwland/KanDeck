@@ -167,6 +167,7 @@
           <button type="button" class="modal-tab" data-tab="categories">Categories</button>
           <button type="button" class="modal-tab" data-tab="lanes">Lane colors</button>
           <button type="button" class="modal-tab" data-tab="ai">AI Chat</button>
+          <button type="button" class="modal-tab" data-tab="api">API</button>
           <button type="button" class="modal-tab" data-tab="backups">Backups</button>
         </nav>
         <div class="dirty-banner" id="appDirty" hidden>⚠️ You have unsaved changes — click Save to keep them.</div>
@@ -232,6 +233,21 @@
               <span class="ai-test-status" id="aiTestStatus"></span>
             </div>
             <p class="hint">Test uses the current (even unsaved) URL and token. The webhook receives <code>{ source, sessionId, message, timestamp }</code> and should reply with JSON <code>{ "reply": "…" }</code>.</p>
+          </section>
+
+          <section class="tab-panel" data-tab="api">
+            <p class="hint">An API key lets external apps (like an n8n bot, scripts, or integrations) read and update your boards through KanDeck's REST API. Send it as an <code>X-API-Key</code> header (or <code>Authorization: Bearer &lt;key&gt;</code>).</p>
+            <label>API key</label>
+            <div class="apikey-row">
+              <input id="apiKeyField" type="text" readonly placeholder="No key set — generate one to enable external access" />
+              <button type="button" class="btn ghost" id="apiKeyCopy" title="Copy">Copy</button>
+            </div>
+            <div class="ai-test-row">
+              <button type="button" class="btn primary" id="apiKeyGen">Generate new key</button>
+              <button type="button" class="btn ghost" id="apiKeyClear">Remove key</button>
+              <span class="ai-test-status" id="apiKeyStatus"></span>
+            </div>
+            <p class="hint">Generating a new key takes effect immediately and <b>replaces</b> any existing key — external apps using the old one will need the new value. Anyone with this key has full API access to your boards, so treat it like a password.</p>
           </section>
 
           <section class="tab-panel" data-tab="backups">

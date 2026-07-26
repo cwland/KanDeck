@@ -6,7 +6,7 @@
 import path from 'node:path';
 import config from '../config.js';
 import { newId, nowIso, slugify } from '../util.js';
-import { getLaneColors, DEFAULT_LANE_COLORS } from './settings.js';
+import { getLaneColors, getPriorities, DEFAULT_LANE_COLORS } from './settings.js';
 import {
   readJson,
   writeJsonAtomic,
@@ -426,6 +426,128 @@ export async function searchCards(query) {
     }
   }
   return out;
+}
+
+/**
+ * Flattened, filtered task query across every board — built for external
+ * assistants (n8n) to answer "what's due today / this week / completed N days
+ * ago". All date math is done server-side against the server's local clock, so
+ * the caller never has to reason about dates.
+ *
+ * Options (all optional):
+ *   due:             today | tomorrow | week | overdue | none | any  (default any)
+ *   status:          open | complete | all
+ *                    (default: complete if completedWithin is set, else open)
+ *   completedWithin: integer N → only cards completed within the last N days
+ *   board:           board id or case-insensitive name substring
+ *   priority:        category id (e.g. 'high')
+ *   q:               text match on subject/description/tags
+ *   limit:           max cards returned (default 200, cap 1000)
+ */
+export async function queryTasks(opts = {}) {
+  const due = String(opts.due || 'any').toLowerCase();
+  const completedWithin =
+    opts.completedWithin != null && opts.completedWithin !== '' && !Number.isNaN(parseInt(opts.completedWithin, 10))
+      ? parseInt(opts.completedWithin, 10)
+      : null;
+  let status = opts.status ? String(opts.status).toLowerCase() : (completedWithin != null ? 'complete' : 'open');
+  const boardFilter = opts.board ? String(opts.board).toLowerCase() : null;
+  const priority = opts.priority ? String(opts.priority) : null;
+  const q = opts.q ? String(opts.q).toLowerCase() : null;
+  const limit = Math.max(1, Math.min(1000, parseInt(opts.limit, 10) || 200));
+
+  const MS_DAY = 86400000;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const prios = await getPriorities().catch(() => []);
+  const prioName = (id) => (prios.find((p) => p.id === id) || {}).name || id;
+
+  const idx = await readIndex();
+  const all = [];
+  for (const entry of idx.boards) {
+    const b = await getBoard(entry.id);
+    if (!b) continue;
+    if (boardFilter && !(b.name.toLowerCase().includes(boardFilter) || b.id === opts.board)) continue;
+    for (const col of b.columns) {
+      for (const card of col.cards) {
+        if (card.archived) continue;
+        const isComplete = !!card.complete;
+
+        if (status === 'open' && isComplete) continue;
+        if (status === 'complete' && !isComplete) continue;
+
+        // Due date is date-only (YYYY-MM-DD); compare at local midnight.
+        let dueInDays = null, overdue = false;
+        if (card.dueDate) {
+          const d = new Date(card.dueDate + 'T00:00:00');
+          if (!Number.isNaN(d.getTime())) {
+            const dueMid = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            dueInDays = Math.round((dueMid - startOfToday) / MS_DAY);
+            overdue = dueInDays < 0 && !isComplete;
+          }
+        }
+
+        if (due !== 'any') {
+          if (due === 'none') { if (card.dueDate) continue; }
+          else if (dueInDays === null) continue;
+          else if (due === 'today') { if (dueInDays !== 0) continue; }
+          else if (due === 'tomorrow') { if (dueInDays !== 1) continue; }
+          else if (due === 'week') { if (dueInDays < 0 || dueInDays > 7) continue; }
+          else if (due === 'overdue') { if (!(dueInDays < 0) || isComplete) continue; }
+        }
+
+        let completedDaysAgo = null;
+        if (card.completedAt) {
+          const ca = new Date(card.completedAt);
+          if (!Number.isNaN(ca.getTime())) completedDaysAgo = Math.floor((now - ca) / MS_DAY);
+        }
+        if (completedWithin != null) {
+          if (!isComplete || completedDaysAgo == null || completedDaysAgo > completedWithin) continue;
+        }
+
+        if (priority && (card.priority || 'none') !== priority) continue;
+
+        if (q) {
+          const hay = (card.subject + ' ' + (card.description || '') + ' ' + (card.tags || []).join(' ')).toLowerCase();
+          if (!hay.includes(q)) continue;
+        }
+
+        all.push({
+          boardId: b.id, boardName: b.name,
+          columnId: col.id, columnName: col.name,
+          cardId: card.id, subject: card.subject,
+          dueDate: card.dueDate || null, dueInDays, overdue,
+          priority: card.priority || 'none', priorityName: prioName(card.priority || 'none'),
+          tags: card.tags || [], source: card.source || null,
+          complete: isComplete, completedAt: card.completedAt || null, completedDaysAgo,
+        });
+      }
+    }
+  }
+
+  all.sort((a, z) => {
+    if (a.complete !== z.complete) return a.complete ? 1 : -1;
+    if (!a.complete) return (a.dueInDays == null ? Infinity : a.dueInDays) - (z.dueInDays == null ? Infinity : z.dueInDays);
+    return (a.completedDaysAgo == null ? Infinity : a.completedDaysAgo) - (z.completedDaysAgo == null ? Infinity : z.completedDaysAgo);
+  });
+
+  const tasks = all.slice(0, limit);
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return {
+    now: now.toISOString(),
+    today: ymd(startOfToday),
+    filters: { due, status, completedWithin, board: opts.board || null, priority, q: opts.q || null },
+    summary: {
+      matched: all.length,
+      returned: tasks.length,
+      dueToday: all.filter((t) => t.dueInDays === 0 && !t.complete).length,
+      overdue: all.filter((t) => t.overdue).length,
+      dueThisWeek: all.filter((t) => !t.complete && t.dueInDays != null && t.dueInDays >= 0 && t.dueInDays <= 7).length,
+      completed: all.filter((t) => t.complete).length,
+    },
+    tasks,
+  };
 }
 
 /** Find a card across all boards (used by REST PUT /api/tasks/:id). */
