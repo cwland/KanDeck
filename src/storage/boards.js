@@ -445,12 +445,20 @@ export async function searchCards(query) {
  *   limit:           max cards returned (default 200, cap 1000)
  */
 export async function queryTasks(opts = {}) {
-  const due = String(opts.due || 'any').toLowerCase();
+  let due = String(opts.due || 'any').toLowerCase();
+  // Be forgiving of loose values an LLM might send (e.g. "this week", "").
+  if (['week', 'this week', 'thisweek', 'this-week'].includes(due)) due = 'week';
+  else if (['today', 'due today'].includes(due)) due = 'today';
+  else if (['tomorrow'].includes(due)) due = 'tomorrow';
+  else if (['overdue', 'late', 'past due'].includes(due)) due = 'overdue';
+  else if (['none', 'no due date', 'nodue'].includes(due)) due = 'none';
+  else due = 'any';
   const completedWithin =
     opts.completedWithin != null && opts.completedWithin !== '' && !Number.isNaN(parseInt(opts.completedWithin, 10))
       ? parseInt(opts.completedWithin, 10)
       : null;
-  let status = opts.status ? String(opts.status).toLowerCase() : (completedWithin != null ? 'complete' : 'open');
+  let status = opts.status ? String(opts.status).toLowerCase() : '';
+  if (!['open', 'complete', 'all'].includes(status)) status = completedWithin != null ? 'complete' : 'open';
   const boardFilter = opts.board ? String(opts.board).toLowerCase() : null;
   const priority = opts.priority ? String(opts.priority) : null;
   const q = opts.q ? String(opts.q).toLowerCase() : null;
