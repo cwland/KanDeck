@@ -610,8 +610,9 @@
   function markAppDirty() { appDirty = true; $('#appDirty').hidden = false; }
   function clearAppDirty() { appDirty = false; $('#appDirty').hidden = true; }
   // Any input/change inside the modal flags unsaved changes — except tabs that
-  // save themselves via their own buttons (Notifications, API, auto-backup).
-  const SELF_SAVE = '[data-tab="notify"],[data-tab="api"],.auto-backup';
+  // save themselves via their own buttons (Notifications, API). Auto-backup is
+  // saved by the main Save button, so it DOES flag unsaved changes.
+  const SELF_SAVE = '[data-tab="notify"],[data-tab="api"]';
   const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);
@@ -782,18 +783,8 @@
       const c = (state.settings && state.settings.backup) || (await api('/backups/config'));
       $('#autoBackupEnabled').checked = !!c.autoEnabled;
       $('#autoBackupFreq').value = c.frequency || 'weekly';
-      $('#autoBackupStatus').textContent = ''; $('#autoBackupStatus').className = 'ai-test-status';
     } catch {}
   }
-  $('#autoBackupSave').onclick = async () => {
-    const st = $('#autoBackupStatus');
-    st.textContent = 'Saving…'; st.className = 'ai-test-status';
-    try {
-      const c = await api('/backups/config', { method: 'PUT', body: { autoEnabled: $('#autoBackupEnabled').checked, frequency: $('#autoBackupFreq').value } });
-      if (state.settings) state.settings.backup = c;
-      st.textContent = c.autoEnabled ? `✓ On — ${c.frequency}` : '✓ Off'; st.className = 'ai-test-status ok';
-    } catch (err) { st.textContent = '✗ ' + (err.message || 'Save failed'); st.className = 'ai-test-status err'; }
-  };
   // ---- AI Chat settings tab ----
   function fillAIChatFields() {
     const s = state.settings || {};
@@ -966,6 +957,16 @@
       };
     }).filter((p) => p.name);
     const laneColors = $$('#laneColorsEditor input[type=color]').map((i) => i.value);
+
+    // Guardrails: never let the app be saved with no categories or no lane
+    // colors — the board relies on at least one of each.
+    if (priorities.filter((p) => p.id !== 'none').length === 0) {
+      setAppTab('categories'); toast('Add at least one category before saving.'); return;
+    }
+    if (laneColors.length === 0) {
+      setAppTab('lanes'); toast('Add at least one lane color before saving.'); return;
+    }
+
     const bd = (key) => ({
       color: $(`#badgeEditor [data-badge="${key}"] .bd-color`).value,
       textColor: $(`#badgeEditor [data-badge="${key}"] .bd-text`).value,
@@ -973,6 +974,11 @@
     const badges = { due: bd('due'), tag: bd('tag'), source: bd('source') };
     const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges, ...collectAIChat() } });
     state.settings = s;
+    // Auto-backup config is now part of the main Save (no separate button).
+    try {
+      const bc = await api('/backups/config', { method: 'PUT', body: { autoEnabled: $('#autoBackupEnabled').checked, frequency: $('#autoBackupFreq').value } });
+      state.settings.backup = bc;
+    } catch {}
     state.priorities = s.priorities; state.laneColors = s.laneColors; state.themeId = s.theme;
     if (s.badges) state.badges = s.badges;
     applyTheme(state.themeId);

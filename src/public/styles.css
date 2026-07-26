@@ -456,10 +456,18 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
 
 /* Section headers within a settings tab — a step up from field labels so the
    groups (SMTP connection, Include in summary, Schedule, …) stand out. */
-.tab-panel > label, .notify-sub > label {
+.tab-panel > label, .notify-sub > label, .notify-col > label {
   font-size: .84rem; font-weight: 800; color: var(--text);
   letter-spacing: .05em; margin-top: 20px;
 }
+.notify-col > label:first-child { margin-top: 14px; }
+
+/* Content options + schedule side by side, split by a divider line (saves the
+   vertical space the schedule used to take at the bottom). */
+.notify-cols { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+.notify-cols .notify-col { flex: 1 1 240px; min-width: 220px; }
+.notify-cols .notify-col + .notify-col { border-left: 1px solid var(--border); padding-left: 22px; }
+.weekday-label { font-size: .78rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 12px 0 5px; }
 .field-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .field-row .field { flex: 1; min-width: 130px; }
 .alarm-field { max-width: 90px; }
