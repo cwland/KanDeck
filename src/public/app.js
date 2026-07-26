@@ -1007,14 +1007,72 @@
     li.innerHTML =
       `<button class="ic-del" title="Dismiss">✕</button>` +
       `<div class="ic-title">${esc(it.subject)}</div>` +
-      `<div class="ic-row">${badges}<span class="ic-src" style="background:${src.color};color:${src.textColor}">${esc(it.source || 'api')}</span></div>`;
+      `<div class="ic-row">${badges}<span class="ic-src" style="background:${src.color};color:${src.textColor}">${esc(it.source || 'api')}</span></div>` +
+      `<button class="ic-menu" title="Send to a board">⋮</button>`;
     li.querySelector('.ic-del').onclick = async (e) => {
       e.stopPropagation();
       await api('/inbox/' + it.id, { method: 'DELETE' });
       loadInbox();
     };
+    li.querySelector('.ic-menu').onclick = (e) => { e.stopPropagation(); openSendToBoardMenu(it, e.currentTarget); };
     li.onclick = () => openInboxCardModal(it);
     return li;
+  }
+
+  // Popup anchored to an inbox card's ⋮ button: pick a board to file the item
+  // into (lands in that board's first column). One shared menu element.
+  let sendMenuEl = null;
+  function closeSendMenu() {
+    if (sendMenuEl) { sendMenuEl.remove(); sendMenuEl = null; }
+    document.removeEventListener('click', closeSendMenu, true);
+    document.removeEventListener('keydown', onSendMenuKey, true);
+    window.removeEventListener('resize', closeSendMenu);
+  }
+  function onSendMenuKey(e) { if (e.key === 'Escape') closeSendMenu(); }
+  function openSendToBoardMenu(item, anchor) {
+    closeSendMenu();
+    const menu = document.createElement('div');
+    menu.className = 'send-menu';
+    const boards = state.boards || [];
+    menu.innerHTML =
+      `<div class="sm-head">Send to board</div>` +
+      (boards.length
+        ? boards.map((b) => `<button class="sm-item" data-id="${b.id}">${esc(b.name)}</button>`).join('')
+        : `<div class="sm-empty">No boards yet</div>`);
+    document.body.appendChild(menu);
+    sendMenuEl = menu;
+
+    // Position: right-align to the button, opening upward (menu sits above the
+    // ⋮ in the card's bottom-right), clamped to the viewport.
+    const r = anchor.getBoundingClientRect();
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let left = Math.min(r.right - mw, window.innerWidth - mw - 8);
+    let top = r.top - mh - 6;
+    if (left < 8) left = 8;
+    if (top < 8) top = r.bottom + 6; // not enough room above → drop below
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    menu.querySelectorAll('.sm-item').forEach((btn) => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const boardId = btn.dataset.id;
+        closeSendMenu();
+        try {
+          await api(`/inbox/${item.id}/move`, { method: 'POST', body: { boardId, index: 0 } });
+          const target = (state.boards.find((b) => b.id === boardId) || {}).name || 'board';
+          await Promise.all([loadInbox(), (state.boardId === boardId ? refresh() : Promise.resolve())]);
+          toast('Sent to ' + target);
+        } catch (err) { toast('Send failed'); }
+      };
+    });
+
+    // Defer the outside-click listener so this same click doesn't close it.
+    setTimeout(() => {
+      document.addEventListener('click', closeSendMenu, true);
+      document.addEventListener('keydown', onSendMenuKey, true);
+      window.addEventListener('resize', closeSendMenu);
+    }, 0);
   }
 
   // Edit an inbox item in the same card modal (before it's dragged to a board).

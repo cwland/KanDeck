@@ -346,10 +346,12 @@ router.delete('/inbox/:id', wrap(async (req, res) => {
 
 router.post('/inbox/:id/move', wrap(async (req, res) => {
   const { boardId, columnId, index } = req.body || {};
-  if (!boardId || !columnId)
-    return res.status(400).json({ error: 'boardId and columnId required' });
+  // columnId is optional: omit it to drop the card into the board's first
+  // column (used by the inbox card's "send to board" menu).
+  if (!boardId) return res.status(400).json({ error: 'boardId required' });
   const result = await inbox.moveToBoard(req.params.id, boardId, columnId, index);
   if (!result) return res.status(404).json({ error: 'Inbox item not found' });
+  if (result.card) events.emit('card:created', { boardId, card: result.card });
   res.json(result);
 }));
 
