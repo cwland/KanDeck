@@ -12,6 +12,8 @@
   --surface: #ffffff;
   --surface-2: #ebecf0;
   --inbox-bg: #e6ebf4;
+  --inbox-grad-1: #d7b98a; /* top: complementary tint (JS overrides per theme) */
+  --inbox-grad-2: #f4ecdd; /* bottom: pale complementary tint */
   --text: #172b4d;
   --text-dim: #5e6c84;
   --border: #dfe1e6;
@@ -28,6 +30,8 @@ html[data-theme='dark'] {
   --surface: #22272b;
   --surface-2: #2c333a;
   --inbox-bg: #282e35;
+  --inbox-grad-1: #39322a; /* top: complementary tinted dark (JS overrides) */
+  --inbox-grad-2: #1f2226; /* bottom: near-black base */
   --text: #dee4ea;
   --text-dim: #9fadbc;
   --border: #3c444d;
@@ -160,7 +164,8 @@ html[data-theme='dark'] .zb-half:hover { background: rgba(255, 255, 255, .12); }
 /* ---- Inbox panel ---- */
 .inbox-panel {
   width: 320px; flex: 0 0 320px; display: flex; flex-direction: column;
-  background: var(--inbox-bg); border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--inbox-grad-1) 0%, var(--inbox-grad-2) 100%);
+  border-right: 1px solid var(--border);
   box-shadow: var(--shadow); z-index: 5;
   /* Smooth slide: margin-left both hides the panel and lets the board
      reclaim the space as it animates. */

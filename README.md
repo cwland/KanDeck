@@ -18,6 +18,11 @@ Docker path to production. **No database**: all state lives in local JSON files.
 - **REST API** with Bearer-token auth for external tools.
 - **Notifications:** SMTP email + Discord webhooks — alarms, daily digest,
   webhook-on-card-move.
+- **AI Chat:** an optional floating chat bubble that talks to an n8n Chat
+  Webhook. Enable it in App Settings → AI Chat. A ready-to-import n8n workflow
+  ships at [`templates/n8n/kandeck-chat-sample.json`](templates/n8n/kandeck-chat-sample.json);
+  full setup, security, and the webhook contract are in
+  [`docs/AI-CHAT-SETUP.md`](docs/AI-CHAT-SETUP.md).
 - **Backups:** scheduled (cron) + manual create/restore from the UI.
 
 ## Quick start
