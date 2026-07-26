@@ -10,6 +10,7 @@ import { promises as fs } from 'node:fs';
 import cron from 'node-cron';
 import config from '../config.js';
 import { fileStamp } from '../util.js';
+import { getBackupConfig } from '../storage/settings.js';
 import {
   readJson,
   writeJsonAtomic,
@@ -48,8 +49,18 @@ export async function listBackups() {
   const files = entries.filter((f) => f.startsWith('kandeck_backup_') && f.endsWith('.json'));
   const out = [];
   for (const f of files) {
-    const st = await fs.stat(path.join(config.backupsDir, f));
-    out.push({ file: f, size: st.size, createdAt: st.mtime.toISOString() });
+    const full = path.join(config.backupsDir, f);
+    const st = await fs.stat(full);
+    // The snapshot carries its own `reason`; surface it so the UI can tell an
+    // automated (scheduled) backup from a manual/pre-restore one.
+    let reason = 'manual';
+    let createdAt = st.mtime.toISOString();
+    try {
+      const snap = await readJson(full, null);
+      if (snap && snap.reason) reason = snap.reason;
+      if (snap && snap.createdAt) createdAt = snap.createdAt;
+    } catch { /* fall back to fs mtime */ }
+    out.push({ file: f, size: st.size, createdAt, reason, automated: reason === 'scheduled' });
   }
   out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return out;
@@ -80,17 +91,43 @@ async function pruneOld() {
     await fs.rm(path.join(config.backupsDir, b.file), { force: true });
 }
 
-/** Schedule automated backups. Returns the scheduled task. */
-export function scheduleBackups() {
-  if (!cron.validate(config.backupCron)) {
-    console.warn('[backup] invalid BACKUP_CRON, skipping schedule:', config.backupCron);
+// Frequency (from settings) → cron expression. Backups run at 03:00 local.
+const FREQUENCY_CRON = {
+  daily: '0 3 * * *',
+  weekly: '0 3 * * 0',   // Sundays
+  monthly: '0 3 1 * *',  // 1st of the month
+};
+
+let backupTask = null;
+
+/**
+ * (Re)schedule automated backups from the user's settings. Call again after the
+ * user changes the auto-backup config to apply it live. Returns the task (or null
+ * when auto-backup is disabled). Falls back to the legacy BACKUP_CRON env var
+ * only when settings can't be read.
+ */
+export async function scheduleBackups() {
+  if (backupTask) { backupTask.stop(); backupTask = null; }
+  let cfg;
+  try {
+    cfg = await getBackupConfig();
+  } catch {
+    cfg = { autoEnabled: !!config.backupCron, frequency: null };
+  }
+  if (!cfg.autoEnabled) {
+    console.log('[backup] automatic backups disabled');
     return null;
   }
-  console.log(`[backup] automated backups scheduled: ${config.backupCron}`);
-  return cron.schedule(config.backupCron, () =>
+  const expr = FREQUENCY_CRON[cfg.frequency] || (cron.validate(config.backupCron) ? config.backupCron : FREQUENCY_CRON.weekly);
+  console.log(`[backup] automatic backups: ${cfg.frequency || 'custom'} (${expr})`);
+  backupTask = cron.schedule(expr, () =>
     createBackup('scheduled').then((b) => console.log('[backup] created', b.file)).catch((e) => console.error('[backup]', e))
   );
+  return backupTask;
 }
+
+/** Alias for clarity when called after a settings change. */
+export const rescheduleBackups = scheduleBackups;
 
 // CLI: `node src/services/backup.js --once`
 if (process.argv[1] && process.argv[1].endsWith('backup.js') && process.argv.includes('--once')) {

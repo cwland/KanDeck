@@ -16,7 +16,8 @@ import * as inbox from '../storage/inbox.js';
 import * as settings from '../storage/settings.js';
 import { getApiKey, setApiKey, generateApiKeyValue } from '../auth.js';
 import { events } from '../events.js';
-import { createBackup, listBackups, restoreBackup } from '../services/backup.js';
+import { createBackup, listBackups, restoreBackup, rescheduleBackups } from '../services/backup.js';
+import { testEmail, testDiscord, emailProvider, discordProvider } from '../services/notify/index.js';
 import config from '../config.js';
 
 const router = Router();
@@ -252,6 +253,73 @@ router.post('/apikey', wrap(async (req, res) => {
 router.delete('/apikey', wrap(async (req, res) => {
   await setApiKey(null);
   res.json({ apiKey: '' });
+}));
+
+// ---- Notifications (email + Discord summaries) -----------------------------
+
+// Reject an enable-save that's missing categories, days, or a time.
+function validateContentAndSchedule(body) {
+  const c = body.content || {};
+  const anyCat = (c.upcoming && c.upcoming.enabled) || (c.dueToday && c.dueToday.enabled) || (c.pastDue && c.pastDue.enabled);
+  if (!anyCat) return 'Enable at least one notification category.';
+  const days = (body.schedule || {}).days;
+  if (!Array.isArray(days) || days.length === 0) return 'Select at least one day of the week.';
+  if (!/^\d{1,2}:\d{2}$/.test((body.schedule || {}).time || '')) return 'Set a send time.';
+  return null;
+}
+
+router.get('/notifications', wrap(async (req, res) => {
+  res.json(await settings.getNotificationConfigMasked());
+}));
+
+router.put('/notifications/email', wrap(async (req, res) => {
+  const body = req.body || {};
+  if (body.enabled) {
+    for (const f of ['host', 'user', 'from', 'to']) {
+      if (!String(body[f] || '').trim()) return res.status(400).json({ error: `${f === 'from' ? 'Sender' : f === 'to' ? 'Recipient' : f} is required.` });
+    }
+    const saved = await settings.getNotificationConfig();
+    const pass = body.pass || saved.email.pass;
+    if (!pass) return res.status(400).json({ error: 'SMTP password is required.' });
+    const vmsg = validateContentAndSchedule(body);
+    if (vmsg) return res.status(400).json({ error: vmsg });
+    const v = await emailProvider.verify({ host: body.host, port: body.port, user: body.user, encryption: body.encryption, pass });
+    if (!v.ok) return res.status(400).json({ error: `SMTP validation failed: ${v.error}` });
+  }
+  await settings.updateEmailConfig(body);
+  res.json((await settings.getNotificationConfigMasked()).email);
+}));
+
+router.put('/notifications/discord', wrap(async (req, res) => {
+  const body = req.body || {};
+  if (body.enabled) {
+    const vmsg = validateContentAndSchedule(body);
+    if (vmsg) return res.status(400).json({ error: vmsg });
+    const v = await discordProvider.validate(body.webhookUrl || '');
+    if (!v.ok) return res.status(400).json({ error: v.error });
+  }
+  await settings.updateDiscordConfig(body);
+  res.json((await settings.getNotificationConfigMasked()).discord);
+}));
+
+router.post('/notifications/email/test', wrap(async (req, res) => {
+  res.json(await testEmail(req.body || {}));
+}));
+
+router.post('/notifications/discord/test', wrap(async (req, res) => {
+  res.json(await testDiscord(req.body || {}));
+}));
+
+// ---- Backup auto-schedule config -------------------------------------------
+
+router.get('/backups/config', wrap(async (req, res) => {
+  res.json(await settings.getBackupConfig());
+}));
+
+router.put('/backups/config', wrap(async (req, res) => {
+  const cfg = await settings.updateBackupConfig(req.body || {});
+  await rescheduleBackups(); // apply the new schedule live
+  res.json(cfg);
 }));
 
 // ---- Inbox -----------------------------------------------------------------

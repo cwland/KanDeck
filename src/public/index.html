@@ -167,6 +167,7 @@
           <button type="button" class="modal-tab" data-tab="categories">Categories</button>
           <button type="button" class="modal-tab" data-tab="lanes">Lane colors</button>
           <button type="button" class="modal-tab" data-tab="ai">AI Chat</button>
+          <button type="button" class="modal-tab" data-tab="notify">Notifications</button>
           <button type="button" class="modal-tab" data-tab="api">API</button>
           <button type="button" class="modal-tab" data-tab="backups">Backups</button>
         </nav>
@@ -235,6 +236,86 @@
             <p class="hint">Test uses the current (even unsaved) URL and token. The webhook receives <code>{ source, sessionId, message, timestamp }</code> and should reply with JSON <code>{ "reply": "…" }</code>.</p>
           </section>
 
+          <section class="tab-panel" data-tab="notify">
+            <p class="hint">Get scheduled summaries of your tasks by email or Discord. Configure each independently — enable it, set the connection, choose what to include, and pick when it sends.</p>
+            <nav class="notify-subtabs" id="notifySubtabs">
+              <button type="button" class="notify-subtab active" data-sub="email">✉️ Email</button>
+              <button type="button" class="notify-subtab" data-sub="discord">💬 Discord</button>
+            </nav>
+
+            <!-- EMAIL -->
+            <div class="notify-sub active" data-sub="email">
+              <div class="ai-toggle-row">
+                <label class="switch"><input type="checkbox" id="emEnabled" /><span></span></label>
+                <span class="ai-toggle-label">Enable email notifications</span>
+              </div>
+
+              <label>SMTP connection</label>
+              <div class="field-row">
+                <div class="field"><label>Host</label><input id="emHost" type="text" placeholder="smtp.gmail.com" /></div>
+                <div class="field"><label>Port</label><input id="emPort" type="number" placeholder="587" /></div>
+                <div class="field"><label>Encryption</label><select id="emEnc"><option value="tls">TLS (STARTTLS)</option><option value="ssl">SSL</option><option value="none">None</option></select></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><label>Username</label><input id="emUser" type="text" autocomplete="off" /></div>
+                <div class="field"><label>Password</label><input id="emPass" type="password" autocomplete="off" placeholder="•••••• (leave blank to keep)" /></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><label>Sender email</label><input id="emFrom" type="email" /></div>
+                <div class="field"><label>Recipient email</label><input id="emTo" type="email" /></div>
+              </div>
+              <div class="field"><label>Email subject</label><input id="emSubject" type="text" placeholder="Daily Task Summary" /></div>
+
+              <label>Include in summary</label>
+              <div class="notify-content">
+                <label class="nc-row"><input type="checkbox" id="emUpcoming" /> Upcoming tasks — next <input type="number" id="emUpcomingDays" min="1" max="30" class="days-inp" /> days</label>
+                <label class="nc-row"><input type="checkbox" id="emDueToday" /> Tasks due today</label>
+                <label class="nc-row"><input type="checkbox" id="emPastDue" /> Past due tasks</label>
+              </div>
+
+              <label>Schedule</label>
+              <div class="field-row">
+                <div class="field" style="max-width:160px"><label>Send time</label><input id="emTime" type="time" /></div>
+              </div>
+              <div class="weekday-row" id="emDays"></div>
+
+              <div class="ai-test-row">
+                <button type="button" class="btn ghost" id="emTest">Send test email</button>
+                <button type="button" class="btn primary" id="emSave">Save email settings</button>
+                <span class="ai-test-status" id="emStatus"></span>
+              </div>
+            </div>
+
+            <!-- DISCORD -->
+            <div class="notify-sub" data-sub="discord">
+              <div class="ai-toggle-row">
+                <label class="switch"><input type="checkbox" id="dcEnabled" /><span></span></label>
+                <span class="ai-toggle-label">Enable Discord notifications</span>
+              </div>
+
+              <div class="field"><label>Discord webhook URL</label><input id="dcWebhook" type="url" autocomplete="off" placeholder="https://discord.com/api/webhooks/…" /></div>
+
+              <label>Include in summary</label>
+              <div class="notify-content">
+                <label class="nc-row"><input type="checkbox" id="dcUpcoming" /> Upcoming tasks — next <input type="number" id="dcUpcomingDays" min="1" max="30" class="days-inp" /> days</label>
+                <label class="nc-row"><input type="checkbox" id="dcDueToday" /> Tasks due today</label>
+                <label class="nc-row"><input type="checkbox" id="dcPastDue" /> Past due tasks</label>
+              </div>
+
+              <label>Schedule</label>
+              <div class="field-row">
+                <div class="field" style="max-width:160px"><label>Send time</label><input id="dcTime" type="time" /></div>
+              </div>
+              <div class="weekday-row" id="dcDays"></div>
+
+              <div class="ai-test-row">
+                <button type="button" class="btn ghost" id="dcTest">Send test notification</button>
+                <button type="button" class="btn primary" id="dcSave">Save Discord settings</button>
+                <span class="ai-test-status" id="dcStatus"></span>
+              </div>
+            </div>
+          </section>
+
           <section class="tab-panel" data-tab="api">
             <p class="hint">An API key lets external apps (like an n8n bot, scripts, or integrations) read and update your boards through KanDeck's REST API. Send it as an <code>X-API-Key</code> header (or <code>Authorization: Bearer &lt;key&gt;</code>).</p>
             <label>API key</label>
@@ -252,6 +333,27 @@
 
           <section class="tab-panel" data-tab="backups">
             <p class="hint">Backups cover the whole app (all boards + settings). Restore from Board settings history is unaffected.</p>
+
+            <div class="auto-backup">
+              <div class="ai-toggle-row">
+                <label class="switch"><input type="checkbox" id="autoBackupEnabled" /><span></span></label>
+                <span class="ai-toggle-label">Automatic backups</span>
+              </div>
+              <div class="field" style="max-width:220px">
+                <label>Frequency</label>
+                <select id="autoBackupFreq">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div class="ai-test-row">
+                <button type="button" class="btn primary" id="autoBackupSave">Save auto-backup</button>
+                <span class="ai-test-status" id="autoBackupStatus"></span>
+              </div>
+            </div>
+
+            <label style="margin-top:16px">Backup history</label>
             <div class="backup-tools">
               <button type="button" class="btn ghost" id="appBackupNow">＋ Backup now</button>
               <button type="button" class="btn ghost" id="appBackupRefresh">↻ Refresh list</button>

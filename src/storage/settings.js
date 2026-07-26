@@ -9,6 +9,7 @@
 import config from '../config.js';
 import { readJson, updateJson, writeJsonAtomic, ensureDir } from './store.js';
 import { slugify } from '../util.js';
+import { encrypt, decrypt } from '../services/secrets.js';
 
 // Pastel backgrounds + explicit dark ink → readable, high-contrast by default.
 const DEFAULT_PRIORITIES = [
@@ -32,6 +33,41 @@ const DEFAULT_BADGES = {
   source: { color: '#c3fae8', textColor: '#0b7285' }, // pastel teal / dark teal
 };
 
+// Shared notification shapes (same content + schedule model across channels,
+// so new providers reuse them without touching the scheduler).
+const DEFAULT_CONTENT = {
+  upcoming: { enabled: true, days: 7 }, // tasks due within N days (open)
+  dueToday: { enabled: true },
+  pastDue: { enabled: true },
+};
+const DEFAULT_SCHEDULE = {
+  time: '08:00',        // HH:MM, server-local
+  days: [1, 2, 3, 4, 5], // 0=Sun … 6=Sat
+};
+const DEFAULT_NOTIFICATIONS = {
+  email: {
+    enabled: false,
+    host: '', port: 587, user: '', pass: '', // pass stored encrypted at rest
+    encryption: 'tls', // tls | ssl | none
+    from: '', to: '',
+    subject: 'Daily Task Summary',
+    content: DEFAULT_CONTENT,
+    schedule: DEFAULT_SCHEDULE,
+    lastOccurrence: null, // dedup key (YYYY-MM-DD) of last successful send
+  },
+  discord: {
+    enabled: false,
+    webhookUrl: '',
+    content: DEFAULT_CONTENT,
+    schedule: DEFAULT_SCHEDULE,
+    lastOccurrence: null,
+  },
+};
+const DEFAULT_BACKUP = {
+  autoEnabled: false,
+  frequency: 'weekly', // daily | weekly | monthly
+};
+
 const DEFAULTS = {
   theme: 'light-blue',
   priorities: DEFAULT_PRIORITIES,
@@ -44,7 +80,53 @@ const DEFAULTS = {
   aiChatHistoryLength: 10,
   aiChatTimeout: 60,
   aiChatTitle: 'AI Assistant',
+  notifications: DEFAULT_NOTIFICATIONS,
+  backup: DEFAULT_BACKUP,
 };
+
+// Deep-fill notification config so partial/absent settings still render.
+function fillContent(c) {
+  c = c || {};
+  return {
+    upcoming: { enabled: (c.upcoming || {}).enabled !== false, days: Math.max(1, Math.min(30, parseInt((c.upcoming || {}).days, 10) || 7)) },
+    dueToday: { enabled: (c.dueToday || {}).enabled !== false },
+    pastDue: { enabled: (c.pastDue || {}).enabled !== false },
+  };
+}
+function fillSchedule(s) {
+  s = s || {};
+  const days = Array.isArray(s.days) ? s.days.map((d) => parseInt(d, 10)).filter((d) => d >= 0 && d <= 6) : DEFAULT_SCHEDULE.days;
+  return { time: /^\d{1,2}:\d{2}$/.test(s.time || '') ? s.time : DEFAULT_SCHEDULE.time, days };
+}
+function fillNotifications(n) {
+  n = n || {};
+  const e = n.email || {}, d = n.discord || {};
+  return {
+    email: {
+      enabled: !!e.enabled,
+      host: e.host || '', port: parseInt(e.port, 10) || 587,
+      user: e.user || '', pass: e.pass || '',
+      encryption: ['tls', 'ssl', 'none'].includes(e.encryption) ? e.encryption : 'tls',
+      from: e.from || '', to: e.to || '',
+      subject: e.subject || 'Daily Task Summary',
+      content: fillContent(e.content), schedule: fillSchedule(e.schedule),
+      lastOccurrence: e.lastOccurrence || null,
+    },
+    discord: {
+      enabled: !!d.enabled,
+      webhookUrl: d.webhookUrl || '',
+      content: fillContent(d.content), schedule: fillSchedule(d.schedule),
+      lastOccurrence: d.lastOccurrence || null,
+    },
+  };
+}
+function fillBackup(b) {
+  b = b || {};
+  return {
+    autoEnabled: !!b.autoEnabled,
+    frequency: ['daily', 'weekly', 'monthly'].includes(b.frequency) ? b.frequency : 'weekly',
+  };
+}
 
 // Pick readable ink (dark on light bg, white on dark bg) for a custom color.
 function readableText(hex) {
@@ -104,7 +186,100 @@ export async function getSettings() {
     tag: { ...DEFAULT_BADGES.tag, ...((s.badges || {}).tag || {}) },
     source: { ...DEFAULT_BADGES.source, ...((s.badges || {}).source || {}) },
   };
+  // Notifications + backup, with the SMTP password masked (never leave the
+  // server via the general settings endpoint — internal senders use
+  // getNotificationConfig()).
+  s.notifications = fillNotifications(s.notifications);
+  s.notifications.email = { ...s.notifications.email, pass: '', passwordSet: !!s.notifications.email.pass };
+  s.backup = fillBackup(s.backup);
   return s;
+}
+
+/** Full notification config for internal use (SMTP password DECRYPTED). */
+export async function getNotificationConfig() {
+  const raw = await readJson(config.settingsFile, DEFAULTS);
+  const n = fillNotifications(raw.notifications);
+  n.email.pass = decrypt(n.email.pass);
+  return n;
+}
+
+/** UI-facing notification config: SMTP password masked, `passwordSet` flag added. */
+export async function getNotificationConfigMasked() {
+  const n = fillNotifications((await readJson(config.settingsFile, DEFAULTS)).notifications);
+  n.email = { ...n.email, pass: '', passwordSet: !!n.email.pass };
+  return n;
+}
+
+function mergeEmail(cur, patch = {}) {
+  const next = { ...cur };
+  for (const k of ['host', 'user', 'from', 'to', 'subject', 'encryption']) if (patch[k] !== undefined) next[k] = String(patch[k]);
+  if (patch.port !== undefined) next.port = parseInt(patch.port, 10) || 587;
+  if (patch.enabled !== undefined) next.enabled = !!patch.enabled;
+  if (patch.content !== undefined) next.content = fillContent(patch.content);
+  if (patch.schedule !== undefined) next.schedule = fillSchedule(patch.schedule);
+  if (patch.lastOccurrence !== undefined) next.lastOccurrence = patch.lastOccurrence;
+  // Password: only replace when a new non-empty value is supplied; blank = keep.
+  if (typeof patch.pass === 'string' && patch.pass !== '') next.pass = encrypt(patch.pass);
+  return next;
+}
+
+function mergeDiscord(cur, patch = {}) {
+  const next = { ...cur };
+  if (patch.webhookUrl !== undefined) next.webhookUrl = String(patch.webhookUrl);
+  if (patch.enabled !== undefined) next.enabled = !!patch.enabled;
+  if (patch.content !== undefined) next.content = fillContent(patch.content);
+  if (patch.schedule !== undefined) next.schedule = fillSchedule(patch.schedule);
+  if (patch.lastOccurrence !== undefined) next.lastOccurrence = patch.lastOccurrence;
+  return next;
+}
+
+export async function updateEmailConfig(patch = {}) {
+  const saved = await updateJson(config.settingsFile, (s) => {
+    s = { ...DEFAULTS, ...(s || {}) };
+    const n = fillNotifications(s.notifications);
+    n.email = mergeEmail(n.email, patch);
+    s.notifications = n;
+    return s;
+  }, DEFAULTS);
+  return fillNotifications(saved.notifications).email;
+}
+
+export async function updateDiscordConfig(patch = {}) {
+  const saved = await updateJson(config.settingsFile, (s) => {
+    s = { ...DEFAULTS, ...(s || {}) };
+    const n = fillNotifications(s.notifications);
+    n.discord = mergeDiscord(n.discord, patch);
+    s.notifications = n;
+    return s;
+  }, DEFAULTS);
+  return fillNotifications(saved.notifications).discord;
+}
+
+/** Record the last successful send occurrence key (dedup) for a channel. */
+export async function setLastOccurrence(channel, key) {
+  await updateJson(config.settingsFile, (s) => {
+    s = { ...DEFAULTS, ...(s || {}) };
+    const n = fillNotifications(s.notifications);
+    if (n[channel]) n[channel].lastOccurrence = key;
+    s.notifications = n;
+    return s;
+  }, DEFAULTS);
+}
+
+export async function getBackupConfig() {
+  return fillBackup((await readJson(config.settingsFile, DEFAULTS)).backup);
+}
+
+export async function updateBackupConfig(patch = {}) {
+  const saved = await updateJson(config.settingsFile, (s) => {
+    s = { ...DEFAULTS, ...(s || {}) };
+    const b = fillBackup(s.backup);
+    if (patch.autoEnabled !== undefined) b.autoEnabled = !!patch.autoEnabled;
+    if (patch.frequency !== undefined && ['daily', 'weekly', 'monthly'].includes(patch.frequency)) b.frequency = patch.frequency;
+    s.backup = b;
+    return s;
+  }, DEFAULTS);
+  return fillBackup(saved.backup);
 }
 
 export async function getPriorities() {

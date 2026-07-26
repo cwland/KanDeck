@@ -34,6 +34,10 @@ export const config = {
   inboxFile: path.join(DATA_DIR, 'inbox.json'),
   publicDir: path.join(ROOT, 'src', 'public'),
 
+  // Public base URL of this app, used for "open in KanDeck" links in
+  // notifications (e.g. https://kandeck.example.com). Optional.
+  appUrl: (process.env.APP_URL || '').replace(/\/+$/, ''),
+
   jwtSecret: process.env.JWT_SECRET || 'change-me-to-a-long-random-string',
   sessionTtl: process.env.SESSION_TTL || '7d',
   apiKey: process.env.API_KEY || '',

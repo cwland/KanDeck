@@ -13,6 +13,7 @@ import config from '../config.js';
 import { events } from '../events.js';
 import * as boards from '../storage/boards.js';
 import { listJson } from '../storage/store.js';
+import { startScheduler } from './notify/index.js';
 
 let transporter = null;
 function mailer() {
@@ -147,13 +148,13 @@ export function startNotifications() {
     }
   });
 
-  // Alarm scan every minute.
+  // Alarm scan every minute (per-card alarms — distinct from summaries).
   cron.schedule('* * * * *', () => checkAlarms().catch((e) => console.error('[notify] alarm', e)));
-  // Daily digest at 08:00.
-  cron.schedule('0 8 * * *', () => sendDigest().catch((e) => console.error('[notify] digest', e)));
 
-  const channels = [config.smtp.host && 'SMTP', config.discordWebhookUrl && 'Discord'].filter(Boolean);
-  console.log(`[notify] engine started. channels: ${channels.length ? channels.join(', ') : 'none configured'}`);
+  // Configurable, settings-driven task summaries (email + Discord).
+  startScheduler();
+
+  console.log('[notify] engine started (alarms + configurable summaries).');
 }
 
 export { sendEmail, sendDiscord };

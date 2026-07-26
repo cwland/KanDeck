@@ -521,3 +521,29 @@ html[data-theme='dark'] .dirty-banner { background: #453913; color: #ffe08a; }
   flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem;
 }
 .apikey-row .btn { flex: 0 0 auto; }
+
+/* ---- Notifications tab ---- */
+.notify-subtabs { display: flex; gap: 6px; margin: 6px 0 12px; }
+.notify-subtab {
+  border: 1px solid var(--border); background: var(--bg); color: var(--text-dim);
+  padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: .9rem; font-weight: 600;
+}
+.notify-subtab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.notify-sub { display: none; }
+.notify-sub.active { display: block; }
+.notify-content { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 6px; }
+.notify-content .nc-row { display: flex; align-items: center; gap: 6px; font-size: .92rem; color: var(--text); text-transform: none; font-weight: 400; letter-spacing: 0; }
+.notify-content input[type=checkbox] { accent-color: var(--accent); }
+.notify-content input.days-inp { width: 60px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.weekday-row { display: flex; gap: 6px; margin: 4px 0 6px; }
+.weekday-row .wd {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text-dim); cursor: pointer; font-size: .82rem; font-weight: 700;
+}
+.weekday-row .wd.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ---- Auto-backup + backup type badges ---- */
+.auto-backup { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--bg); }
+.b-type { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+.b-type.auto { background: #d3f9d8; color: #2b8a3e; }
+.b-type.manual { background: #e7ecf3; color: #4b586b; }

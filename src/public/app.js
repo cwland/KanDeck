@@ -549,7 +549,9 @@
       if (!backups.length) { ul.innerHTML = ''; return; }
       backups.forEach((b) => {
         const li = document.createElement('li');
-        li.innerHTML = `<span class="b-name">${new Date(b.createdAt).toLocaleString()}</span>`;
+        const typeLabel = b.automated ? 'Automated' : (b.reason === 'pre-restore' ? 'Pre-restore' : 'Manual');
+        const typeClass = b.automated ? 'auto' : 'manual';
+        li.innerHTML = `<span class="b-name">${new Date(b.createdAt).toLocaleString()} <span class="b-type ${typeClass}">${typeLabel}</span></span>`;
         const btn = document.createElement('button');
         btn.className = 'mini-btn'; btn.textContent = 'Restore';
         btn.onclick = async () => {
@@ -632,9 +634,12 @@
   let appDirty = false;
   function markAppDirty() { appDirty = true; $('#appDirty').hidden = false; }
   function clearAppDirty() { appDirty = false; $('#appDirty').hidden = true; }
-  // Any input/change inside the modal flags unsaved changes.
-  appModal.addEventListener('input', markAppDirty);
-  appModal.addEventListener('change', markAppDirty);
+  // Any input/change inside the modal flags unsaved changes — except tabs that
+  // save themselves via their own buttons (Notifications, API, auto-backup).
+  const SELF_SAVE = '[data-tab="notify"],[data-tab="api"],.auto-backup';
+  const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
+  appModal.addEventListener('input', dirtyIfTracked);
+  appModal.addEventListener('change', dirtyIfTracked);
   function openAppModal() {
     pendingTheme = state.themeId;
     clearAppDirty();
@@ -645,6 +650,8 @@
     renderLaneColorsEditor();
     fillAIChatFields();
     loadApiKey();
+    loadNotifications();
+    loadBackupConfig();
     loadBackups();
     appModal.hidden = false;
   }
@@ -696,6 +703,121 @@
     if (!ok) { try { ok = document.execCommand('copy'); } catch (_) { ok = false; } }
     st.textContent = ok ? '✓ Copied to clipboard' : 'Selected — press ⌘/Ctrl-C to copy';
     st.className = ok ? 'ai-test-status ok' : 'ai-test-status';
+  };
+
+  // ---- Notifications tab (Email + Discord, each managed live) ----
+  $$('#notifySubtabs .notify-subtab').forEach((b) => (b.onclick = () => {
+    $$('#notifySubtabs .notify-subtab').forEach((x) => x.classList.toggle('active', x === b));
+    $$('#appModal .notify-sub').forEach((p) => p.classList.toggle('active', p.dataset.sub === b.dataset.sub));
+  }));
+
+  const WD_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // 0=Sun … 6=Sat
+  const WD_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function renderWeekdays(containerId, selected) {
+    const wrap = $('#' + containerId); wrap.innerHTML = '';
+    WD_LABELS.forEach((lbl, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'wd' + (selected.includes(i) ? ' on' : '');
+      b.textContent = lbl; b.dataset.day = i; b.title = WD_FULL[i];
+      b.onclick = () => b.classList.toggle('on');
+      wrap.appendChild(b);
+    });
+  }
+  const getWeekdays = (id) => $$('#' + id + ' .wd.on').map((b) => parseInt(b.dataset.day, 10));
+
+  async function loadNotifications() {
+    try {
+      const n = await api('/notifications');
+      const e = n.email;
+      $('#emEnabled').checked = e.enabled;
+      $('#emHost').value = e.host; $('#emPort').value = e.port; $('#emEnc').value = e.encryption;
+      $('#emUser').value = e.user; $('#emPass').value = '';
+      $('#emPass').placeholder = e.passwordSet ? '•••••• (leave blank to keep)' : 'SMTP password';
+      $('#emFrom').value = e.from; $('#emTo').value = e.to; $('#emSubject').value = e.subject;
+      $('#emUpcoming').checked = e.content.upcoming.enabled; $('#emUpcomingDays').value = e.content.upcoming.days;
+      $('#emDueToday').checked = e.content.dueToday.enabled; $('#emPastDue').checked = e.content.pastDue.enabled;
+      $('#emTime').value = e.schedule.time; renderWeekdays('emDays', e.schedule.days);
+      $('#emStatus').textContent = ''; $('#emStatus').className = 'ai-test-status';
+      const d = n.discord;
+      $('#dcEnabled').checked = d.enabled; $('#dcWebhook').value = d.webhookUrl;
+      $('#dcUpcoming').checked = d.content.upcoming.enabled; $('#dcUpcomingDays').value = d.content.upcoming.days;
+      $('#dcDueToday').checked = d.content.dueToday.enabled; $('#dcPastDue').checked = d.content.pastDue.enabled;
+      $('#dcTime').value = d.schedule.time; renderWeekdays('dcDays', d.schedule.days);
+      $('#dcStatus').textContent = ''; $('#dcStatus').className = 'ai-test-status';
+    } catch {}
+  }
+
+  function collectEmail() {
+    return {
+      enabled: $('#emEnabled').checked,
+      host: $('#emHost').value.trim(), port: parseInt($('#emPort').value, 10) || 587,
+      encryption: $('#emEnc').value, user: $('#emUser').value.trim(), pass: $('#emPass').value,
+      from: $('#emFrom').value.trim(), to: $('#emTo').value.trim(),
+      subject: $('#emSubject').value.trim() || 'Daily Task Summary',
+      content: {
+        upcoming: { enabled: $('#emUpcoming').checked, days: parseInt($('#emUpcomingDays').value, 10) || 7 },
+        dueToday: { enabled: $('#emDueToday').checked }, pastDue: { enabled: $('#emPastDue').checked },
+      },
+      schedule: { time: $('#emTime').value || '08:00', days: getWeekdays('emDays') },
+    };
+  }
+  function collectDiscord() {
+    return {
+      enabled: $('#dcEnabled').checked, webhookUrl: $('#dcWebhook').value.trim(),
+      content: {
+        upcoming: { enabled: $('#dcUpcoming').checked, days: parseInt($('#dcUpcomingDays').value, 10) || 7 },
+        dueToday: { enabled: $('#dcDueToday').checked }, pastDue: { enabled: $('#dcPastDue').checked },
+      },
+      schedule: { time: $('#dcTime').value || '08:00', days: getWeekdays('dcDays') },
+    };
+  }
+
+  async function saveNotify(channel) {
+    const st = $(channel === 'email' ? '#emStatus' : '#dcStatus');
+    const body = channel === 'email' ? collectEmail() : collectDiscord();
+    st.textContent = 'Saving…'; st.className = 'ai-test-status';
+    try {
+      await api('/notifications/' + channel, { method: 'PUT', body });
+      st.textContent = '✓ Saved'; st.className = 'ai-test-status ok';
+    } catch (err) {
+      st.textContent = '✗ ' + (err.message || 'Save failed'); st.className = 'ai-test-status err';
+    }
+  }
+  async function testNotify(channel) {
+    const st = $(channel === 'email' ? '#emStatus' : '#dcStatus');
+    const btn = $(channel === 'email' ? '#emTest' : '#dcTest');
+    const body = channel === 'email' ? collectEmail() : collectDiscord();
+    st.textContent = 'Sending test…'; st.className = 'ai-test-status'; btn.disabled = true;
+    try {
+      const r = await api('/notifications/' + channel + '/test', { method: 'POST', body });
+      if (r && r.ok) { st.textContent = '✓ Test sent — check ' + (channel === 'email' ? 'your inbox' : 'Discord'); st.className = 'ai-test-status ok'; }
+      else { st.textContent = '✗ ' + ((r && r.error) || 'Test failed'); st.className = 'ai-test-status err'; }
+    } catch (err) {
+      st.textContent = '✗ ' + (err.message || 'Test failed'); st.className = 'ai-test-status err';
+    } finally { btn.disabled = false; }
+  }
+  $('#emSave').onclick = () => saveNotify('email');
+  $('#dcSave').onclick = () => saveNotify('discord');
+  $('#emTest').onclick = () => testNotify('email');
+  $('#dcTest').onclick = () => testNotify('discord');
+
+  // ---- Auto-backup config ----
+  async function loadBackupConfig() {
+    try {
+      const c = (state.settings && state.settings.backup) || (await api('/backups/config'));
+      $('#autoBackupEnabled').checked = !!c.autoEnabled;
+      $('#autoBackupFreq').value = c.frequency || 'weekly';
+      $('#autoBackupStatus').textContent = ''; $('#autoBackupStatus').className = 'ai-test-status';
+    } catch {}
+  }
+  $('#autoBackupSave').onclick = async () => {
+    const st = $('#autoBackupStatus');
+    st.textContent = 'Saving…'; st.className = 'ai-test-status';
+    try {
+      const c = await api('/backups/config', { method: 'PUT', body: { autoEnabled: $('#autoBackupEnabled').checked, frequency: $('#autoBackupFreq').value } });
+      if (state.settings) state.settings.backup = c;
+      st.textContent = c.autoEnabled ? `✓ On — ${c.frequency}` : '✓ Off'; st.className = 'ai-test-status ok';
+    } catch (err) { st.textContent = '✗ ' + (err.message || 'Save failed'); st.className = 'ai-test-status err'; }
   };
   // ---- AI Chat settings tab ----
   function fillAIChatFields() {
