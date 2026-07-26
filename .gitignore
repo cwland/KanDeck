@@ -28,3 +28,7 @@ Thumbs.db
 *.tar.gz
 dist/
 _to_delete/
+
+# Internal dev docs (kept local, not published)
+BUILD_NOTES.md
+Requirments.txt
