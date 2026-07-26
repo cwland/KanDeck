@@ -37,13 +37,17 @@ export async function verify(cfg) {
 }
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
-const PRIORITY_COLOR = { urgent: '#e03131', high: '#f76707', medium: '#f59f00', low: '#4dabf7', none: '#868e96' };
+// Fallbacks mirror the app's default category palette (pastel bg + dark ink).
+const FALLBACK_BG = { urgent: '#ffc9c9', high: '#ffd8a8', medium: '#ffec99', low: '#a5d8ff', none: '#e7ecf3' };
+const FALLBACK_INK = { urgent: '#9a1c1c', high: '#8a4b08', medium: '#664d03', low: '#0b3d66', none: '#4b586b' };
 const SECTION_ACCENT = { pastDue: '#e03131', dueToday: '#1971c2', upcoming: '#2f9e44' };
 
 function taskRow(task) {
-  const pc = PRIORITY_COLOR[task.priority] || PRIORITY_COLOR.none;
+  // Use the app's configured category colors so the badge matches the board.
+  const bg = task.priorityColor || FALLBACK_BG[task.priority] || FALLBACK_BG.none;
+  const ink = task.priorityTextColor || FALLBACK_INK[task.priority] || FALLBACK_INK.none;
   const prio = task.priority && task.priority !== 'none'
-    ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${pc};color:#fff;font-size:11px;font-weight:600;text-transform:capitalize">${esc(task.priority)}</span>`
+    ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${bg};color:${ink};font-size:11px;font-weight:700;text-transform:capitalize">${esc(task.priorityName || task.priority)}</span>`
     : '';
   return (
     `<tr>` +

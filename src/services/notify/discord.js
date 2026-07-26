@@ -6,30 +6,45 @@
  */
 import { dueLabel } from './content.js';
 
-const PRIORITY_EMOJI = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🔵', none: '⚪' };
-const SECTION_COLOR = { pastDue: 0xe03131, dueToday: 0x1971c2, upcoming: 0x2f9e44 };
+// Fallback colors when a category has no configured color (matches the app's
+// default category palette).
+const FALLBACK_COLOR = { urgent: '#ffc9c9', high: '#ffd8a8', medium: '#ffec99', low: '#a5d8ff', none: '#868e96' };
 
-function embedFor(section) {
-  const lines = section.tasks.length
-    ? section.tasks.slice(0, 20).map((t) => {
-        const pe = PRIORITY_EMOJI[t.priority] || PRIORITY_EMOJI.none;
-        const prio = t.priority && t.priority !== 'none' ? ` ${pe} ${t.priority}` : '';
-        return `• **${t.subject}** — _${dueLabel(t)}_ · ${t.boardName}${prio}`;
-      }).join('\n')
-    : '_Nothing here — nice._ 🎉';
-  return {
-    title: `${section.emoji} ${section.title} (${section.tasks.length})`,
-    description: lines.slice(0, 4000),
-    color: SECTION_COLOR[section.key] || 0x4c6ef5,
-  };
+function hexToInt(hex) {
+  if (!hex || typeof hex !== 'string') return 0x868e96;
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map((x) => x + x).join('');
+  const n = parseInt(c, 16);
+  return Number.isNaN(n) ? 0x868e96 : n;
 }
 
-/** Build the consolidated Discord message payload. */
+/**
+ * Build the consolidated Discord message. One embed per task, with the embed's
+ * accent bar set to that task's category color (the same color the app uses on
+ * the card), so priorities read consistently — no scattered circle emojis. The
+ * section (past due / due today / upcoming) shows via the title emoji.
+ */
 export function render(sections) {
-  return {
-    content: '🗂️ **KanDeck Task Summary**',
-    embeds: sections.map(embedFor).slice(0, 10),
-  };
+  const summary = sections.map((s) => `${s.emoji} ${s.tasks.length}`).join('  ');
+  const flat = [];
+  for (const s of sections) for (const t of s.tasks) flat.push({ t, s });
+
+  if (!flat.length) {
+    return { content: '🗂️ **KanDeck Task Summary**', embeds: [{ description: "✅ Nothing due — you're all caught up!", color: 0x2f9e44 }] };
+  }
+
+  const embeds = flat.slice(0, 10).map(({ t, s }) => {
+    const prio = t.priority && t.priority !== 'none' ? ` · **${t.priorityName || t.priority}**` : '';
+    return {
+      title: `${s.emoji} ${t.subject}`,
+      description: `${t.boardName} · _${dueLabel(t)}_${prio}`,
+      color: hexToInt(t.priorityColor || FALLBACK_COLOR[t.priority] || FALLBACK_COLOR.none),
+    };
+  });
+
+  let content = `🗂️ **KanDeck Task Summary** — ${summary}`;
+  if (flat.length > 10) content += `\n_…and ${flat.length - 10} more._`;
+  return { content, embeds };
 }
 
 export async function send(webhookUrl, payload) {

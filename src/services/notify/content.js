@@ -9,6 +9,7 @@
  */
 import config from '../../config.js';
 import * as boards from '../../storage/boards.js';
+import { getPriorities } from '../../storage/settings.js';
 import { listJson } from '../../storage/store.js';
 
 async function allCards() {
@@ -45,15 +46,26 @@ export async function buildSections(content = {}, now = new Date()) {
     .map((x) => ({ x, dueInDays: dueInDaysOf(x.card.dueDate, startOfToday) }))
     .filter((o) => o.dueInDays !== null);
 
-  const enrich = ({ x, dueInDays }) => ({
-    subject: x.card.subject,
-    boardId: x.board.id,
-    boardName: x.board.name,
-    columnName: x.col.name,
-    dueDate: x.card.dueDate || null,
-    dueInDays,
-    priority: x.card.priority || 'none',
-  });
+  // Use the app's actual category colors so notifications match the board.
+  const prios = await getPriorities().catch(() => []);
+  const pmap = Object.fromEntries((prios || []).map((p) => [p.id, p]));
+
+  const enrich = ({ x, dueInDays }) => {
+    const id = x.card.priority || 'none';
+    const p = pmap[id] || {};
+    return {
+      subject: x.card.subject,
+      boardId: x.board.id,
+      boardName: x.board.name,
+      columnName: x.col.name,
+      dueDate: x.card.dueDate || null,
+      dueInDays,
+      priority: id,
+      priorityName: p.name || id,
+      priorityColor: p.color || null,
+      priorityTextColor: p.textColor || null,
+    };
+  };
 
   const sections = [];
   if (content.pastDue && content.pastDue.enabled !== false) {
