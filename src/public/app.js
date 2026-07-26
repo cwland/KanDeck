@@ -681,9 +681,9 @@
     }
     (it.tags || []).forEach((t) => { badges += `<span class="ic-src">${esc(t)}</span>`; });
     li.innerHTML =
+      `<button class="ic-del" title="Dismiss">✕</button>` +
       `<div class="ic-title">${esc(it.subject)}</div>` +
-      `<div class="ic-row">${badges}<span class="ic-src">${esc(it.source || 'api')}</span>` +
-      `<button class="ic-del" title="Dismiss">✕</button></div>`;
+      `<div class="ic-row">${badges}<span class="ic-src">${esc(it.source || 'api')}</span></div>`;
     li.querySelector('.ic-del').onclick = async (e) => {
       e.stopPropagation();
       await api('/inbox/' + it.id, { method: 'DELETE' });

@@ -180,6 +180,7 @@ body.inbox-collapsed .inbox-panel {
 .inbox-list { list-style: none; margin: 0; padding: 4px 14px 8px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .inbox-list:empty::after { content: 'Inbox is empty'; color: var(--text-dim); font-size: .82rem; padding: 8px 2px; }
 .inbox-card {
+  position: relative;
   background: #ffffff; color: #172b4d; border-radius: 8px; padding: 10px 11px;
   box-shadow: var(--shadow); cursor: grab;
   display: flex; flex-direction: column; gap: 6px;
@@ -188,10 +189,15 @@ body.inbox-collapsed .inbox-panel {
 .inbox-card:hover { box-shadow: var(--shadow-lg); }
 .inbox-card.dragging { opacity: .5; }
 .inbox-card .ic-title { font-weight: 600; font-size: .9rem; word-break: break-word; }
+.inbox-card .ic-title { padding-right: 18px; }
 .inbox-card .ic-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.inbox-card .ic-src { font-size: .64rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); background: var(--surface); padding: 1px 6px; border-radius: 10px; }
-.inbox-card .ic-del { margin-left: auto; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: .8rem; }
-.inbox-card .ic-del:hover { color: #e03131; }
+.inbox-card .ic-src { font-size: .64rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); background: var(--surface-2); padding: 1px 6px; border-radius: 10px; }
+.inbox-card .ic-del {
+  position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; line-height: 1;
+  border: 0; background: transparent; color: var(--text-dim); cursor: pointer;
+  font-size: .78rem; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+}
+.inbox-card .ic-del:hover { color: #e03131; background: rgba(224, 49, 49, .1); }
 .inbox-version { padding: 10px 14px; margin: 0; font-size: .72rem; color: var(--text-dim); border-top: 1px solid var(--border); text-align: center; letter-spacing: .03em; }
 
 /* ---- Floating Trello-style switcher (hovering pill) ---- */
@@ -312,15 +318,15 @@ body.inbox-collapsed .inbox-panel {
    padding, so the hover target's box never moves → no jitter) and the circle
    slides in from the left with a little bounce. When complete, the green check
    stays put. Only the text (card-main) triggers it — not the rest of the card. */
-.card-main { transition: padding-left .2s ease; }
+.card-main { transition: padding-left .38s cubic-bezier(.22, 1, .36, 1); }
 .card-main:hover, .card.complete .card-main { padding-left: 26px; }
 .card-check {
   position: absolute; left: 8px; top: 9px; width: 20px; height: 20px; padding: 0;
   border-radius: 50%; border: 2px solid #ced4da; background: #fff; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0; transform: translateX(-10px) scale(.5);
-  transition: opacity .2s ease, transform .22s cubic-bezier(.34, 1.56, .64, 1),
-    background .18s ease, border-color .18s ease;
+  opacity: 0; transform: translateX(-8px) scale(.7);
+  transition: opacity .4s ease, transform .42s cubic-bezier(.22, 1, .36, 1),
+    background .25s ease, border-color .25s ease;
 }
 .card-check .chk { font-size: .72rem; font-weight: 900; line-height: 1; color: transparent; }
 .card-main:hover ~ .card-check,
