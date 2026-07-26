@@ -17,9 +17,10 @@
         width: min(92vw, 380px); background: #fff; border-radius: 16px;
         padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
       }
-      h1 { margin: 0 0 4px; font-size: 1.6rem; }
-      .logo { font-size: 2.4rem; }
-      p.sub { margin: 0 0 20px; color: #555; font-size: .92rem; }
+      .brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
+      .brand h1 { margin: 0; font-size: 1.7rem; }
+      .logo { font-size: 2rem; line-height: 1; }
+      p.sub { margin: 0 0 20px; color: #555; font-size: .92rem; text-align: center; }
       label { display: block; font-size: .8rem; font-weight: 600; margin: 14px 0 6px; }
       input {
         width: 100%; padding: 12px 14px; border: 1px solid #d1d5db;
@@ -32,12 +33,15 @@
       button:hover { background: #4f46e5; }
       .msg { margin-top: 14px; font-size: .85rem; min-height: 1.2em; }
       .msg.err { color: #dc2626; }
+      .ver { margin-top: 18px; text-align: center; color: #9ca3af; font-size: .72rem; letter-spacing: .03em; }
     </style>
   </head>
   <body>
     <form class="card" id="form">
-      <div class="logo">🗂️</div>
-      <h1>KanDeck</h1>
+      <div class="brand">
+        <span class="logo">🗂️</span>
+        <h1>KanDeck</h1>
+      </div>
       <p class="sub" id="subtitle">Sign in to continue</p>
       <label id="pwLabel" for="password">Password</label>
       <input id="password" type="password" autocomplete="current-password" required />
@@ -47,13 +51,15 @@
       </div>
       <button id="submit" type="submit">Sign in</button>
       <div class="msg" id="msg"></div>
+      <div class="ver" id="ver"></div>
     </form>
     <script>
       let mode = 'login';
       const el = (id) => document.getElementById(id);
       async function detect() {
         const r = await fetch('/api/auth/status');
-        const { passwordSet } = await r.json();
+        const { passwordSet, version } = await r.json();
+        if (version) el('ver').textContent = 'KanDeck v' + version;
         if (!passwordSet) {
           mode = 'setup';
           el('subtitle').textContent = 'Create your application password';

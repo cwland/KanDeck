@@ -8,11 +8,12 @@ import {
   setSessionCookie,
   clearSessionCookie,
 } from '../auth.js';
+import config from '../config.js';
 
 const router = Router();
 
 router.get('/status', async (req, res) => {
-  res.json({ passwordSet: await isPasswordSet() });
+  res.json({ passwordSet: await isPasswordSet(), version: config.version });
 });
 
 // First-run: set the application password (only allowed if none set yet).
