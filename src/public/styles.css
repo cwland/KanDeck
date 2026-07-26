@@ -179,7 +179,11 @@ body.inbox-collapsed .inbox-panel {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px 8px; font-weight: 700; font-size: 1rem;
 }
-.inbox-head b { color: var(--accent); }
+.inbox-head b {
+  display: inline-block; vertical-align: middle; margin-left: 4px;
+  font-size: .72rem; font-weight: 700; color: var(--text-dim);
+  background: rgba(255, 255, 255, .85); border-radius: 10px; padding: 1px 8px;
+}
 .ghost-icon { background: transparent; color: var(--text-dim); }
 .ghost-icon:hover { background: var(--surface-2); }
 .inbox-list { list-style: none; margin: 0; padding: 4px 14px 8px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
