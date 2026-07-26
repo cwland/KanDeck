@@ -329,7 +329,7 @@ After the first run, set the package to **Public** in your repo's Packages
 settings if you want anyone to pull it. To cut a release:
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+git tag v1.0.1 && git push origin v1.0.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without
