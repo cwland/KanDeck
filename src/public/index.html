@@ -95,19 +95,13 @@
       <button class="bb-btn" id="bbInbox" data-view="inbox" title="Show the inbox panel">📥 Inbox</button>
       <button class="bb-btn active" id="bbBoard" data-view="board" title="Show the board only">🗂 Board</button>
       <span class="bb-sep"></span>
-      <button class="bb-btn" id="bbSwitch" title="Switch to another board">🔀 Switch board</button>
-    </div>
-
-    <!-- ===== Switch board popup ===== -->
-    <div class="modal-backdrop" id="switchModal" hidden>
-      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="Switch board">
-        <header class="modal-head">
-          <h2>Switch board</h2>
-          <button class="icon-btn" id="switchClose" title="Close">✕</button>
-        </header>
-        <div class="modal-body">
+      <div class="bb-switch-wrap">
+        <!-- ===== Switch board popover (slides up out of the button) ===== -->
+        <div class="board-pop" id="switchPop" role="menu" aria-label="Switch board" hidden>
+          <div class="board-pop-head">Switch board</div>
           <ul class="board-list" id="boardList"></ul>
         </div>
+        <button class="bb-btn" id="bbSwitch" title="Switch to another board" aria-haspopup="true" aria-expanded="false">🔀 Switch board</button>
       </div>
     </div>
 

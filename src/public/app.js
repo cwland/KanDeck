@@ -159,23 +159,64 @@
     renderBoard();
   }
 
-  // ---- Switch-board popup (replaces the old top tabs) ----
-  const switchModal = $('#switchModal');
-  function openSwitchModal() {
+  // ---- Switch-board popover (slides up out of the bottom-bar button) ----
+  const switchPop = $('#switchPop');
+  const bbSwitch = $('#bbSwitch');
+
+  function renderBoardList() {
     const ul = $('#boardList'); ul.innerHTML = '';
-    state.boards.forEach((b) => {
+    const boards = state.boards;
+    const n = boards.length;
+    boards.forEach((b, i) => {
       const li = document.createElement('li');
       if (b.id === state.boardId) li.className = 'current';
+      // Stagger the reveal so the item nearest the button appears first,
+      // making the list feel like it's being pulled up out of the button.
+      li.style.setProperty('--d', `${(n - 1 - i) * 40}ms`);
       li.innerHTML =
         `<span class="bl-name">${esc(b.name)}</span>` +
         `<span class="bl-meta">${b.cardCount || 0} cards · ${b.columns || 0} lanes</span>`;
-      li.onclick = async () => { switchModal.hidden = true; await openBoard(b.id); };
+      li.onclick = async () => { closeSwitchPop(); await openBoard(b.id); };
       ul.appendChild(li);
     });
-    switchModal.hidden = false;
   }
-  $('#bbSwitch').onclick = openSwitchModal;
-  $('#switchClose').onclick = () => (switchModal.hidden = true);
+
+  let switchHideTimer = null;
+  function openSwitchPop() {
+    if (switchHideTimer) { clearTimeout(switchHideTimer); switchHideTimer = null; }
+    renderBoardList();
+    switchPop.hidden = false;
+    // Force a reflow so the transition runs from the collapsed state.
+    void switchPop.offsetWidth;
+    switchPop.classList.add('open');
+    bbSwitch.classList.add('pop-open');
+    bbSwitch.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', onDocPointerForSwitch, true);
+    document.addEventListener('keydown', onEscForSwitch);
+  }
+
+  function closeSwitchPop() {
+    if (switchPop.hidden) return;
+    switchPop.classList.remove('open');
+    bbSwitch.classList.remove('pop-open');
+    bbSwitch.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('pointerdown', onDocPointerForSwitch, true);
+    document.removeEventListener('keydown', onEscForSwitch);
+    // Keep it in the DOM until the collapse animation finishes.
+    if (switchHideTimer) clearTimeout(switchHideTimer);
+    switchHideTimer = setTimeout(() => { switchPop.hidden = true; switchHideTimer = null; }, 260);
+  }
+
+  function onDocPointerForSwitch(e) {
+    if (!switchPop.contains(e.target) && !bbSwitch.contains(e.target)) closeSwitchPop();
+  }
+  function onEscForSwitch(e) { if (e.key === 'Escape') closeSwitchPop(); }
+
+  bbSwitch.onclick = (e) => {
+    e.stopPropagation();
+    if (switchPop.classList.contains('open')) closeSwitchPop();
+    else openSwitchPop();
+  };
 
   function renderHeader() {
     $('#boardName').textContent = state.board.name;
