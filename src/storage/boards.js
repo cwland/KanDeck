@@ -80,15 +80,78 @@ function syncComplete(board) {
 }
 
 // One-time, idempotent: boards that picked a non-last lane as "complete" now
-// follow the last-lane rule.
+// follow the last-lane rule, and the old "show done tasks for X days" window
+// (completeWindowDays) becomes "auto-archive done tasks after X days".
 async function migrateDoneLane() {
   const ids = (await listJson(config.boardsDir)).filter((id) => !id.startsWith('_'));
   for (const id of ids) {
     await withLock(boardFile(id), async () => {
       const board = await readJson(boardFile(id), null);
-      if (board && syncComplete(board)) await writeJsonAtomic(boardFile(id), board);
+      if (!board) return;
+      let changed = syncComplete(board);
+      const s = board.settings || {};
+      if (s.completeWindowDays !== undefined) {
+        if (s.autoArchiveDays === undefined) s.autoArchiveDays = Math.max(0, parseInt(s.completeWindowDays, 10) || 0);
+        delete s.completeWindowDays;
+        changed = true;
+      }
+      if (changed) await writeJsonAtomic(boardFile(id), board);
     });
   }
+}
+
+// ---- Auto-archive ----------------------------------------------------------
+// Cards in the done lane are archived once they've been complete for
+// settings.autoArchiveDays days (0 = never). Archived cards keep their
+// completed date and stay in the done lane — the board just hides them unless
+// "Show archived" is on. A card that is manually unarchived gets a fresh
+// grace period (counted from unarchivedAt) so it isn't re-archived at once.
+
+/** Archive overdue done cards on one board in place. Returns true if changed. */
+function autoArchiveBoard(board, now = Date.now()) {
+  const days = parseInt((board.settings || {}).autoArchiveDays, 10) || 0;
+  if (days <= 0 || board.archived) return false;
+  const doneId = doneColumnId(board);
+  const col = (board.columns || []).find((c) => c.id === doneId);
+  if (!col) return false;
+  const cutoff = now - days * 86400000;
+  let changed = false;
+  for (const card of col.cards) {
+    if (card.archived || !card.completedAt) continue;
+    const since = Math.max(Date.parse(card.completedAt) || 0, Date.parse(card.unarchivedAt || '') || 0);
+    if (since && since < cutoff) {
+      card.archived = true;
+      card.archivedAt = new Date(now).toISOString();
+      card.autoArchived = true;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/** Run auto-archive across every active board. */
+export async function autoArchiveAll() {
+  const idx = await readIndex();
+  let total = 0;
+  for (const entry of idx.boards) {
+    if (entry.archived) continue;
+    await withLock(boardFile(entry.id), async () => {
+      const board = await readJson(boardFile(entry.id), null);
+      if (board && autoArchiveBoard(board)) {
+        board.updatedAt = nowIso();
+        await writeJsonAtomic(boardFile(entry.id), board);
+        total++;
+      }
+    });
+  }
+  return total;
+}
+
+/** Run now, then hourly. */
+export function startAutoArchive() {
+  const run = () => autoArchiveAll().catch((e) => console.error('[auto-archive]', e.message));
+  run();
+  setInterval(run, 60 * 60 * 1000).unref();
 }
 
 // One-time, idempotent: remap legacy vibrant lane colors to the new pastels
@@ -224,9 +287,8 @@ export async function createBoard({ name, description = '' }) {
       autoSortKey: 'priority', // priority | due
       // Mirror of the done lane (always the last column) — see doneColumnId.
       completeColumnId: columns[columns.length - 1]?.id || null,
-      // Done lane shows only cards completed within this many days
-      // (0 = show all). Older ones hide from view but are never deleted.
-      completeWindowDays: 0,
+      // Archive done-lane cards this many days after completion (0 = never).
+      autoArchiveDays: 0,
       // Which fields render on cards (priority + due date on by default).
       cardFields: { priority: true, dueDate: true, tags: false, source: false },
     },
@@ -249,6 +311,7 @@ export async function updateBoard(id, patch) {
     if (patch.description !== undefined) board.description = patch.description;
     if (patch.settings) board.settings = { ...board.settings, ...patch.settings };
     syncComplete(board); // completeColumnId isn't user-settable — re-derive it
+    autoArchiveBoard(board); // a new auto-archive setting applies right away
     board.updatedAt = nowIso();
     await writeJsonAtomic(boardFile(id), board);
     await upsertIndexEntry(board);
@@ -486,9 +549,19 @@ export async function updateCard(boardId, cardId, patch) {
       'dueDate',
       'priority',
       'tags',
-      'archived',
     ]) {
       if (patch[key] !== undefined) card[key] = patch[key];
+    }
+    if (patch.archived !== undefined && !!patch.archived !== !!card.archived) {
+      card.archived = !!patch.archived;
+      if (card.archived) {
+        card.archivedAt = nowIso();
+        card.autoArchived = false;
+      } else {
+        card.archivedAt = null;
+        card.autoArchived = false;
+        card.unarchivedAt = nowIso(); // restarts the auto-archive countdown
+      }
     }
     if (col.autoSort) sortColumn(col, board.settings.autoSortKey);
     return card;
@@ -506,6 +579,13 @@ export async function moveCard(boardId, cardId, toColumnId, toIndex) {
     const { col: fromCol, card } = found;
     const wasComplete = !!card.complete;
     const toCol = board.columns.find((c) => c.id === toColumnId) || fromCol;
+    if (card.archived && toCol.id !== fromCol.id) {
+      // Moving an archived card to another lane brings it back.
+      card.archived = false;
+      card.archivedAt = null;
+      card.autoArchived = false;
+      card.unarchivedAt = nowIso();
+    }
     fromCol.cards = fromCol.cards.filter((k) => k.id !== cardId);
     const idx = Math.max(0, Math.min(toIndex ?? toCol.cards.length, toCol.cards.length));
     toCol.cards.splice(idx, 0, card);
@@ -626,7 +706,9 @@ export async function queryTasks(opts = {}) {
     if (boardFilter && !(b.name.toLowerCase().includes(boardFilter) || b.id === opts.board)) continue;
     for (const col of b.columns) {
       for (const card of col.cards) {
-        if (card.archived) continue;
+        // Auto-archived done cards are still completion history, so keep
+        // archived *complete* cards; drop archived open ones.
+        if (card.archived && !card.complete) continue;
         const isComplete = !!card.complete;
 
         if (status === 'open' && isComplete) continue;
@@ -669,6 +751,7 @@ export async function queryTasks(opts = {}) {
           priority: card.priority || 'none', priorityName: prioName(card.priority || 'none'),
           tags: card.tags || [], source: card.source || null,
           complete: isComplete, completedAt: card.completedAt || null, completedDaysAgo,
+          archived: !!card.archived,
         });
       }
     }

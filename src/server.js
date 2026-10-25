@@ -77,6 +77,7 @@ async function start() {
   await settingsStore.init();
   await inboxStore.init();
   await boardStore.init();
+  boardStore.startAutoArchive();
   await scheduleBackups();
   startNotifications();
   app.listen(config.port, config.host, () => {

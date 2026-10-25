@@ -47,12 +47,12 @@
     const cols = (board && board.columns) || [];
     return cols.length ? cols[cols.length - 1].id : null;
   }
-  // Per-board "Show all" toggle on the done lane (a per-browser convenience).
-  function showAllDone(boardId) {
-    try { return localStorage.getItem('kandeck.showAllDone.' + boardId) === '1'; } catch (_) { return false; }
+  // Per-board "Show archived" toggle on the done lane (a per-browser convenience).
+  function showArchivedDone(boardId) {
+    try { return localStorage.getItem('kandeck.showArchivedDone.' + boardId) === '1'; } catch (_) { return false; }
   }
-  function setShowAllDone(boardId, on) {
-    try { localStorage.setItem('kandeck.showAllDone.' + boardId, on ? '1' : '0'); } catch (_) {}
+  function setShowArchivedDone(boardId, on) {
+    try { localStorage.setItem('kandeck.showArchivedDone.' + boardId, on ? '1' : '0'); } catch (_) {}
   }
   function laneColorAt(i) { const l = state.laneColors; return l.length ? l[i % l.length] : '#838c91'; }
   async function loadSettings() {
@@ -270,7 +270,7 @@
 
   function renderCard(card, inDoneLane = false) {
     const li = document.createElement('li');
-    li.className = 'card' + (card.complete ? ' complete' : ''); // cards are always white
+    li.className = 'card' + (card.complete ? ' complete' : '') + (card.archived ? ' archived' : ''); // cards are always white
     li.dataset.id = card.id;
 
     const cf = cardFields();
@@ -286,6 +286,7 @@
       const dstyle = overdue ? '' : `style="background:${state.badges.due.color};color:${state.badges.due.textColor}"`;
       badges += `<span class="badge due ${overdue ? 'overdue' : ''}" ${dstyle}>📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
+    if (card.archived) badges += `<span class="badge archived-badge" title="${card.autoArchived ? 'Auto-archived' : 'Archived'}${card.archivedAt ? ' ' + esc(new Date(card.archivedAt).toLocaleDateString()) : ''}">Archived</span>`;
     // Completed date only shows on cards in the done (last) lane.
     if (inDoneLane && card.completedAt) {
       const cd = new Date(card.completedAt);
@@ -352,37 +353,37 @@
       }
       const isComplete = col.id === doneColId();
       if (isComplete) wrap.classList.add('is-complete-lane');
-      let visible = col.cards.filter((c) => !c.archived && cardMatchesSearch(c));
-      // Done lane fall-off: hide cards completed longer ago than the window
-      // (unless "Show all" is on, or a search is active).
-      let hiddenOlder = 0;
-      const days = isComplete ? (state.board.settings.completeWindowDays || 0) : 0;
-      const showAll = showAllDone(state.boardId);
-      if (isComplete && days > 0 && !state.search && !showAll) {
-        const cutoff = Date.now() - days * 864e5;
-        const before = visible.length;
-        visible = visible.filter((c) => !c.completedAt || Date.parse(c.completedAt) >= cutoff);
-        hiddenOlder = before - visible.length;
-      }
+      const visible = col.cards.filter((c) => !c.archived && cardMatchesSearch(c));
+      // Done lane: archived cards (auto-archived after N days, or archived by
+      // hand) stay in the lane but are hidden unless "Show archived" is on.
+      const archivedHere = isComplete ? col.cards.filter((c) => c.archived && cardMatchesSearch(c)) : [];
+      const showArchived = isComplete && showArchivedDone(state.boardId);
+      const autoDays = parseInt(state.board.settings.autoArchiveDays, 10) || 0;
+      const showToggle = isComplete && (archivedHere.length > 0 || autoDays > 0);
       wrap.innerHTML = `
         <div class="column-head">
           <span class="column-title">${esc(col.name)}</span>
           ${isComplete ? '<span class="lane-complete-badge" title="Done lane (always the last lane)">✓</span>' : ''}
           <span class="col-count">${visible.length}</span>
+          ${showToggle ? (() => {
+            const n = archivedHere.length;
+            const help = (showArchived ? 'Hide' : 'Show') + ` archived tasks (${n})` +
+              (autoDays > 0 ? ` — done tasks auto-archive ${autoDays} day${autoDays === 1 ? '' : 's'} after completion` : '');
+            return `<button type="button" class="archive-toggle${showArchived ? ' on' : ''}" title="${esc(help)}" aria-label="${esc(help)}" aria-pressed="${showArchived}">
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/></svg>
+              ${n ? `<span class="at-count">${n}</span>` : ''}
+            </button>`;
+          })() : ''}
         </div>
-        ${isComplete && days > 0 ? `
-        <label class="done-filter" title="Show every done task, not just the last ${days} day${days === 1 ? '' : 's'}">
-          <span class="df-label">${showAll ? 'Showing all' : `Last ${days} day${days === 1 ? '' : 's'}`}</span>
-          <span class="switch mini"><input type="checkbox" class="df-toggle" ${showAll ? 'checked' : ''} /><span></span></span>
-          <span class="df-label">Show all</span>
-        </label>` : ''}
         <ul class="cards" data-col="${col.id}"></ul>
-        ${hiddenOlder > 0 ? `<div class="lane-hidden-hint">＋${hiddenOlder} older hidden · toggle Show all</div>` : ''}
         <button class="add-card">＋ Add a card</button>`;
       const ul = $('.cards', wrap);
       visible.forEach((c) => ul.appendChild(renderCard(c, isComplete)));
-      const dfToggle = $('.df-toggle', wrap);
-      if (dfToggle) dfToggle.onchange = () => { setShowAllDone(state.boardId, dfToggle.checked); renderBoard(); };
+      // Archived cards render after the active ones, dimmed and not draggable
+      // (open one and click Unarchive, or drag isn't needed).
+      if (showArchived) archivedHere.forEach((c) => ul.appendChild(renderCard(c, true)));
+      const atBtn = $('.archive-toggle', wrap);
+      if (atBtn) atBtn.onclick = (e) => { e.stopPropagation(); setShowArchivedDone(state.boardId, !showArchived); renderBoard(); };
 
       $('.add-card', wrap).onclick = () => openNewCardModal(col.id);
 
@@ -399,6 +400,8 @@
       animation: 150,
       draggingClass: 'dragging',
       ghostClass: 'dragging',
+      filter: '.archived',      // archived cards can't be dragged…
+      preventOnFilter: false,   // …but can still be clicked open
       onEnd: async (evt) => {
         const cardId = evt.item.dataset.id;
         const toColumnId = evt.to.dataset.col;
@@ -447,6 +450,8 @@
         : '');
     $('#cardDelete').style.display = '';
     $('#cardArchive').style.display = '';
+    state.editingCardArchived = !!card.archived;
+    $('#cardArchive').textContent = card.archived ? 'Unarchive' : 'Archive';
     cardModal.hidden = false;
   }
 
@@ -504,8 +509,9 @@
     cardModal.hidden = true; refresh();
   };
   $('#cardArchive').onclick = async () => {
-    await api(`/tasks/${state.editingCardId}`, { method: 'PUT', body: { archived: true } });
-    cardModal.hidden = true; refresh(); toast('Card archived');
+    const archive = !state.editingCardArchived;
+    await api(`/tasks/${state.editingCardId}`, { method: 'PUT', body: { archived: archive } });
+    cardModal.hidden = true; refresh(); toast(archive ? 'Card archived' : 'Card unarchived');
   };
 
   // ---- Board settings modal ----
@@ -514,7 +520,7 @@
     const b = state.board;
     $('#bmName').value = b.name;
     $('#bmDesc').value = b.description || '';
-    $('#bmCompleteWindow').value = b.settings.completeWindowDays || 0;
+    $('#bmAutoArchive').value = b.settings.autoArchiveDays || 0;
     const cf = cardFields();
     $('#cfPriority').checked = cf.priority; $('#cfDue').checked = cf.dueDate;
     $('#cfTags').checked = cf.tags; $('#cfSource').checked = cf.source;
@@ -723,7 +729,7 @@
         name,
         description: $('#bmDesc').value,
         settings: {
-          completeWindowDays: Math.max(0, parseInt($('#bmCompleteWindow').value, 10) || 0),
+          autoArchiveDays: Math.max(0, parseInt($('#bmAutoArchive').value, 10) || 0),
           cardFields: {
             priority: $('#cfPriority').checked, dueDate: $('#cfDue').checked,
             tags: $('#cfTags').checked, source: $('#cfSource').checked,

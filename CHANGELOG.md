@@ -4,6 +4,12 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 1.3.0 — 2026-10-25
+
+- **Auto-archive done tasks after X days** replaces "Show done tasks for the last X days". Done-lane cards are archived that many days after their completed date; your existing setting carries over.
+- A small **archive-box icon** on the right of the done lane's title shows or hides archived tasks (hover for help; it shows how many are archived). Archived cards appear dimmed with their completed date, and can be opened and **Unarchived**.
+- The card window's **Archive** button becomes **Unarchive** for archived cards.
+
 ## 1.2.1 — 2026-10-25
 
 - The **completed date** now also shows in the card's detail window (under the created date) for cards in the done lane.

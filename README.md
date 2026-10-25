@@ -45,7 +45,7 @@ your board.
   add / rename / reorder / delete columns per board.
 - **Cards** with subject, Markdown description, due date, priority, tags, and
   archive. The **last lane is always the done lane** — cards get a completed
-  date when they land there, and the lane can show only the last N days.
+  date when they land there, and can auto-archive after N days.
 - **Archive boards** instead of deleting them; restore or permanently delete
   from **App Settings → Archives**.
 - **Calendar feed** — a per-board, read-only `.ics` subscription link (dated
@@ -244,10 +244,14 @@ reload; the app returns to the first-run "create password" screen.
   lane keeps the date; moving a card out clears it. The date shows as a green
   **✓ date** badge on cards in the done lane, and as **✓ Completed …** in the
   card's detail window.
-- **Show done tasks for the last X days** (Board settings; `0` = show all)
-  hides older done cards. They're never deleted: a **Show all** toggle at the
-  top of the done lane brings them back (remembered per board, per browser), and
-  search always finds them.
+- **Auto-archive done tasks after X days** (Board settings; `0` = never)
+  archives done-lane cards that many days after their completed date (checked
+  hourly and whenever you save the setting). Archived cards keep their completed
+  date and stay in the done lane, hidden — click the small **archive-box icon**
+  at the right of the done lane's title to show or hide them (it shows how many
+  are archived; remembered per board, per browser). Open one and
+  click **Unarchive** to bring it back; it then gets a fresh X-day countdown.
+  Archived cards also appear under **Archived cards** in Board settings.
 
 ## Archiving boards
 
@@ -407,7 +411,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v1.2.1 && git push origin v1.2.1
+git tag v1.3.0 && git push origin v1.3.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

@@ -410,9 +410,9 @@
           </div>
 
           <div class="field">
-            <label>Show done tasks for the last <small>(days; 0 = show all)</small></label>
-            <input id="bmCompleteWindow" type="number" min="0" step="1" />
-            <p class="hint">The done lane (the last lane) shows only tasks completed within this many days. Older ones are hidden, never deleted — use <b>Show all</b> at the top of the done lane, or search, to see them.</p>
+            <label>Auto-archive done tasks after <small>(days; 0 = never)</small></label>
+            <input id="bmAutoArchive" type="number" min="0" step="1" />
+            <p class="hint">Tasks in the done lane (the last lane) are archived this many days after their completed date. They keep their completed date and stay in the done lane — click the archive-box icon in the lane's title row to show or hide them, or open one and click <b>Unarchive</b>. Archived tasks also appear under <b>Archived cards</b> below.</p>
           </div>
 
           <div class="field">

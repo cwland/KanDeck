@@ -457,17 +457,23 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .card.completing { transform: scale(.82) !important; opacity: 0 !important; }
 .lane-complete-badge { color: var(--lane-text, var(--text)); opacity: .65; font-size: .8rem; }
 .badge.done-badge { background: #d3f9d8; color: #2b8a3e; }
-.done-filter {
-  display: flex; align-items: center; gap: 6px; margin: -4px 10px 6px; padding: 4px 8px;
-  border-radius: 8px; background: rgba(255, 255, 255, .55); cursor: pointer; user-select: none;
-  font-size: .72rem; font-weight: 600; color: #44546a;
+/* Done lane: small "show/hide archived" icon, right end of the title row. */
+.archive-toggle {
+  position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 24px; padding: 0; border: 0; border-radius: 7px; cursor: pointer;
+  background: transparent; color: var(--lane-text, var(--text)); opacity: .55;
+  transition: opacity .15s ease, background .15s ease;
 }
-.done-filter .df-label:first-child { flex: 1; }
-.switch.mini { width: 30px; height: 17px; }
-.switch.mini span::before { width: 13px; height: 13px; left: 2px; top: 2px; }
-.switch.mini input:checked + span::before { transform: translateX(13px); }
-.switch.mini span { background: rgba(0, 0, 0, .18); }
-.switch.mini input:checked + span { background: #40c057; }
+.archive-toggle:hover, .archive-toggle:focus-visible { opacity: 1; background: rgba(255, 255, 255, .45); }
+.archive-toggle.on { opacity: 1; background: rgba(255, 255, 255, .85); color: #2b8a3e; }
+.archive-toggle .at-count {
+  position: absolute; top: -4px; right: -4px; min-width: 14px; height: 14px; padding: 0 3px;
+  border-radius: 7px; background: #495057; color: #fff; font-size: .58rem; font-weight: 800; line-height: 14px; text-align: center;
+}
+.archive-toggle.on .at-count { background: #2b8a3e; }
+.card.archived { opacity: .62; cursor: pointer; }
+.card.archived:hover { opacity: .9; }
+.badge.archived-badge { background: #e9ecef; color: #495057; }
 .lane-hidden-hint {
   margin: 2px 8px 6px; padding: 4px 8px; font-size: .72rem; font-weight: 600;
   color: var(--lane-text, var(--text-dim)); opacity: .75; text-align: center;
