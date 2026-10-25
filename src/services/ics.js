@@ -70,8 +70,8 @@ function nextDay({ y, m, d }) {
 // ---- Feed builder ----------------------------------------------------------
 
 /** iCalendar lines for one card / inbox item: VEVENT if dated, else VTODO.
- *  ctx: { opts, prioName, now, prefix, info, footer } — prefix goes before the
- *  title (e.g. "[Board] "), info lines lead the description, footer lines end
+ *  ctx: { opts, prioName, now, suffix, info, footer } — suffix goes after the
+ *  title (e.g. " [Board]"), info lines lead the description, footer lines end
  *  it (after the card's own description, if included). */
 function itemLines(card, ctx) {
   const { opts, prioName, now } = ctx;
@@ -90,7 +90,7 @@ function itemLines(card, ctx) {
     `UID:${escText(card.id)}@kandeck`,
     `DTSTAMP:${completed || created || now}`,
     ...(created ? [`CREATED:${created}`] : []),
-    `SUMMARY:${escText((card.complete ? '✓ ' : '') + (ctx.prefix || '') + card.subject)}`,
+    `SUMMARY:${escText((card.complete ? '✓ ' : '') + card.subject + (ctx.suffix || ''))}`,
     `DESCRIPTION:${escText(desc)}`,
     ...(card.priority && card.priority !== 'none' ? [`CATEGORIES:${escText(prioName(card.priority))}`] : []),
   ];
@@ -144,7 +144,7 @@ function boardLines(board, ctx, { withBoardName = false } = {}) {
       if (card.complete && !ctx.opts.includeCompleted) continue;
       out.push(...itemLines(card, {
         ...ctx,
-        prefix: withBoardName ? `[${board.name}] ` : '',
+        suffix: withBoardName ? ` [${board.name}]` : '',
         info: [`Lane: ${col.name}`],
         footer: withBoardName ? [`Board: ${board.name}`] : [],
       }));
@@ -158,8 +158,8 @@ export async function buildBoardIcs(board) {
   return calendar('KanDeck · ' + board.name, boardLines(board, ctx));
 }
 
-/** App-wide feed: every active board (titles prefixed "[Board]") plus, if
- *  enabled, Inbox items (prefixed "[Inbox]"). Archived boards/cards are skipped. */
+/** App-wide feed: every active board (titles end with " [Board]") plus, if
+ *  enabled, Inbox items (titles end with " [Inbox]"). Archived boards/cards are skipped. */
 export async function buildGlobalIcs(opts = {}) {
   const ctx = { opts, prioName: await prioNamer(), now: utcStamp(new Date()) };
   const body = [];
@@ -169,7 +169,7 @@ export async function buildGlobalIcs(opts = {}) {
   }
   if (opts.includeInbox) {
     for (const item of await listItems())
-      body.push(...itemLines(item, { ...ctx, prefix: '[Inbox] ', footer: ['Inbox item (not yet on a board)'] }));
+      body.push(...itemLines(item, { ...ctx, suffix: ' [Inbox]', footer: ['Inbox item (not yet on a board)'] }));
   }
   return calendar('KanDeck · All boards', body);
 }

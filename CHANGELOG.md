@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.0.2 — 2026-10-25
+
+- All-boards calendar feed: the board name now goes at the **end** of each title — `Fix gate [Home]`, `Call plumber [Inbox]` — instead of the start.
+
 ## 2.0.1 — 2026-10-25
 
 - **Fix:** the HSTS security header is now sent only for your public hostname (`APP_URL`). A second, internal proxy name no longer gets pinned, so browsers don't block it with "invalid certificate" if its certificate isn't perfect.

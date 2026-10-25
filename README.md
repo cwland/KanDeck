@@ -307,8 +307,8 @@ Calendar feed**, then **Copy** the link or click **Subscribe**.
   by default). Archived cards and archived boards are never published.
 
 **All boards + Inbox.** **App Settings → Calendar** publishes one app-wide feed
-(`/ics/all/<token>.ics`) with every active board's cards — titles prefixed
-with the board, e.g. `[Home] Fix gate` — plus Inbox items as `[Inbox] …`
+(`/ics/all/<token>.ics`) with every active board's cards — titles end with
+the board, e.g. `Fix gate [Home]` — plus Inbox items as `… [Inbox]`
 (toggle **Include Inbox items**, on by default). Same descriptions / done-tasks
 options, same secret-link model, and its own **Generate new link**; it's
 independent of the per-board feeds.
@@ -432,7 +432,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.0.1 && git push origin v2.0.1
+git tag v2.0.2 && git push origin v2.0.2
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without
