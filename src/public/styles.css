@@ -132,12 +132,6 @@ body {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   user-select: none;
 }
-.version-chip {
-  border: 0; background: transparent; cursor: pointer; padding: 1px 6px; border-radius: 8px;
-  font: inherit; font-size: .62rem; font-weight: 700; color: var(--text); opacity: .7;
-  font-variant-numeric: tabular-nums;
-}
-.version-chip:hover, .version-chip:focus-visible { opacity: 1; background: var(--surface); text-decoration: underline; }
 .inbox-version[role="button"] { cursor: pointer; }
 .inbox-version[role="button"]:hover { color: var(--text); text-decoration: underline; }
 .zb-label {

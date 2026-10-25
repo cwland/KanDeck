@@ -65,7 +65,6 @@
     applyTheme(state.themeId);
     if (s.version) {
       $('#inboxVersion').textContent = 'KanDeck v' + s.version;
-      $('#versionChip').textContent = 'v' + s.version;
     }
     if (window.initAIChat) window.initAIChat(s);
   }
@@ -1481,7 +1480,6 @@
     } catch {}
   }
   $('#wnClose').onclick = $('#wnOk').onclick = closeWhatsNew;
-  $('#versionChip').onclick = () => openWhatsNew();
   $('#inboxVersion').onclick = () => openWhatsNew();
   $('#inboxVersion').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openWhatsNew(); } };
 

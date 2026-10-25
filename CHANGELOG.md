@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 1.3.1 — 2026-10-25
+
+- Removed the version number from the bottom-right corner. Click **KanDeck v…** at the bottom of the Inbox to open the What's new window.
+
 ## 1.3.0 — 2026-10-25
 
 - **Auto-archive done tasks after X days** replaces "Show done tasks for the last X days". Done-lane cards are archived that many days after their completed date; your existing setting carries over.

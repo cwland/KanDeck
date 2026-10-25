@@ -229,7 +229,7 @@ reload; the app returns to the first-run "create password" screen.
 - **What's new**: the first time you open KanDeck after an update, a window
   lists what changed in the new version plus the previous 10 releases (newest
   first). Dismiss it and it won't appear again until the next version. Click the
-  **version number** (bottom-right, or at the bottom of the Inbox) to reopen it.
+  **KanDeck v…** version label at the bottom of the Inbox to reopen it.
   Release notes live in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
@@ -411,7 +411,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v1.3.0 && git push origin v1.3.0
+git tag v1.3.1 && git push origin v1.3.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without
