@@ -4,6 +4,12 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.1.0 — 2026-10-25
+
+- **Routing tags** — in **Board settings**, add tags to a board (type, click **Add**; remove with ×). A task pushed to KanDeck without a board but with a matching tag goes straight to that board's **first lane** instead of the Inbox.
+- Each tag can belong to only one board — adding a duplicate shows an error naming the board that already has it.
+- Tasks without tags (or without a match) still go to the Inbox.
+
 ## 2.0.2 — 2026-10-25
 
 - All-boards calendar feed: the board name now goes at the **end** of each title — `Fix gate [Home]`, `Call plumber [Inbox]` — instead of the start.

@@ -29,6 +29,7 @@ board.
 - [Using KanDeck](#using-kandeck)
 - [Done lane & completed dates](#done-lane--completed-dates)
 - [Archiving boards](#archiving-boards)
+- [Routing tags](#routing-tags)
 - [Calendar feed (.ics)](#calendar-feed-ics)
 - [REST API](#rest-api)
 - [Notifications](#notifications)
@@ -56,6 +57,9 @@ board.
   apply across every board.
 - **Inbox** — a capture area fed by the REST API / webhooks. Drag items onto a
   board, or use each card's **⋮ "send to board"** menu.
+- **Routing tags** — give a board tags (e.g. `home`, `work`) and tasks pushed
+  to KanDeck with a matching tag skip the Inbox and land in that board's first
+  lane.
 - **Search-as-you-type** across all boards; jumps straight to the card.
 - **Themes** — 20 presets (10 light + 10 dark) with a vertical gradient wash;
   category and badge colors are user-editable with automatically-readable text.
@@ -294,6 +298,22 @@ search, notifications and calendar feeds, keeping all of its cards.
 **App Settings → Archives** lists archived boards with **Restore** and
 **Delete** (permanent — though existing backups still contain the board).
 
+## Routing tags
+
+In **Board settings → Routing tags**, type a tag and click **Add** (or press
+Enter; commas add several at once). The board's tags show as chips — click
+**×** to remove one — and are saved with the board's **Save** button.
+
+- When a task arrives through the API (`POST /api/tasks` or `/api/inbox`)
+  **without** a `boardId`, its tags are compared to every board's routing tags
+  (ignoring upper/lower case). The first match sends the task straight to that
+  board's **first lane**.
+- Tasks with no tags, or no matching tag, go to the **Inbox** as before.
+- A tag can belong to **only one board** — trying to add one that another board
+  (even an archived one) already uses shows an error. Archived boards never
+  receive routed tasks.
+- Items already in the Inbox aren't re-routed.
+
 ## Calendar feed (.ics)
 
 Each board can publish a read-only iCalendar feed that Google, Apple, Outlook
@@ -338,7 +358,8 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 |--------|------|---------|
 | `GET` | `/api/boards` | List active boards + summary meta (`?archived=1` → archived boards) |
 | `GET` | `/api/boards/:id` | Full board (columns + cards) |
-| `POST` | `/api/tasks` | Create a task (no `boardId` → Inbox; with `boardId` → that board) |
+| `POST` | `/api/tasks` | Create a task (with `boardId` → that board; otherwise a matching routing tag → that board's first lane; else → Inbox) |
+| `GET` | `/api/route-tags` | Every board's routing tags |
 | `PUT` | `/api/tasks/:id` | Update or move a task |
 | `GET` | `/api/tasks/query` | **Date-filtered task query** (see below) |
 | `GET` | `/api/search?q=` | Search cards across all boards |
@@ -361,6 +382,10 @@ curl -X POST https://kandeck.example.com/api/tasks \
   -H "X-API-Key: $KANDECK_API_KEY" -H "content-type: application/json" \
   -d '{"subject":"Buy milk","priority":"high","dueDate":"2026-08-01"}'
 ```
+
+Add `"tags": ["home"]` (or `"tags": "home, errands"`) and, if a board owns the
+`home` routing tag, the response is `{"target":"board","boardId":…,"boardName":"Home","routedBy":"home","card":{…}}`
+instead of an Inbox item. `POST /api/inbox` routes the same way.
 
 ### Query tasks (built for assistants)
 
@@ -432,7 +457,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.0.2 && git push origin v2.0.2
+git tag v2.1.0 && git push origin v2.1.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

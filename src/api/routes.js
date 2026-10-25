@@ -175,9 +175,22 @@ router.get('/tasks/query', wrap(async (req, res) => {
   res.json(await boards.queryTasks(req.query || {}));
 }));
 
+/** Tag routing for incoming tasks with no boardId: if one of the task's tags
+ *  is a board's routing tag, add it to that board's first lane; otherwise
+ *  return null (caller puts it in the Inbox). */
+async function routeByTags(body, defaultSource) {
+  const tags = boards.parseTags(body.tags);
+  const match = tags.length ? await boards.findBoardForTags(tags) : null;
+  if (!match) return null;
+  const card = await boards.addCard(match.board.id, null, { ...body, tags, source: body.source || defaultSource });
+  events.emit('card:created', { boardId: match.board.id, card });
+  return { target: 'board', boardId: match.board.id, boardName: match.board.name, routedBy: match.tag, card };
+}
+
 // Spec endpoint: create a task programmatically.
-// Routing: with a boardId it goes straight to that board; with no boardId it
-// lands in the Inbox for triage ("all new requests come into the inbox").
+// Routing: with a boardId it goes straight to that board; with no boardId, a
+// task whose tags match a board's routing tags goes to that board's first
+// lane; anything else lands in the Inbox for triage.
 router.post('/tasks', wrap(async (req, res) => {
   const body = req.body || {};
   if (body.boardId) {
@@ -185,9 +198,17 @@ router.post('/tasks', wrap(async (req, res) => {
     events.emit('card:created', { boardId: body.boardId, card });
     return res.status(201).json({ target: 'board', boardId: body.boardId, card });
   }
-  const item = await inbox.addItem({ ...body, source: body.source || 'api' });
+  const routed = await routeByTags(body, 'api');
+  if (routed) return res.status(201).json(routed);
+  const item = await inbox.addItem({ ...body, tags: boards.parseTags(body.tags), source: body.source || 'api' });
   events.emit('inbox:created', { item });
   res.status(201).json({ target: 'inbox', item });
+}));
+
+// Every board's routing tags (for the board-settings duplicate check).
+router.get('/route-tags', wrap(async (req, res) => {
+  const map = await boards.getRouteTagMap();
+  res.json({ tags: [...map.values()] });
 }));
 
 // Spec endpoint: update a task (edit fields, move columns).
@@ -406,7 +427,11 @@ router.get('/inbox', wrap(async (req, res) => {
 }));
 
 router.post('/inbox', wrap(async (req, res) => {
-  const item = await inbox.addItem({ ...(req.body || {}), source: req.body?.source || 'ui' });
+  const body = req.body || {};
+  // Tag routing applies here too, so pushes to /api/inbox behave like /api/tasks.
+  const routed = await routeByTags(body, 'api');
+  if (routed) return res.status(201).json(routed);
+  const item = await inbox.addItem({ ...body, tags: boards.parseTags(body.tags), source: body.source || 'ui' });
   events.emit('inbox:created', { item });
   res.status(201).json(item);
 }));

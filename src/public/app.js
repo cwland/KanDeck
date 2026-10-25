@@ -525,8 +525,57 @@
     renderLaneEditor(b.columns);
     loadArchive();
     renderIcs(b.ics);
+    openRouteTags(b);
     boardModal.hidden = false;
   }
+
+  // ---- Routing tags (board settings) ----
+  // Edited locally; saved with the board's Save button. Duplicates across
+  // boards are caught here (from /route-tags) and again by the server.
+  let routeTags = [];
+  let otherBoardTags = new Map(); // normalized tag → { tag, boardName, archived }
+  const normTag = (t) => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  function tagError(msg) { const e = $('#bmTagErr'); e.textContent = msg || ''; e.hidden = !msg; }
+  function renderRouteTags() {
+    const ul = $('#bmTagList'); ul.innerHTML = '';
+    routeTags.forEach((t, i) => {
+      const li = document.createElement('li');
+      li.className = 'route-tag';
+      li.innerHTML = `<span>${esc(t)}</span>`;
+      const x = document.createElement('button');
+      x.type = 'button'; x.className = 'route-tag-x'; x.textContent = '×'; x.title = `Remove "${t}"`;
+      x.onclick = () => { routeTags.splice(i, 1); tagError(''); renderRouteTags(); };
+      li.appendChild(x); ul.appendChild(li);
+    });
+  }
+  async function openRouteTags(b) {
+    routeTags = [...(b.routeTags || [])];
+    $('#bmTagInput').value = ''; tagError('');
+    renderRouteTags();
+    otherBoardTags = new Map();
+    try {
+      const { tags } = await api('/route-tags');
+      tags.forEach((t) => { if (t.boardId !== b.id) otherBoardTags.set(normTag(t.tag), t); });
+    } catch {}
+  }
+  function addRouteTags() {
+    const parts = $('#bmTagInput').value.split(',').map((t) => t.trim().replace(/\s+/g, ' ')).filter(Boolean);
+    if (!parts.length) return;
+    const errs = [];
+    for (const t of parts) {
+      if (t.length > 40) { errs.push(`"${t.slice(0, 20)}…" is too long (max 40 characters).`); continue; }
+      const owner = otherBoardTags.get(normTag(t));
+      if (owner) { errs.push(`"${t}" is already used by board "${owner.boardName}"${owner.archived ? ' (archived)' : ''}.`); continue; }
+      if (routeTags.some((x) => normTag(x) === normTag(t))) { errs.push(`"${t}" is already on this board.`); continue; }
+      routeTags.push(t);
+    }
+    tagError(errs.join(' '));
+    $('#bmTagInput').value = errs.length ? parts.filter((t) => !routeTags.includes(t)).join(', ') : '';
+    renderRouteTags();
+    $('#bmTagInput').focus();
+  }
+  $('#bmTagAdd').onclick = addRouteTags;
+  $('#bmTagInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addRouteTags(); } };
 
   // ---- Lane manager (board settings) ----
   function renderLaneEditor(columns) {
@@ -812,20 +861,31 @@
   $('#bmSave').onclick = async () => {
     const name = $('#bmName').value.trim();
     if (!name) { toast('Board title is required'); $('#bmName').focus(); return; }
-    await api('/boards/' + state.boardId, {
-      method: 'PUT',
-      body: {
-        name,
-        description: $('#bmDesc').value,
-        settings: {
-          autoArchiveDays: Math.max(0, parseInt($('#bmAutoArchive').value, 10) || 0),
-          cardFields: {
-            priority: $('#cfPriority').checked, dueDate: $('#cfDue').checked,
-            tags: $('#cfTags').checked, source: $('#cfSource').checked,
+    // A tag typed but not yet added counts too.
+    if ($('#bmTagInput').value.trim()) { addRouteTags(); if (!$('#bmTagErr').hidden) return; }
+    try {
+      await api('/boards/' + state.boardId, {
+        method: 'PUT',
+        body: {
+          name,
+          description: $('#bmDesc').value,
+          routeTags,
+          settings: {
+            autoArchiveDays: Math.max(0, parseInt($('#bmAutoArchive').value, 10) || 0),
+            cardFields: {
+              priority: $('#cfPriority').checked, dueDate: $('#cfDue').checked,
+              tags: $('#cfTags').checked, source: $('#cfSource').checked,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (e) {
+      // e.g. a routing tag another board grabbed meanwhile — keep the modal open.
+      tagError(e.message || 'Could not save');
+      $('#bmTagErr').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      toast('Board not saved — see the error');
+      return;
+    }
     await saveLanes();
     state.newBoardId = null; // committed — no rollback
     boardModal.hidden = true;

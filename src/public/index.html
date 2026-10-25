@@ -411,6 +411,17 @@
           </div>
 
           <div class="field">
+            <label>Routing tags <small>(auto-route incoming tasks to this board)</small></label>
+            <div class="route-tag-add">
+              <input id="bmTagInput" type="text" maxlength="40" placeholder="Type a tag, e.g. home" autocomplete="off" />
+              <button type="button" class="btn ghost" id="bmTagAdd">Add</button>
+            </div>
+            <div class="route-tag-error" id="bmTagErr" hidden></div>
+            <ul class="route-tags" id="bmTagList"></ul>
+            <p class="hint">A task pushed to KanDeck (API, n8n, scripts) without a board but with one of these tags goes straight into this board's <b>first lane</b>. Tasks with no matching tag still go to the Inbox. Each tag can belong to only one board; matching ignores upper/lower case.</p>
+          </div>
+
+          <div class="field">
             <label>Lanes <small>(drag to reorder · the last lane is always the done lane)</small></label>
             <ul class="lane-editor" id="laneEditor"></ul>
             <button type="button" class="btn ghost" id="addLaneBtn">＋ Add lane</button>

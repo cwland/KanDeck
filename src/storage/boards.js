@@ -295,6 +295,8 @@ export async function createBoard({ name, description = '' }) {
     columns,
     archived: false,
     archivedAt: null,
+    // Tags that auto-route incoming API tasks to this board's first lane.
+    routeTags: [],
     // Calendar feed: off until enabled. token is a secret capability URL part.
     ics: { token: null, includeDescriptions: false, includeCompleted: false },
   };
@@ -303,10 +305,80 @@ export async function createBoard({ name, description = '' }) {
   return board;
 }
 
+// ---- Routing tags ------------------------------------------------------------
+// Each board can own a set of tags. A task pushed through the API without a
+// boardId whose tags match one of them goes straight to that board's first
+// lane instead of the Inbox. A tag can belong to only one board (checked
+// across ALL boards, archived ones included, so restoring a board can never
+// create a clash). Matching is case-insensitive.
+
+export function normalizeTag(t) {
+  return String(t ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** Accepts an array or a comma-separated string; returns clean display tags. */
+export function parseTags(input) {
+  const list = Array.isArray(input) ? input : typeof input === 'string' ? input.split(',') : [];
+  return list.map((t) => String(t ?? '').trim().replace(/\s+/g, ' ')).filter(Boolean);
+}
+
+/** Map of normalized tag → { tag, boardId, boardName, archived } for every board. */
+export async function getRouteTagMap() {
+  const idx = await readIndex();
+  const map = new Map();
+  for (const entry of idx.boards) {
+    const b = await getBoard(entry.id);
+    if (!b) continue;
+    for (const tag of b.routeTags || [])
+      map.set(normalizeTag(tag), { tag, boardId: b.id, boardName: b.name, archived: !!b.archived });
+  }
+  return map;
+}
+
+/** Validate a board's routing tags: trims, de-dupes within the board, and
+ *  throws a readable error if any tag already belongs to another board. */
+async function validateRouteTags(boardId, tags) {
+  const clean = [];
+  const seen = new Set();
+  for (const t of parseTags(tags)) {
+    if (t.length > 40) throw new Error(`Tag "${t.slice(0, 20)}…" is too long (max 40 characters).`);
+    const k = normalizeTag(t);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    clean.push(t);
+  }
+  const map = await getRouteTagMap();
+  for (const t of clean) {
+    const owner = map.get(normalizeTag(t));
+    if (owner && owner.boardId !== boardId)
+      throw new Error(`Tag "${t}" is already used by board "${owner.boardName}"${owner.archived ? ' (archived)' : ''}. Each tag can belong to only one board.`);
+  }
+  return clean;
+}
+
+/** First active board whose routing tags match one of `tags` (checked in the
+ *  task's tag order). Returns { board, tag } or null. */
+export async function findBoardForTags(tags) {
+  const wanted = parseTags(tags);
+  if (!wanted.length) return null;
+  const map = await getRouteTagMap();
+  for (const t of wanted) {
+    const owner = map.get(normalizeTag(t));
+    if (owner && !owner.archived) {
+      const board = await getBoard(owner.boardId);
+      if (board && !board.archived && board.columns.length) return { board, tag: owner.tag };
+    }
+  }
+  return null;
+}
+
 export async function updateBoard(id, patch) {
+  // Validate routing tags before taking the lock (reads other boards).
+  const routeTags = patch.routeTags !== undefined ? await validateRouteTags(id, patch.routeTags) : undefined;
   return withLock(boardFile(id), async () => {
     const board = await readJson(boardFile(id), null);
     if (!board) return null;
+    if (routeTags !== undefined) board.routeTags = routeTags;
     if (patch.name !== undefined) board.name = patch.name;
     if (patch.description !== undefined) board.description = patch.description;
     if (patch.settings) board.settings = { ...board.settings, ...patch.settings };
