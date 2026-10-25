@@ -19,6 +19,7 @@ import { startNotifications } from './services/notify.js';
 import { icsHandler } from './services/ics.js';
 
 const app = express();
+const HSTS_HOST = (() => { try { return config.appUrl ? new URL(config.appUrl).hostname.toLowerCase() : ''; } catch { return ''; } })();
 app.disable('x-powered-by');
 app.set('trust proxy', config.trustProxy);
 
@@ -43,9 +44,12 @@ app.use((req, res, next) => {
       "frame-ancestors 'none'",
     ].join('; '),
   });
-  // HSTS only when the request actually arrived over HTTPS (req.secure honors
-  // TRUST_PROXY + X-Forwarded-Proto), so plain-HTTP LAN access keeps working.
-  if (req.secure) res.set('Strict-Transport-Security', 'max-age=15552000');
+  // HSTS only for the public hostname in APP_URL, and only over HTTPS
+  // (req.secure honors TRUST_PROXY + X-Forwarded-Proto). Internal/LAN names
+  // never get it, so a browser can still click past a self-signed or
+  // mismatched internal certificate. No APP_URL → no HSTS.
+  if (req.secure && HSTS_HOST && req.hostname === HSTS_HOST)
+    res.set('Strict-Transport-Security', 'max-age=15552000');
   next();
 });
 

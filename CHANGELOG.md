@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.0.1 — 2026-10-25
+
+- **Fix:** the HSTS security header is now sent only for your public hostname (`APP_URL`). A second, internal proxy name no longer gets pinned, so browsers don't block it with "invalid certificate" if its certificate isn't perfect.
+
 ## 2.0.0 — 2026-10-25
 
 - **Username + password login.** After upgrading, sign in once with your existing password and choose a username — your boards, settings and API key are untouched, and a full **pre-upgrade backup** is taken automatically first.

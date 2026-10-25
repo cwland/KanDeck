@@ -206,7 +206,8 @@ What KanDeck does on its own: bcrypt-hashed password, `httpOnly` + `SameSite`
 session cookies that can be revoked (**Log out all sessions**, password
 change), a first-run setup that strangers can't claim (local network or
 `SETUP_TOKEN` only), security headers on every response (CSP, `X-Frame-Options`,
-`nosniff`, `no-referrer`, and HSTS over HTTPS), and no `X-Powered-By`.
+`nosniff`, `no-referrer`, and HSTS — sent only over HTTPS for the hostname in
+`APP_URL`, so internal/LAN proxy names are never pinned), and no `X-Powered-By`.
 
 ---
 
@@ -431,7 +432,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.0.0 && git push origin v2.0.0
+git tag v2.0.1 && git push origin v2.0.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without
