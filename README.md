@@ -43,8 +43,8 @@ board.
 
 - **Boards, columns, cards** with drag-and-drop (within and between columns);
   add / rename / reorder / delete columns per board.
-- **Cards** with subject, Markdown description, due date, priority, tags, and
-  archive. The **last lane is always the done lane** — cards get a completed
+- **Cards** with subject, Markdown description, due date, an optional
+  **alarm** (reminder date-time), priority, tags, and archive. The **last lane is always the done lane** — cards get a completed
   date when they land there, and can auto-archive after N days.
 - **Archive boards** instead of deleting them; restore or permanently delete
   from **App Settings → Archives**.
@@ -327,6 +327,10 @@ Calendar feed**, then **Copy** the link or click **Subscribe**.
 - Cards **with** a due date → all-day `VEVENT`s on that date.
 - Cards **without** a due date → `VTODO`s. (Google Calendar ignores to-dos;
   Apple/Outlook/Thunderbird support varies for subscribed feeds.)
+- A card's **alarm** becomes a `VALARM` reminder at that exact time (dropped
+  once the card is done). Heads-up: many apps ignore alarms in *subscribed*
+  calendars — Google Calendar always does, and Apple Calendar does unless you
+  untick **Remove alerts** in the subscription's settings.
 - Options: **Include card descriptions** and **Include done tasks** (both off
   by default). Archived cards and archived boards are never published.
 
@@ -387,6 +391,10 @@ curl -X POST https://kandeck.example.com/api/tasks \
   -H "X-API-Key: $KANDECK_API_KEY" -H "content-type: application/json" \
   -d '{"subject":"Buy milk","priority":"high","dueDate":"2026-08-01"}'
 ```
+
+Add `"alarm": "2026-08-01T09:00:00-06:00"` to set a reminder (include the
+time-zone offset; send `null` to clear it). It's kept when the task moves from
+the Inbox to a board and is published to calendar feeds.
 
 Add `"tags": ["home"]` (or `"tags": "home, errands"`) and, if a board owns the
 `home` routing tag, the response is `{"target":"board","boardId":…,"boardName":"Home","routedBy":"home","card":{…}}`
@@ -468,7 +476,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.3.0 && git push origin v2.3.0
+git tag v2.4.0 && git push origin v2.4.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

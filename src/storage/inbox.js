@@ -5,7 +5,7 @@
  */
 import config from '../config.js';
 import { readJson, updateJson, ensureDir } from './store.js';
-import { newId, nowIso } from '../util.js';
+import { newId, nowIso, parseAlarm } from '../util.js';
 import * as boards from './boards.js';
 
 const EMPTY = { items: [] };
@@ -28,6 +28,7 @@ export async function addItem(input = {}) {
     description: input.description || '',
     priority: input.priority || 'none',
     dueDate: input.dueDate || null,
+    alarm: parseAlarm(input.alarm),
     tags: Array.isArray(input.tags) ? input.tags : [],
     source: input.source || 'api',
     createdAt: nowIso(),
@@ -46,6 +47,7 @@ export async function addItem(input = {}) {
 
 export async function updateItem(id, patch = {}) {
   let updated = null;
+  const alarm = patch.alarm !== undefined ? parseAlarm(patch.alarm) : undefined; // validate before writing
   await updateJson(
     config.inboxFile,
     (inbox) => {
@@ -55,6 +57,7 @@ export async function updateItem(id, patch = {}) {
         for (const k of ['subject', 'description', 'priority', 'dueDate', 'tags', 'source']) {
           if (patch[k] !== undefined) item[k] = patch[k];
         }
+        if (alarm !== undefined) item.alarm = alarm;
         updated = item;
       }
       return inbox;
@@ -114,6 +117,7 @@ export async function moveToBoard(id, boardId, columnId, index) {
     description: item.description,
     priority: item.priority,
     dueDate: item.dueDate,
+    alarm: item.alarm || null,
     tags: item.tags,
     source: item.source,
   });

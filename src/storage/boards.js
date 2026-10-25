@@ -6,7 +6,7 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
 import config from '../config.js';
-import { newId, nowIso, dueInDays } from '../util.js';
+import { newId, nowIso, dueInDays, parseAlarm } from '../util.js';
 import { getLaneColors, getPriorities, DEFAULT_LANE_COLORS } from './settings.js';
 import {
   readJson,
@@ -598,6 +598,7 @@ export function makeCard(input = {}) {
     description: input.description || '',
     createdAt: nowIso(),
     dueDate: input.dueDate || null,
+    alarm: parseAlarm(input.alarm), // reminder date-time (ISO, UTC) or null
     priority: input.priority || 'none', // urgent|high|medium|low|none
     tags: Array.isArray(input.tags) ? input.tags : [],
     source: input.source || null, // provenance (from inbox item or 'manual')
@@ -639,6 +640,7 @@ export async function updateCard(boardId, cardId, patch) {
     ]) {
       if (patch[key] !== undefined) card[key] = patch[key];
     }
+    if (patch.alarm !== undefined) card.alarm = parseAlarm(patch.alarm);
     if (patch.archived !== undefined && !!patch.archived !== !!card.archived) {
       card.archived = !!patch.archived;
       if (card.archived) {
@@ -835,6 +837,7 @@ export async function queryTasks(opts = {}) {
           columnId: col.id, columnName: col.name,
           cardId: card.id, subject: card.subject,
           dueDate: card.dueDate || null, dueInDays: dueDays, overdue,
+          alarm: card.alarm || null,
           priority: card.priority || 'none', priorityName: prioName(card.priority || 'none'),
           tags: card.tags || [], source: card.source || null,
           complete: isComplete, completedAt: card.completedAt || null, completedDaysAgo,

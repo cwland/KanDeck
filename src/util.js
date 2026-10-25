@@ -30,6 +30,18 @@ export function dueInDays(dueDate, now = new Date()) {
   return Math.round((due - start) / 86400000);
 }
 
+/** Normalize a card/inbox alarm (reminder) to an ISO-8601 UTC string, or null
+ *  to clear it. Accepts any date-time Date.parse understands — include an
+ *  offset (e.g. 2026-10-30T09:00:00-06:00) so the time zone is unambiguous;
+ *  a bare "2026-10-30T09:00" is read in the server's time zone. Throws a
+ *  readable error for garbage so API callers find out. */
+export function parseAlarm(v) {
+  if (v === undefined || v === null || v === '' || v === false) return null;
+  const t = Date.parse(String(v));
+  if (Number.isNaN(t)) throw new Error('alarm must be a date-time, e.g. "2026-10-30T09:00:00-06:00"');
+  return new Date(t).toISOString();
+}
+
 /** slugify a board name into a safe filename stem. */
 export function slugify(s) {
   return (

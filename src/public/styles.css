@@ -517,6 +517,15 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .card .card-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; align-items: center; }
 .badge { font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; line-height: 1.4; }
 .badge.due { background: var(--surface-2); color: var(--text-dim); }
+.alarm-badge { background: #fff4e6; color: #d9480f; }
+.alarm-badge.past { background: #f1f3f5; color: #868e96; text-decoration: line-through; }
+.alarm-input { display: flex; gap: 4px; align-items: center; }
+.alarm-input input { flex: 1; min-width: 0; }
+.alarm-clear {
+  width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 8px; cursor: pointer;
+  background: var(--surface-2); color: var(--text-dim); font-size: .8rem;
+}
+.alarm-clear:hover { background: #ffe3e3; color: #e03131; }
 .badge.due.overdue { background: #ffe3e3; color: #c92a2a; }
 .tag-chip { font-size: .66rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
 .add-card {
@@ -606,7 +615,7 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .modal-body small { text-transform: none; font-weight: 400; }
 .modal-body input[type=text], .modal-body input[type=date], .modal-body input[type=url],
 .modal-body input[type=password], .modal-body input[type=number], .modal-body input[type=email],
-.modal-body input[type=search], .modal-body input[type=time], .modal-body textarea, .modal-body select {
+.modal-body input[type=search], .modal-body input[type=time], .modal-body input[type=datetime-local], .modal-body textarea, .modal-body select {
   width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--text); font-size: .92rem; font-family: inherit;
 }

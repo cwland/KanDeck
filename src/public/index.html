@@ -128,9 +128,18 @@
             </div>
           </div>
 
-          <div class="field">
-            <label>Tags <small>(comma separated)</small></label>
-            <input id="cardTags" type="text" placeholder="design, backend, urgent" />
+          <div class="field-row">
+            <div class="field">
+              <label>Alarm <small>(reminder)</small></label>
+              <div class="alarm-input">
+                <input id="cardAlarm" type="datetime-local" />
+                <button type="button" class="alarm-clear" id="cardAlarmClear" title="Clear alarm" aria-label="Clear alarm">✕</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>Tags <small>(comma separated)</small></label>
+              <input id="cardTags" type="text" placeholder="design, backend, urgent" />
+            </div>
           </div>
 
           <p class="created-at" id="cardCreated"></p>
@@ -177,8 +186,8 @@
 
             <label>Change username</label>
             <div class="field-row">
-              <div class="field"><label>Username</label><input id="acUsername" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" /></div>
-              <div class="field"><label>Current password</label><input id="acUserPw" type="password" autocomplete="current-password" /></div>
+              <div class="field"><label>Username</label><input id="acUsername" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" /></div>
+              <div class="field"><label>Current password</label><input id="acUserPw" type="password" autocomplete="off" /></div>
             </div>
             <div class="ai-test-row">
               <button type="button" class="btn ghost" id="acUserSave">Save username</button>
@@ -187,9 +196,9 @@
 
             <label style="margin-top:18px">Change password</label>
             <div class="field-row">
-              <div class="field"><label>Current password</label><input id="acCurPw" type="password" autocomplete="current-password" /></div>
-              <div class="field"><label>New password <small id="acMin">(min 12)</small></label><input id="acNewPw" type="password" autocomplete="new-password" /></div>
-              <div class="field"><label>Confirm new</label><input id="acNewPw2" type="password" autocomplete="new-password" /></div>
+              <div class="field"><label>Current password</label><input id="acCurPw" type="password" autocomplete="off" /></div>
+              <div class="field"><label>New password <small id="acMin">(min 12)</small></label><input id="acNewPw" type="password" autocomplete="off" /></div>
+              <div class="field"><label>Confirm new</label><input id="acNewPw2" type="password" autocomplete="off" /></div>
             </div>
             <div class="ai-test-row">
               <button type="button" class="btn ghost" id="acPwSave">Change password</button>
@@ -433,6 +442,7 @@
                 <label><input type="checkbox" id="cfDue" /> Due date</label>
                 <label><input type="checkbox" id="cfTags" /> Labels</label>
                 <label><input type="checkbox" id="cfSource" /> Source</label>
+              <label><input type="checkbox" id="cfAlarm" /> Alarm</label>
               </div>
             </div>
           </section>

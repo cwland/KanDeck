@@ -4,6 +4,13 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.4.0 — 2026-10-25
+
+- **Alarms** — set a reminder date and time on any card (or Inbox item) in the card window. Cards show an ⏰ badge (toggle it under Board settings → Show on cards).
+- API pushes can include `"alarm"` (e.g. `"2026-10-30T09:00:00-06:00"`); it's kept when an item moves from the Inbox to a board.
+- Calendar feeds include the alarm as a reminder (`VALARM`). Note that some calendar apps ignore alarms in subscribed calendars.
+- **Fix:** password managers (1Password, Bitwarden, LastPass, Dashlane) no longer pop up on the settings windows' fields. The sign-in page still works with them.
+
 ## 2.3.0 — 2026-10-25
 
 - **Reset all cards** (for testing) — **App Settings → Backups → Danger zone**. Deletes every card on every board (active and archived) and empties the Inbox, while keeping boards, lanes, tags, feeds and settings. Asks you to type `RESET`, and takes a **Pre-reset** backup first so it can be undone.

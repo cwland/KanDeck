@@ -33,6 +33,22 @@
     }
   }
 
+  // ---- Keep password managers out of the app's own fields ----
+  // The settings windows contain username/password boxes (Account tab, SMTP
+  // password) that aren't a login form, so 1Password & co. kept popping up
+  // while clicking through tabs. Mark every field in the app shell as "ignore"
+  // for the common managers. The sign-in page (login.html) is untouched, so
+  // your password manager still fills the real login there.
+  const PM_IGNORE = { 'data-1p-ignore': 'true', 'data-lpignore': 'true', 'data-bwignore': 'true', 'data-form-type': 'other' };
+  function pmIgnore(root) {
+    const els = root.matches && root.matches('input, textarea, select') ? [root] : [];
+    if (root.querySelectorAll) els.push(...root.querySelectorAll('input, textarea, select'));
+    for (const el of els) for (const [k, v] of Object.entries(PM_IGNORE)) if (el.getAttribute(k) !== v) el.setAttribute(k, v);
+  }
+  pmIgnore(document.body);
+  new MutationObserver((muts) => { for (const m of muts) m.addedNodes.forEach((n) => n.nodeType === 1 && pmIgnore(n)); })
+    .observe(document.body, { childList: true, subtree: true });
+
   // ---- App-level categories (a.k.a. priorities) ----
   function priObj(id) { return (state.priorities || []).find((p) => p.id === id); }
   function priColor(id) { const p = priObj(id); return p ? p.color : null; }
@@ -40,7 +56,7 @@
   function priName(id) { const p = priObj(id); return p ? p.name : id; }
   // Which fields to show on cards (per board; priority + due date on by default).
   function cardFields() {
-    return { priority: true, dueDate: true, tags: false, source: false, ...((state.board && state.board.settings.cardFields) || {}) };
+    return { priority: true, dueDate: true, tags: false, source: false, alarm: true, ...((state.board && state.board.settings.cardFields) || {}) };
   }
   // The last lane is always the done lane, whatever it's called.
   function doneColId(board = state.board) {
@@ -290,6 +306,7 @@
       const cd = new Date(card.completedAt);
       badges += `<span class="badge done-badge" title="Completed ${esc(cd.toLocaleString())}">✓ ${cd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
+    if (cf.alarm && card.alarm && !card.complete) badges += alarmBadge(card.alarm, 'badge');
     if (cf.source && card.source) {
       const s = state.badges.source;
       badges += `<span class="tag-chip" style="background:${s.color};color:${s.textColor}">${esc(card.source)}</span>`;
@@ -420,6 +437,25 @@
     const d = new Date(iso); const p = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   }
+  // Alarm: stored as ISO (UTC); edited in a local datetime-local input.
+  function toDateTimeLocal(iso) {
+    if (!iso) return '';
+    const d = new Date(iso); if (Number.isNaN(d.getTime())) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function alarmFromInput() {
+    const v = $('#cardAlarm').value;
+    return v ? new Date(v).toISOString() : null; // datetime-local is local time
+  }
+  function alarmBadge(alarm, cls) {
+    if (!alarm) return '';
+    const d = new Date(alarm); if (Number.isNaN(d.getTime())) return '';
+    const past = d < new Date();
+    const when = d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return `<span class="${cls} alarm-badge${past ? ' past' : ''}" title="Alarm: ${esc(d.toLocaleString())}${past ? ' (passed)' : ''}">⏰ ${esc(when)}</span>`;
+  }
+  $('#cardAlarmClear').onclick = () => { $('#cardAlarm').value = ''; };
   function buildPriorityOptions() {
     const sel = $('#cardPriority'); sel.innerHTML = '';
     (state.priorities || []).forEach((p) => {
@@ -438,6 +474,7 @@
     $('#cardDesc').value = card.description || '';
     $('#cardPriority').value = card.priority || 'none';
     $('#cardDue').value = toDateInput(card.dueDate);
+    $('#cardAlarm').value = toDateTimeLocal(card.alarm);
     $('#cardTags').value = (card.tags || []).join(', ');
     // Completed date shows only while the card sits in the done (last) lane.
     const doneCol = (state.board.columns || []).find((c) => c.id === doneColId());
@@ -463,6 +500,7 @@
     $('#cardDesc').value = '';
     $('#cardPriority').value = priObj('low') ? 'low' : (state.priorities[1]?.id || 'none');
     $('#cardDue').value = '';
+    $('#cardAlarm').value = '';
     $('#cardTags').value = '';
     $('#cardCreated').textContent = '';
     $('#cardDelete').style.display = 'none';
@@ -479,6 +517,7 @@
       description: $('#cardDesc').value,
       priority: $('#cardPriority').value,
       dueDate: $('#cardDue').value ? new Date($('#cardDue').value + 'T00:00:00').toISOString() : null,
+      alarm: alarmFromInput(),
       tags: $('#cardTags').value.split(',').map((t) => t.trim()).filter(Boolean),
     };
     if (state.editingInboxId) {
@@ -521,7 +560,7 @@
     $('#bmAutoArchive').value = b.settings.autoArchiveDays || 0;
     const cf = cardFields();
     $('#cfPriority').checked = cf.priority; $('#cfDue').checked = cf.dueDate;
-    $('#cfTags').checked = cf.tags; $('#cfSource').checked = cf.source;
+    $('#cfTags').checked = cf.tags; $('#cfSource').checked = cf.source; $('#cfAlarm').checked = cf.alarm;
     renderLaneEditor(b.columns);
     loadArchive();
     renderIcs(b.ics);
@@ -952,7 +991,7 @@
             autoArchiveDays: Math.max(0, parseInt($('#bmAutoArchive').value, 10) || 0),
             cardFields: {
               priority: $('#cfPriority').checked, dueDate: $('#cfDue').checked,
-              tags: $('#cfTags').checked, source: $('#cfSource').checked,
+              tags: $('#cfTags').checked, source: $('#cfSource').checked, alarm: $('#cfAlarm').checked,
             },
           },
         },
@@ -1409,6 +1448,7 @@
       badges += `<span class="tag-chip" style="background:${pc};color:${tc}">${esc(priName(it.priority))}</span>`;
     }
     (it.tags || []).forEach((t) => { badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`; });
+    badges += alarmBadge(it.alarm, 'tag-chip');
     const src = state.badges.source;
     li.innerHTML =
       `<button class="ic-del" title="Dismiss" aria-label="Dismiss inbox item">✕</button>` +
@@ -1491,6 +1531,7 @@
     $('#cardDesc').value = item.description || '';
     $('#cardPriority').value = item.priority || 'none';
     $('#cardDue').value = toDateInput(item.dueDate);
+    $('#cardAlarm').value = toDateTimeLocal(item.alarm);
     $('#cardTags').value = (item.tags || []).join(', ');
     const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Api');
     $('#cardCreated').textContent = 'Inbox item · Source: ' + cap(item.source || 'api');

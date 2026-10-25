@@ -94,6 +94,12 @@ function itemLines(card, ctx) {
     `DESCRIPTION:${escText(desc)}`,
     ...(card.priority && card.priority !== 'none' ? [`CATEGORIES:${escText(prioName(card.priority))}`] : []),
   ];
+  // Alarm → a VALARM at that exact moment (absolute trigger, so it works for
+  // all-day events and undated to-dos alike). Not emitted once a card is done.
+  const alarmAt = card.alarm && !card.complete && !Number.isNaN(Date.parse(card.alarm)) ? utcStamp(new Date(card.alarm)) : null;
+  const valarm = alarmAt
+    ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escText(card.subject)}`, `TRIGGER;VALUE=DATE-TIME:${alarmAt}`, 'END:VALARM']
+    : [];
   if (due) {
     // Dated → all-day event on its due date.
     return [
@@ -102,6 +108,7 @@ function itemLines(card, ctx) {
       `DTSTART;VALUE=DATE:${ymdStr(due)}`,
       `DTEND;VALUE=DATE:${ymdStr(nextDay(due))}`,
       'TRANSP:TRANSPARENT', // all-day reminders shouldn't block free/busy
+      ...valarm,
       'END:VEVENT',
     ];
   }
@@ -111,6 +118,7 @@ function itemLines(card, ctx) {
     ...common,
     `STATUS:${card.complete ? 'COMPLETED' : 'NEEDS-ACTION'}`,
     ...(card.complete && completed ? [`COMPLETED:${completed}`, 'PERCENT-COMPLETE:100'] : []),
+    ...valarm,
     'END:VTODO',
   ];
 }
