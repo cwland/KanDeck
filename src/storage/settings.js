@@ -275,6 +275,18 @@ export async function setLastOccurrence(channel, key) {
   }, DEFAULTS);
 }
 
+// ---- "What's new" window: last app version whose changelog was dismissed ----
+export async function getLastSeenVersion() {
+  const s = await readJson(config.settingsFile, DEFAULTS);
+  return (s && s.lastSeenVersion) || null;
+}
+
+export async function setLastSeenVersion(version) {
+  const v = String(version || '').match(/^\d+\.\d+\.\d+$/) ? String(version) : null;
+  await updateJson(config.settingsFile, (s) => ({ ...DEFAULTS, ...(s || {}), lastSeenVersion: v }), DEFAULTS);
+  return v;
+}
+
 export async function getBackupConfig() {
   return fillBackup((await readJson(config.settingsFile, DEFAULTS)).backup);
 }

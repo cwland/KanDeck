@@ -50,6 +50,8 @@ your board.
   from **App Settings → Archives**.
 - **Calendar feed** — a per-board, read-only `.ics` subscription link (dated
   cards as events, undated cards as to-dos).
+- **What's new** — after an update, a window shows the new version's changes
+  and the 10 releases before it; click the version number to reopen it.
 - **App-level categories** (priorities) with editable, high-contrast colors that
   apply across every board.
 - **Inbox** — a capture area fed by the REST API / webhooks. Drag items onto a
@@ -224,6 +226,11 @@ reload; the app returns to the first-run "create password" screen.
   **Archive board**.
 - **Inbox**: items arriving via the API land here for triage — drag them onto a
   board or use the card's **⋮** menu to send it to a board's first column.
+- **What's new**: the first time you open KanDeck after an update, a window
+  lists what changed in the new version plus the previous 10 releases (newest
+  first). Dismiss it and it won't appear again until the next version. Click the
+  **version number** (bottom-right, or at the bottom of the Inbox) to reopen it.
+  Release notes live in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -289,6 +296,8 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 | `PUT` | `/api/tasks/:id` | Update or move a task |
 | `GET` | `/api/tasks/query` | **Date-filtered task query** (see below) |
 | `GET` | `/api/search?q=` | Search cards across all boards |
+| `GET` | `/api/changelog` | Current version's release notes + previous 10, and whether they've been seen |
+| `PUT` | `/api/changelog/seen` | Mark the running version's notes as seen |
 | `GET` | `/api/inbox` · `POST` `/api/inbox` · `POST` `/api/inbox/:id/move` | Inbox |
 | `POST` | `/api/boards/:id/archive` · `/api/boards/:id/unarchive` | Archive / restore a board |
 | `DELETE` | `/api/boards/:id` | Permanently delete a board |
@@ -391,10 +400,13 @@ GitHub Container Registry on every push to `main` and on version tags:
 
 It authenticates with the built-in `GITHUB_TOKEN` (no secrets to configure).
 After the first run, set the package to **Public** in your repo's Packages
-settings if you want anyone to pull it. To cut a release:
+settings if you want anyone to pull it. To cut a release, bump `version` in
+`package.json`, add a `## <version> — <date>` section to the top of
+[`CHANGELOG.md`](CHANGELOG.md) (that's what the in-app **What's new** window
+shows), then:
 
 ```bash
-git tag v1.1.0 && git push origin v1.1.0
+git tag v1.2.0 && git push origin v1.2.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

@@ -56,7 +56,7 @@
           <button class="icon-btn ghost-icon" id="inboxHide" title="Hide inbox">✕</button>
         </header>
         <ul class="inbox-list" id="inboxList"></ul>
-        <p class="inbox-version" id="inboxVersion"></p>
+        <p class="inbox-version" id="inboxVersion" role="button" tabindex="0" title="What's new in this version"></p>
       </aside>
 
       <div class="main-area" id="mainArea">
@@ -83,6 +83,7 @@
 
     <!-- ===== Floating zoom bubble (bottom-right): left half = out, right = in ===== -->
     <div class="zoom-bubble" id="zoomBubble">
+      <button class="version-chip" id="versionChip" title="What's new in this version"></button>
       <span class="zb-label" id="zbLabel">100%</span>
       <div class="zb-halves" role="group" aria-label="Zoom">
         <button class="zb-half zb-out" id="zbOut" title="Zoom out" aria-label="Zoom out">−</button>
@@ -448,6 +449,21 @@
           <span class="spacer"></span>
           <button class="btn ghost" id="bmCancel">Cancel</button>
           <button class="btn primary" id="bmSave">Save</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ===== What's new (changelog) modal ===== -->
+    <div class="modal-backdrop" id="whatsNewModal" hidden>
+      <div class="modal whats-new" role="dialog" aria-modal="true" aria-labelledby="wnTitle">
+        <header class="modal-head">
+          <h2 id="wnTitle">What's new</h2>
+          <button class="icon-btn" id="wnClose" title="Close">✕</button>
+        </header>
+        <div class="modal-body" id="wnBody"></div>
+        <footer class="modal-foot">
+          <span class="spacer"></span>
+          <button class="btn primary" id="wnOk">Got it</button>
         </footer>
       </div>
     </div>

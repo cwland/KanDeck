@@ -63,7 +63,10 @@
     if (s.badges) state.badges = s.badges;
     state.themeId = s.theme || window.DEFAULT_THEME || 'light-blue';
     applyTheme(state.themeId);
-    if (s.version) $('#inboxVersion').textContent = 'KanDeck v' + s.version;
+    if (s.version) {
+      $('#inboxVersion').textContent = 'KanDeck v' + s.version;
+      $('#versionChip').textContent = 'v' + s.version;
+    }
     if (window.initAIChat) window.initAIChat(s);
   }
 
@@ -1412,9 +1415,68 @@
     if (!e.target.closest('.search-box')) hideSearch();
   });
 
+  // ---- What's new (changelog) ----
+  // Shown automatically once per new version; dismissing marks that version as
+  // seen (server-side, so it follows you across browsers). Clicking the version
+  // number reopens it any time.
+  const whatsNewModal = $('#whatsNewModal');
+  let whatsNewUnseen = false;
+  const mdInline = (s) => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  const fmtRelDate = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+  function renderWhatsNew(data) {
+    const [cur, ...prev] = data.entries || [];
+    const updated = data.unseen && data.lastSeenVersion && data.lastSeenVersion !== data.current;
+    let html = `<div class="wn-banner">${updated
+      ? `Updated <span class="wn-ver old">v${esc(data.lastSeenVersion)}</span> → <span class="wn-ver">v${esc(data.current)}</span>`
+      : `You're on <span class="wn-ver">v${esc(data.current)}</span>`}</div>`;
+    const section = (e, isCurrent) => `
+      <section class="wn-entry${isCurrent ? ' current' : ''}">
+        <div class="wn-head">
+          <span class="wn-ver">v${esc(e.version)}</span>
+          ${isCurrent ? '<span class="wn-tag">Current</span>' : ''}
+          <span class="wn-date">${esc(fmtRelDate(e.date))}</span>
+        </div>
+        <ul>${(e.changes || []).map((c) => `<li>${mdInline(c)}</li>`).join('')}</ul>
+      </section>`;
+    if (!cur) html += '<p class="hint">No release notes found.</p>';
+    else {
+      html += section(cur, cur.version === data.current);
+      if (prev.length) html += `<div class="wn-sub">Previous updates</div>` + prev.map((e) => section(e, false)).join('');
+    }
+    $('#wnBody').innerHTML = html;
+    $('#wnBody').scrollTop = 0;
+  }
+  async function openWhatsNew(data) {
+    try { data = data || await api('/changelog'); } catch { toast('Could not load release notes'); return; }
+    whatsNewUnseen = !!data.unseen;
+    renderWhatsNew(data);
+    whatsNewModal.hidden = false;
+    requestAnimationFrame(() => $('#wnOk').focus());
+  }
+  function closeWhatsNew() {
+    whatsNewModal.hidden = true;
+    if (whatsNewUnseen) {
+      whatsNewUnseen = false;
+      api('/changelog/seen', { method: 'PUT' }).catch(() => {});
+    }
+  }
+  async function checkWhatsNew() {
+    try {
+      const data = await api('/changelog');
+      if (data.unseen && (data.entries || []).length) openWhatsNew(data);
+    } catch {}
+  }
+  $('#wnClose').onclick = $('#wnOk').onclick = closeWhatsNew;
+  $('#versionChip').onclick = () => openWhatsNew();
+  $('#inboxVersion').onclick = () => openWhatsNew();
+  $('#inboxVersion').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openWhatsNew(); } };
+
   // close modals on backdrop click / Esc (board modal rolls back an unsaved new board)
   const dismiss = (m) => {
-    if (m === boardModal) closeBoardModal();
+    if (m === whatsNewModal) closeWhatsNew();
+    else if (m === boardModal) closeBoardModal();
     else if (m === appModal) guardedCloseAppModal();
     else m.hidden = true;
   };
@@ -1445,5 +1507,6 @@
     await loadInbox();
     setView(window.innerWidth <= 640 ? 'board' : 'inbox');
     connectEvents();
+    checkWhatsNew();
   })().catch((e) => console.error(e));
 })();

@@ -13,3 +13,4 @@ _to_delete
 BUILD_NOTES.md
 Requirments.txt
 *.md
+!CHANGELOG.md

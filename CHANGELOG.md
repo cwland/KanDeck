@@ -1,0 +1,36 @@
+# Changelog
+
+All notable changes to KanDeck. Newest first. The in-app **What's new** window
+reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
+followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
+
+## 1.2.0 — 2026-10-25
+
+- **What's new window** — after an update, KanDeck shows the changes in the new version plus the 10 releases before it. Dismiss it and it stays hidden until the next update.
+- Click the **version number** (bottom-right) any time to open the window again.
+
+## 1.1.0 — 2026-10-25
+
+- **Archive boards** instead of deleting them. Archived boards leave the board menu, search, notifications and calendar feeds; restore or permanently delete them from **App Settings → Archives**.
+- **Calendar feed (.ics)** per board — subscribe from Google, Apple or Outlook. Dated cards become all-day events; undated cards become to-dos. Secured by a secret link you can rotate or turn off.
+- **The last lane is always the done lane**, whatever it's named.
+- Cards get a **completed date** when they enter the done lane; it shows on cards in that lane.
+- New board setting: **Show done tasks for the last X days**, with a **Show all** toggle at the top of the done lane.
+- Board switcher is now a slide-up popover instead of a modal.
+
+## 1.0.1 — 2026-07-26
+
+- **Password reset** from the command line: `npm run reset-password`.
+- Failed sign-ins now show password-reset help.
+- Notification settings stay hidden until enabled and are validated on save.
+- GitHub Actions workflow builds a multi-arch (amd64 + arm64) Docker image.
+
+## 1.0.0 — 2026-07-26
+
+- First release: flat-file Kanban boards with drag-and-drop lanes and cards, no database.
+- **Inbox** for items arriving via the REST API, with a **send to board** menu.
+- App-wide **categories**, lane colors, badge colors and 20 light/dark **themes**.
+- **AI Chat** widget backed by an n8n webhook, plus an API key and task-query endpoint for assistants.
+- **Notifications** — scheduled email and Discord summaries.
+- **Backups** — manual and automatic, with one-click restore.
+- Security: bcrypt password, JWT sessions, login rate-limiting, secrets encrypted at rest.

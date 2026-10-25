@@ -19,7 +19,7 @@ RUN apk add --no-cache tini
 RUN addgroup -S kandeck && adduser -S kandeck -G kandeck
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json ./
+COPY package.json CHANGELOG.md ./
 COPY src ./src
 
 # Data dir is a bind/volume mount at runtime; create + own it.

@@ -19,6 +19,7 @@ import { events } from '../events.js';
 import { createBackup, listBackups, restoreBackup, rescheduleBackups } from '../services/backup.js';
 import { testEmail, testDiscord, emailProvider, discordProvider } from '../services/notify/index.js';
 import config from '../config.js';
+import { getChangelog } from '../services/changelog.js';
 
 const router = Router();
 
@@ -273,6 +274,24 @@ router.put('/settings', wrap(async (req, res) => {
 router.put('/settings/priorities', wrap(async (req, res) => {
   const priorities = await settings.updatePriorities(req.body?.priorities || []);
   res.json({ priorities });
+}));
+
+// ---- What's new (changelog) -------------------------------------------------
+// Current version's changes + the 10 releases before it, and whether the user
+// has already dismissed the window for this version.
+router.get('/changelog', wrap(async (req, res) => {
+  const lastSeenVersion = await settings.getLastSeenVersion();
+  res.json({
+    current: config.version,
+    lastSeenVersion,
+    unseen: lastSeenVersion !== config.version,
+    entries: await getChangelog({ previous: 10 }),
+  });
+}));
+
+// Dismissing the window marks the running version as seen.
+router.put('/changelog/seen', wrap(async (req, res) => {
+  res.json({ lastSeenVersion: await settings.setLastSeenVersion(config.version) });
 }));
 
 // ---- API key management (for external apps) --------------------------------
