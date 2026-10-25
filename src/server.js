@@ -15,6 +15,7 @@ import apiRoutes from './api/routes.js';
 import authRoutes from './api/auth-routes.js';
 import { scheduleBackups } from './services/backup.js';
 import { startNotifications } from './services/notify.js';
+import { icsHandler } from './services/ics.js';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -22,6 +23,10 @@ app.use(cookieParser());
 
 // Health check (unauthenticated) — handy for Docker + uptime checks.
 app.get('/healthz', (req, res) => res.json({ ok: true, name: 'KanDeck' }));
+
+// Per-board calendar feed. Public by necessity (calendar apps can't log in);
+// authorised by the secret token in the URL. See services/ics.js.
+app.get('/ics/:boardId/:file', icsHandler);
 
 // Auth endpoints (unauthenticated by nature).
 app.use('/api/auth', authRoutes);

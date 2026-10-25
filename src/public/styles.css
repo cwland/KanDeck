@@ -381,8 +381,10 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .lane-sw.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--accent); }
 .lane-row .lane-del { border: 0; background: var(--surface-2); color: var(--text-dim); border-radius: 7px; width: 32px; height: 32px; cursor: pointer; }
 .lane-row .lane-del:hover { background: #ffe3e3; color: #e03131; }
-.lane-complete { display: flex; align-items: center; gap: 3px; font-size: .9rem; color: #37b24d; cursor: pointer; user-select: none; }
-.lane-complete input { cursor: pointer; accent-color: #37b24d; }
+/* "✓ Done" tag shows only on the last lane row (the done lane), so it follows
+   whichever lane is dragged to the bottom. */
+.lane-done-tag { display: none; font-size: .72rem; font-weight: 700; color: #2b8a3e; background: #d3f9d8; border-radius: 20px; padding: 2px 8px; white-space: nowrap; }
+.lane-row:last-child .lane-done-tag { display: inline-block; }
 
 /* ---- Board / columns ---- */
 .board {
@@ -447,6 +449,17 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .card.completing { transform: scale(.82) !important; opacity: 0 !important; }
 .lane-complete-badge { color: var(--lane-text, var(--text)); opacity: .65; font-size: .8rem; }
 .badge.done-badge { background: #d3f9d8; color: #2b8a3e; }
+.done-filter {
+  display: flex; align-items: center; gap: 6px; margin: -4px 10px 6px; padding: 4px 8px;
+  border-radius: 8px; background: rgba(255, 255, 255, .55); cursor: pointer; user-select: none;
+  font-size: .72rem; font-weight: 600; color: #44546a;
+}
+.done-filter .df-label:first-child { flex: 1; }
+.switch.mini { width: 30px; height: 17px; }
+.switch.mini span::before { width: 13px; height: 13px; left: 2px; top: 2px; }
+.switch.mini input:checked + span::before { transform: translateX(13px); }
+.switch.mini span { background: rgba(0, 0, 0, .18); }
+.switch.mini input:checked + span { background: #40c057; }
 .lane-hidden-hint {
   margin: 2px 8px 6px; padding: 4px 8px; font-size: .72rem; font-weight: 600;
   color: var(--lane-text, var(--text-dim)); opacity: .75; text-align: center;
@@ -580,6 +593,11 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .backup-list .b-name { font-variant-numeric: tabular-nums; color: var(--text-dim); }
 .mini-btn { border: 0; background: var(--surface-2); color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: .78rem; font-weight: 600; }
 .mini-btn:hover { background: var(--accent); color: #fff; }
+.mini-btn.danger:hover { background: #e03131; color: #fff; }
+.archived-boards { max-height: 320px; }
+.archived-boards:empty { display: none; }
+.ab-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+#icsSubscribe { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* toast */
 .toast {

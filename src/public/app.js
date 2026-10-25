@@ -42,6 +42,18 @@
   function cardFields() {
     return { priority: true, dueDate: true, tags: false, source: false, ...((state.board && state.board.settings.cardFields) || {}) };
   }
+  // The last lane is always the done lane, whatever it's called.
+  function doneColId(board = state.board) {
+    const cols = (board && board.columns) || [];
+    return cols.length ? cols[cols.length - 1].id : null;
+  }
+  // Per-board "Show all" toggle on the done lane (a per-browser convenience).
+  function showAllDone(boardId) {
+    try { return localStorage.getItem('kandeck.showAllDone.' + boardId) === '1'; } catch (_) { return false; }
+  }
+  function setShowAllDone(boardId, on) {
+    try { localStorage.setItem('kandeck.showAllDone.' + boardId, on ? '1' : '0'); } catch (_) {}
+  }
   function laneColorAt(i) { const l = state.laneColors; return l.length ? l[i % l.length] : '#838c91'; }
   async function loadSettings() {
     const s = await api('/settings');
@@ -143,9 +155,14 @@
   async function loadBoards(selectId) {
     const { boards } = await api('/boards');
     state.boards = boards;
-    const target = selectId || state.boardId || boards[0]?.id;
+    const current = boards.some((b) => b.id === state.boardId) ? state.boardId : null;
+    const target = selectId || current || boards[0]?.id;
     if (target) await openBoard(target);
-    else { state.board = null; $('#board').innerHTML = ''; }
+    else {
+      state.boardId = null; state.board = null; $('#board').innerHTML = '';
+      $('#boardName').textContent = 'No boards';
+      $('#boardDesc').textContent = 'Create one with ＋, or restore one from App settings → Archives.';
+    }
   }
 
   async function openBoard(id) {
@@ -248,7 +265,7 @@
     );
   }
 
-  function renderCard(card) {
+  function renderCard(card, inDoneLane = false) {
     const li = document.createElement('li');
     li.className = 'card' + (card.complete ? ' complete' : ''); // cards are always white
     li.dataset.id = card.id;
@@ -265,6 +282,11 @@
       const overdue = due < new Date();
       const dstyle = overdue ? '' : `style="background:${state.badges.due.color};color:${state.badges.due.textColor}"`;
       badges += `<span class="badge due ${overdue ? 'overdue' : ''}" ${dstyle}>📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
+    }
+    // Completed date only shows on cards in the done (last) lane.
+    if (inDoneLane && card.completedAt) {
+      const cd = new Date(card.completedAt);
+      badges += `<span class="badge done-badge" title="Completed ${esc(cd.toLocaleString())}">✓ ${cd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
     if (cf.source && card.source) {
       const s = state.badges.source;
@@ -289,8 +311,9 @@
   // card there (with a quick animation); clicking a completed card's check moves
   // it back out. Dragging in/out also flips complete (handled server-side).
   async function toggleComplete(card, li) {
-    const completeCol = state.board?.settings?.completeColumnId;
-    if (!completeCol) { toast('Pick a complete lane in Board settings first'); return; }
+    const completeCol = doneColId();
+    if (!completeCol) return;
+    if (state.board.columns.length < 2) { toast('Add another lane first — the last lane is the done lane'); return; }
     if (!card.complete) {
       li.classList.add('completing');
       setTimeout(async () => {
@@ -324,32 +347,39 @@
         wrap.style.setProperty('--lane', col.color);
         wrap.style.setProperty('--lane-text', textOn(col.color));
       }
-      const isComplete = col.id === state.board.settings.completeColumnId;
+      const isComplete = col.id === doneColId();
       if (isComplete) wrap.classList.add('is-complete-lane');
       let visible = col.cards.filter((c) => !c.archived && cardMatchesSearch(c));
-      // Complete lane fall-off: hide cards completed longer ago than the window
-      // (unless a search is active — search reveals older completed cards).
+      // Done lane fall-off: hide cards completed longer ago than the window
+      // (unless "Show all" is on, or a search is active).
       let hiddenOlder = 0;
-      if (isComplete && !state.search) {
-        const days = state.board.settings.completeWindowDays || 0;
-        if (days > 0) {
-          const cutoff = Date.now() - days * 864e5;
-          const before = visible.length;
-          visible = visible.filter((c) => !c.completedAt || Date.parse(c.completedAt) >= cutoff);
-          hiddenOlder = before - visible.length;
-        }
+      const days = isComplete ? (state.board.settings.completeWindowDays || 0) : 0;
+      const showAll = showAllDone(state.boardId);
+      if (isComplete && days > 0 && !state.search && !showAll) {
+        const cutoff = Date.now() - days * 864e5;
+        const before = visible.length;
+        visible = visible.filter((c) => !c.completedAt || Date.parse(c.completedAt) >= cutoff);
+        hiddenOlder = before - visible.length;
       }
       wrap.innerHTML = `
         <div class="column-head">
           <span class="column-title">${esc(col.name)}</span>
-          ${isComplete ? '<span class="lane-complete-badge" title="Complete lane">◉</span>' : ''}
+          ${isComplete ? '<span class="lane-complete-badge" title="Done lane (always the last lane)">✓</span>' : ''}
           <span class="col-count">${visible.length}</span>
         </div>
+        ${isComplete && days > 0 ? `
+        <label class="done-filter" title="Show every done task, not just the last ${days} day${days === 1 ? '' : 's'}">
+          <span class="df-label">${showAll ? 'Showing all' : `Last ${days} day${days === 1 ? '' : 's'}`}</span>
+          <span class="switch mini"><input type="checkbox" class="df-toggle" ${showAll ? 'checked' : ''} /><span></span></span>
+          <span class="df-label">Show all</span>
+        </label>` : ''}
         <ul class="cards" data-col="${col.id}"></ul>
-        ${hiddenOlder > 0 ? `<div class="lane-hidden-hint">＋${hiddenOlder} older completed · search to find</div>` : ''}
+        ${hiddenOlder > 0 ? `<div class="lane-hidden-hint">＋${hiddenOlder} older hidden · toggle Show all</div>` : ''}
         <button class="add-card">＋ Add a card</button>`;
       const ul = $('.cards', wrap);
-      visible.forEach((c) => ul.appendChild(renderCard(c)));
+      visible.forEach((c) => ul.appendChild(renderCard(c, isComplete)));
+      const dfToggle = $('.df-toggle', wrap);
+      if (dfToggle) dfToggle.onchange = () => { setShowAllDone(state.boardId, dfToggle.checked); renderBoard(); };
 
       $('.add-card', wrap).onclick = () => openNewCardModal(col.id);
 
@@ -481,6 +511,7 @@
     $('#cfTags').checked = cf.tags; $('#cfSource').checked = cf.source;
     renderLaneEditor(b.columns);
     loadArchive();
+    renderIcs(b.ics);
     boardModal.hidden = false;
   }
 
@@ -507,12 +538,10 @@
       d.onclick = () => { $$('.lane-sw', sw).forEach((x) => x.classList.remove('selected')); d.classList.add('selected'); li.dataset.color = c; };
       sw.appendChild(d);
     });
-    // Radio marking this lane as the "complete" lane (only one per board).
-    const comp = document.createElement('label'); comp.className = 'lane-complete'; comp.title = 'Cards dragged here are marked complete';
-    const radio = document.createElement('input');
-    radio.type = 'radio'; radio.name = 'completeLane'; radio.className = 'lane-complete-radio';
-    radio.checked = col.id && col.id === state.board.settings.completeColumnId;
-    comp.append(radio, document.createTextNode('✓'));
+    // The last row is labelled "Done" via CSS (.lane-row:last-child) so the
+    // marker follows the lane while you drag rows around.
+    const comp = document.createElement('span'); comp.className = 'lane-done-tag'; comp.textContent = '✓ Done';
+    comp.title = 'The last lane is always the done lane';
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'lane-del'; del.textContent = '🗑'; del.title = 'Delete lane';
     del.onclick = () => li.remove();
@@ -529,8 +558,6 @@
     const rows = $$('#laneEditor .lane-row');
     const existingIds = state.board.columns.map((c) => c.id);
     const orderedIds = []; const keptIds = [];
-    let completeIdx = -1;
-    rows.forEach((r, i) => { if (r.querySelector('.lane-complete-radio')?.checked) completeIdx = i; });
     for (const r of rows) {
       const id = r.dataset.id;
       const name = r.querySelector('.lane-name').value.trim() || 'Lane';
@@ -547,9 +574,90 @@
     for (const id of existingIds)
       if (!keptIds.includes(id)) await api(`/boards/${state.boardId}/columns/${id}`, { method: 'DELETE' });
     await api(`/boards/${state.boardId}/columns/reorder`, { method: 'POST', body: { order: orderedIds } });
-    // Persist which lane is the complete lane (row order === orderedIds order).
-    const completeColumnId = completeIdx >= 0 ? orderedIds[completeIdx] : null;
-    await api('/boards/' + state.boardId, { method: 'PUT', body: { settings: { completeColumnId } } });
+    // The done lane is simply the last one; the server re-derives card status.
+  }
+
+  // ---- Calendar feed (.ics) — managed live, like the API key ----
+  function icsUrl(token) {
+    const base = (state.settings && state.settings.appUrl) || location.origin;
+    return `${base}/ics/${state.boardId}/${token}.ics`;
+  }
+  function renderIcs(ics) {
+    ics = ics || {};
+    const on = !!ics.token;
+    $('#icsEnabled').checked = on;
+    $('#icsPanel').hidden = !on;
+    $('#icsStatus').textContent = ''; $('#icsStatus').className = 'ai-test-status';
+    $('#icsDesc').checked = !!ics.includeDescriptions;
+    $('#icsDone').checked = !!ics.includeCompleted;
+    if (on) {
+      const url = icsUrl(ics.token);
+      $('#icsUrl').value = url;
+      $('#icsSubscribe').href = url.replace(/^https?:/, 'webcal:');
+    } else {
+      $('#icsUrl').value = '';
+      $('#icsSubscribe').href = '#';
+    }
+  }
+  async function icsCall(method, body) {
+    const ics = await api(`/boards/${state.boardId}/ics`, { method, body });
+    if (state.board) state.board.ics = ics;
+    return ics;
+  }
+  $('#icsEnabled').onchange = async () => {
+    const on = $('#icsEnabled').checked;
+    if (!on && !confirm('Turn off the calendar feed?\n\nCalendars subscribed to it will stop updating. Turning it back on creates a new link.')) {
+      $('#icsEnabled').checked = true; return;
+    }
+    try { renderIcs(await icsCall(on ? 'POST' : 'DELETE')); }
+    catch { $('#icsEnabled').checked = !on; toast('Could not update calendar feed'); }
+  };
+  $('#icsRotate').onclick = async () => {
+    if (!confirm('Generate a new feed link?\n\nThe current link stops working immediately — re-subscribe your calendars with the new one.')) return;
+    try {
+      renderIcs(await icsCall('POST', { rotate: true }));
+      $('#icsStatus').textContent = '✓ New link generated'; $('#icsStatus').className = 'ai-test-status ok';
+    } catch { toast('Could not generate a new link'); }
+  };
+  $('#icsDesc').onchange = $('#icsDone').onchange = async () => {
+    try { await icsCall('PUT', { includeDescriptions: $('#icsDesc').checked, includeCompleted: $('#icsDone').checked }); }
+    catch { toast('Could not save feed options'); }
+  };
+  $('#icsCopy').onclick = async () => {
+    const f = $('#icsUrl'); const st = $('#icsStatus');
+    f.focus(); f.select();
+    let ok = false;
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(f.value); ok = true; } } catch (_) {}
+    if (!ok) { try { ok = document.execCommand('copy'); } catch (_) {} }
+    st.textContent = ok ? '✓ Copied' : 'Selected — press ⌘/Ctrl-C'; st.className = ok ? 'ai-test-status ok' : 'ai-test-status';
+  };
+
+  // ---- Archived boards (App settings → Archives) — live actions ----
+  async function loadArchivedBoards() {
+    const ul = $('#archivedBoards'); ul.innerHTML = '';
+    let list = [];
+    try { list = (await api('/boards?archived=1')).boards || []; } catch {}
+    $('#archivedEmpty').hidden = list.length > 0;
+    list.forEach((b) => {
+      const li = document.createElement('li');
+      const when = b.archivedAt ? ' · archived ' + new Date(b.archivedAt).toLocaleDateString() : '';
+      li.innerHTML = `<span class="b-name"><b style="color:var(--text)">${esc(b.name)}</b> <small>${b.cardCount || 0} cards${esc(when)}</small></span>`;
+      const actions = document.createElement('span'); actions.className = 'ab-actions';
+      const restore = document.createElement('button');
+      restore.className = 'mini-btn'; restore.textContent = 'Restore';
+      restore.onclick = async () => {
+        await api(`/boards/${b.id}/unarchive`, { method: 'POST' });
+        toast(`Restored “${b.name}”`); loadArchivedBoards(); await loadBoards(b.id);
+      };
+      const del = document.createElement('button');
+      del.className = 'mini-btn danger'; del.textContent = 'Delete';
+      del.onclick = async () => {
+        if (!confirm(`Permanently delete “${b.name}” and all its cards?\n\nThis cannot be undone (backups still contain it).`)) return;
+        await api('/boards/' + b.id, { method: 'DELETE' });
+        toast('Board deleted'); loadArchivedBoards(); await loadBoards();
+      };
+      actions.append(restore, del); li.appendChild(actions); ul.appendChild(li);
+    });
   }
 
   async function loadBackups() {
@@ -620,12 +728,14 @@
     await loadBoards(state.boardId);
     toast('Board saved');
   };
-  $('#bmDelete').onclick = async () => {
-    if (!confirm('Delete this entire board? This cannot be undone.')) return;
-    await api('/boards/' + state.boardId, { method: 'DELETE' });
+  $('#bmArchive').onclick = async () => {
+    if (state.newBoardId) { closeBoardModal(); return; } // unsaved new board: just discard it
+    if (!confirm(`Archive “${state.board.name}”?\n\nIt will be hidden from the board menu. Restore it — or delete it for good — from App settings → Archives.`)) return;
+    await api(`/boards/${state.boardId}/archive`, { method: 'POST' });
     boardModal.hidden = true;
     state.boardId = null;
     await loadBoards();
+    toast('Board archived');
   };
 
   // ---- New board ----
@@ -664,7 +774,7 @@
   // tab, whose key actions commit to the server immediately. Everything else
   // (theme, categories, lanes, AI chat, notifications, auto-backup) is persisted
   // by the main Save button, so it DOES flag unsaved changes.
-  const SELF_SAVE = '[data-tab="api"]';
+  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"]';
   const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);
@@ -681,6 +791,7 @@
     loadNotifications();
     loadBackupConfig();
     loadBackups();
+    loadArchivedBoards();
     appModal.hidden = false;
     // Move focus into the dialog for keyboard users.
     requestAnimationFrame(() => { const t = $('#appTabs .modal-tab.active'); if (t) t.focus(); });

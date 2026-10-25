@@ -27,6 +27,9 @@ your board.
 - [Configuration & secrets](#configuration--secrets)
 - [Reset a forgotten password](#reset-a-forgotten-password)
 - [Using KanDeck](#using-kandeck)
+- [Done lane & completed dates](#done-lane--completed-dates)
+- [Archiving boards](#archiving-boards)
+- [Calendar feed (.ics)](#calendar-feed-ics)
 - [REST API](#rest-api)
 - [AI Chat (n8n)](#ai-chat-n8n)
 - [Notifications](#notifications)
@@ -40,8 +43,13 @@ your board.
 
 - **Boards, columns, cards** with drag-and-drop (within and between columns);
   add / rename / reorder / delete columns per board.
-- **Cards** with subject, Markdown description, due date, priority, tags, a
-  per-board **complete** lane, and archive.
+- **Cards** with subject, Markdown description, due date, priority, tags, and
+  archive. The **last lane is always the done lane** — cards get a completed
+  date when they land there, and the lane can show only the last N days.
+- **Archive boards** instead of deleting them; restore or permanently delete
+  from **App Settings → Archives**.
+- **Calendar feed** — a per-board, read-only `.ics` subscription link (dated
+  cards as events, undated cards as to-dos).
 - **App-level categories** (priorities) with editable, high-contrast colors that
   apply across every board.
 - **Inbox** — a capture area fed by the REST API / webhooks. Drag items onto a
@@ -160,6 +168,7 @@ is in [`.env.example`](.env.example). The ones that matter:
 | `JWT_SECRET` | **Yes (production)** | Signs session cookies. The server **refuses to start** in production if this is unset, the default, or shorter than 32 characters. Generate with `openssl rand -base64 32`. |
 | `SECRETS_KEY` | Recommended | Encrypts secrets at rest (SMTP password, AI token). Decoupled from `JWT_SECRET` so you can rotate the session secret independently. If blank, `JWT_SECRET` is used. Generate with `openssl rand -base64 32`. |
 | `API_KEY` | Optional | A static API key for external tools. You can also generate/rotate one in **App Settings → API**. |
+| `APP_URL` | Recommended behind a proxy | Public base URL (e.g. `https://kandeck.example.com`). Used for links in notifications and for calendar-feed URLs. If blank, feed URLs use whatever address you opened KanDeck on. |
 | `DATA_DIR` | Optional | Where the JSON store lives (default `./data`). |
 | `SESSION_TTL` | Optional | Session lifetime (default `7d`). |
 | `BACKUP_CRON`, `BACKUP_RETENTION` | Optional | Pre-UI fallbacks; the real schedule/retention are set in **App Settings → Backups**. |
@@ -208,12 +217,62 @@ reload; the app returns to the first-run "create password" screen.
 - **Switch boards** from the bottom bar → *Switch board*. Create a new board with
   the **＋** next to the search.
 - **App Settings** (⚙️, top-right) is tabbed: Theme, Categories, Lane colors,
-  AI Chat, Notifications, API, Backups. A single **Save** applies everything
-  (the API tab acts immediately).
-- **Board Settings** (⚙️, board area) manages that board's lanes, the complete
-  lane, card display fields, and per-board options.
+  AI Chat, Notifications, API, Backups, Archives. A single **Save** applies
+  everything (the API and Archives tabs act immediately).
+- **Board Settings** (⚙️, board area) manages that board's lanes, card display
+  fields, the done-lane window, the calendar feed, archived cards, and
+  **Archive board**.
 - **Inbox**: items arriving via the API land here for triage — drag them onto a
   board or use the card's **⋮** menu to send it to a board's first column.
+
+---
+
+## Done lane & completed dates
+
+- The **last lane on a board is always the done lane**, whatever it's named.
+  Reorder lanes in Board settings and whichever lane is last becomes "done"
+  (marked **✓ Done** in the lane editor).
+- A card gets a **completed date** each time it enters the done lane — by
+  dragging it there or clicking its check circle. Reordering inside the done
+  lane keeps the date; moving a card out clears it. The date shows as a green
+  **✓ date** badge, only on cards in the done lane.
+- **Show done tasks for the last X days** (Board settings; `0` = show all)
+  hides older done cards. They're never deleted: a **Show all** toggle at the
+  top of the done lane brings them back (remembered per board, per browser), and
+  search always finds them.
+
+## Archiving boards
+
+**Board settings → Archive board** hides a board from the board switcher,
+search, notifications and calendar feeds, keeping all of its cards.
+**App Settings → Archives** lists archived boards with **Restore** and
+**Delete** (permanent — though existing backups still contain the board).
+
+## Calendar feed (.ics)
+
+Each board can publish a read-only iCalendar feed that Google, Apple, Outlook
+and other calendar apps can subscribe to. Turn it on in **Board settings →
+Calendar feed**, then **Copy** the link or click **Subscribe**.
+
+- Cards **with** a due date → all-day `VEVENT`s on that date.
+- Cards **without** a due date → `VTODO`s. (Google Calendar ignores to-dos;
+  Apple/Outlook/Thunderbird support varies for subscribed feeds.)
+- Options: **Include card descriptions** and **Include done tasks** (both off
+  by default). Archived cards and archived boards are never published.
+
+**Security.** Calendar apps can't log in, so the feed is protected by a random
+192-bit token in its URL (`/ics/<boardId>/<token>.ics`) — treat the link like a
+password.
+
+- Feeds are **off by default**; turning one off revokes the link, and
+  **Generate new link** rotates it (old link dies immediately).
+- Every failure (wrong token, disabled feed, archived/unknown board) returns
+  the same `404`, so the endpoint can't be used to discover boards.
+- Responses are read-only, `noindex`, and `no-referrer`.
+- Descriptions are excluded unless you opt in.
+- If KanDeck is internet-facing, consider a rate-limit rule for `/ics/*` at
+  your proxy/CDN (e.g. Cloudflare), and set `APP_URL` so links use your public
+  hostname.
 
 ---
 
@@ -224,13 +283,19 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/boards` | List boards + summary meta |
+| `GET` | `/api/boards` | List active boards + summary meta (`?archived=1` → archived boards) |
 | `GET` | `/api/boards/:id` | Full board (columns + cards) |
 | `POST` | `/api/tasks` | Create a task (no `boardId` → Inbox; with `boardId` → that board) |
 | `PUT` | `/api/tasks/:id` | Update or move a task |
 | `GET` | `/api/tasks/query` | **Date-filtered task query** (see below) |
 | `GET` | `/api/search?q=` | Search cards across all boards |
 | `GET` | `/api/inbox` · `POST` `/api/inbox` · `POST` `/api/inbox/:id/move` | Inbox |
+| `POST` | `/api/boards/:id/archive` · `/api/boards/:id/unarchive` | Archive / restore a board |
+| `DELETE` | `/api/boards/:id` | Permanently delete a board |
+| `POST` | `/api/boards/:id/ics` | Enable the board's calendar feed (body `{"rotate":true}` → new token) |
+| `PUT` | `/api/boards/:id/ics` | Feed options `{ includeDescriptions, includeCompleted }` |
+| `DELETE` | `/api/boards/:id/ics` | Disable the feed (revokes the link) |
+| `GET` | `/ics/:boardId/:token.ics` | The feed itself — **no auth header**; the token is the credential |
 
 ### Create a task
 
@@ -329,7 +394,7 @@ After the first run, set the package to **Public** in your repo's Packages
 settings if you want anyone to pull it. To cut a release:
 
 ```bash
-git tag v1.0.1 && git push origin v1.0.1
+git tag v1.1.0 && git push origin v1.1.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

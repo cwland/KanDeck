@@ -34,8 +34,10 @@ const wrap = (fn) => (req, res) =>
 
 // ---- Boards ----------------------------------------------------------------
 
+// ?archived=1 lists archived boards (App settings → Archives) instead.
 router.get('/boards', wrap(async (req, res) => {
-  res.json({ boards: await boards.listBoards() });
+  const archived = ['1', 'true', 'yes'].includes(String(req.query.archived || '').toLowerCase());
+  res.json({ boards: await boards.listBoards({ archived }) });
 }));
 
 router.post('/boards', wrap(async (req, res) => {
@@ -95,6 +97,39 @@ router.put('/boards/:id', wrap(async (req, res) => {
   const board = await boards.updateBoard(req.params.id, req.body || {});
   if (!board) return res.status(404).json({ error: 'Board not found' });
   res.json(board);
+}));
+
+router.post('/boards/:id/archive', wrap(async (req, res) => {
+  const board = await boards.setBoardArchived(req.params.id, true);
+  if (!board) return res.status(404).json({ error: 'Board not found' });
+  res.json(board);
+}));
+
+router.post('/boards/:id/unarchive', wrap(async (req, res) => {
+  const board = await boards.setBoardArchived(req.params.id, false);
+  if (!board) return res.status(404).json({ error: 'Board not found' });
+  res.json(board);
+}));
+
+// ---- Calendar feed (.ics) management --------------------------------------
+// The feed itself is served publicly at /ics/:boardId/:token.ics (server.js).
+
+router.post('/boards/:id/ics', wrap(async (req, res) => {
+  const ics = await boards.enableIcs(req.params.id, { rotate: !!req.body?.rotate });
+  if (!ics) return res.status(404).json({ error: 'Board not found' });
+  res.json(ics);
+}));
+
+router.put('/boards/:id/ics', wrap(async (req, res) => {
+  const ics = await boards.updateIcsOptions(req.params.id, req.body || {});
+  if (!ics) return res.status(404).json({ error: 'Board not found' });
+  res.json(ics);
+}));
+
+router.delete('/boards/:id/ics', wrap(async (req, res) => {
+  const ics = await boards.disableIcs(req.params.id);
+  if (!ics) return res.status(404).json({ error: 'Board not found' });
+  res.json(ics);
 }));
 
 router.delete('/boards/:id', wrap(async (req, res) => {
@@ -227,7 +262,7 @@ router.post('/backups/restore', wrap(async (req, res) => {
 // ---- App-level settings (priorities + default colors) ----------------------
 
 router.get('/settings', wrap(async (req, res) => {
-  res.json({ ...(await settings.getSettings()), version: config.version });
+  res.json({ ...(await settings.getSettings()), version: config.version, appUrl: config.appUrl });
 }));
 
 // General merge: accepts { theme?, priorities?, laneColors? }.

@@ -158,6 +158,7 @@
           <button type="button" class="modal-tab" data-tab="notify">Notifications</button>
           <button type="button" class="modal-tab" data-tab="api">API</button>
           <button type="button" class="modal-tab" data-tab="backups">Backups</button>
+          <button type="button" class="modal-tab" data-tab="archives">Archives</button>
         </nav>
         <div class="dirty-banner" id="appDirty" hidden>⚠️ You have unsaved changes — click Save to keep them.</div>
         <div class="modal-body">
@@ -359,6 +360,12 @@
             </div>
             <ul class="backup-list" id="backupList"></ul>
           </section>
+
+          <section class="tab-panel" data-tab="archives">
+            <p class="hint">Archived boards are hidden from the board menu, search, notifications and calendar feeds, but keep all their cards. Restore one to bring it back, or delete it permanently. These actions apply immediately.</p>
+            <ul class="backup-list archived-boards" id="archivedBoards"></ul>
+            <p class="hint" id="archivedEmpty">No archived boards.</p>
+          </section>
         </div>
         <footer class="modal-foot">
           <span class="spacer"></span>
@@ -386,7 +393,7 @@
           </div>
 
           <div class="field">
-            <label>Lanes <small>(drag to reorder · ◉ marks the complete lane)</small></label>
+            <label>Lanes <small>(drag to reorder · the last lane is always the done lane)</small></label>
             <ul class="lane-editor" id="laneEditor"></ul>
             <button type="button" class="btn ghost" id="addLaneBtn">＋ Add lane</button>
           </div>
@@ -402,9 +409,33 @@
           </div>
 
           <div class="field">
-            <label>Completed items window <small>(days; 0 = show all)</small></label>
+            <label>Show done tasks for the last <small>(days; 0 = show all)</small></label>
             <input id="bmCompleteWindow" type="number" min="0" step="1" />
-            <p class="hint">The complete lane shows only items completed within this many days. Older ones drop off the board (never deleted) and reappear when you search.</p>
+            <p class="hint">The done lane (the last lane) shows only tasks completed within this many days. Older ones are hidden, never deleted — use <b>Show all</b> at the top of the done lane, or search, to see them.</p>
+          </div>
+
+          <div class="field">
+            <label>Calendar feed <small>(.ics)</small></label>
+            <div class="ai-toggle-row">
+              <label class="switch"><input type="checkbox" id="icsEnabled" /><span></span></label>
+              <span class="ai-toggle-label">Publish this board's due dates as a calendar feed</span>
+            </div>
+            <div id="icsPanel" hidden>
+              <div class="apikey-row">
+                <input id="icsUrl" type="text" readonly />
+                <button type="button" class="btn ghost" id="icsCopy">Copy</button>
+                <a class="btn ghost" id="icsSubscribe" href="#" title="Open in your calendar app">Subscribe</a>
+              </div>
+              <div class="card-fields" style="margin-top:8px">
+                <label><input type="checkbox" id="icsDesc" /> Include card descriptions</label>
+                <label><input type="checkbox" id="icsDone" /> Include done tasks</label>
+              </div>
+              <div class="ai-test-row">
+                <button type="button" class="btn ghost" id="icsRotate">Generate new link</button>
+                <span class="ai-test-status" id="icsStatus"></span>
+              </div>
+            </div>
+            <p class="hint">Cards with a due date appear as all-day events; cards without one are published as to-dos (VTODO — Google Calendar ignores these, Apple/Outlook/Thunderbird vary). Anyone with the link can read the feed without logging in, so treat it like a password. <b>Generate new link</b> breaks the old one. These changes apply immediately.</p>
           </div>
 
           <div class="field">
@@ -413,7 +444,7 @@
           </div>
         </div>
         <footer class="modal-foot">
-          <button class="btn danger" id="bmDelete">Delete board</button>
+          <button class="btn ghost" id="bmArchive" title="Hide this board; restore or delete it from App settings → Archives">Archive board</button>
           <span class="spacer"></span>
           <button class="btn ghost" id="bmCancel">Cancel</button>
           <button class="btn primary" id="bmSave">Save</button>

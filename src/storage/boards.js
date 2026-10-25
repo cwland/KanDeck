@@ -4,6 +4,7 @@
  * data/boards/_index.json that holds board order + summary metadata.
  */
 import path from 'node:path';
+import crypto from 'node:crypto';
 import config from '../config.js';
 import { newId, nowIso, dueInDays } from '../util.js';
 import { getLaneColors, getPriorities, DEFAULT_LANE_COLORS } from './settings.js';
@@ -35,6 +36,59 @@ export async function init() {
     await createBoard({ name: 'My First Board', description: 'Welcome to KanDeck 👋' });
   }
   await migrateLaneColors();
+  await migrateDoneLane();
+}
+
+// ---- Done lane -------------------------------------------------------------
+// The LAST lane is always the "done" lane, whatever it's called. Cards in it
+// are complete; cards anywhere else are not. completedAt is stamped when a
+// card enters the done lane (drag or check-off) — see moveCard.
+
+/** Id of the board's done lane (always the last column). */
+export function doneColumnId(board) {
+  const cols = (board && board.columns) || [];
+  return cols.length ? cols[cols.length - 1].id : null;
+}
+
+/** Re-derive every card's complete flag from its lane. Runs after every board
+ *  mutation so adding / deleting / reordering lanes keeps status consistent.
+ *  Structural changes keep an existing completedAt (so a lane reshuffle doesn't
+ *  wipe dates); only an explicit move out of the done lane clears it. */
+function syncComplete(board) {
+  const doneId = doneColumnId(board);
+  let changed = false;
+  for (const col of board.columns || []) {
+    const isDone = col.id === doneId;
+    for (const card of col.cards || []) {
+      if (isDone && !card.complete) {
+        card.complete = true;
+        if (!card.completedAt) card.completedAt = nowIso();
+        changed = true;
+      } else if (!isDone && card.complete) {
+        card.complete = false;
+        changed = true;
+      }
+    }
+  }
+  board.settings = board.settings || {};
+  // Mirrored for API consumers that still read it; no longer user-settable.
+  if (board.settings.completeColumnId !== doneId) {
+    board.settings.completeColumnId = doneId;
+    changed = true;
+  }
+  return changed;
+}
+
+// One-time, idempotent: boards that picked a non-last lane as "complete" now
+// follow the last-lane rule.
+async function migrateDoneLane() {
+  const ids = (await listJson(config.boardsDir)).filter((id) => !id.startsWith('_'));
+  for (const id of ids) {
+    await withLock(boardFile(id), async () => {
+      const board = await readJson(boardFile(id), null);
+      if (board && syncComplete(board)) await writeJsonAtomic(boardFile(id), board);
+    });
+  }
 }
 
 // One-time, idempotent: remap legacy vibrant lane colors to the new pastels
@@ -74,6 +128,8 @@ async function upsertIndexEntry(board) {
         description: board.description || '',
         order: board.order,
         updatedAt: board.updatedAt,
+        archived: !!board.archived,
+        archivedAt: board.archivedAt || null,
       };
       const i = idx.boards.findIndex((b) => b.id === board.id);
       if (i === -1) idx.boards.push(entry);
@@ -99,11 +155,13 @@ async function removeIndexEntry(id) {
 
 // ---- Board CRUD ------------------------------------------------------------
 
-export async function listBoards() {
+/** Active boards by default; `{ archived: true }` lists only archived ones. */
+export async function listBoards({ archived = false } = {}) {
   const idx = await readIndex();
   // Enrich with card counts for summary meta (spec: "summary meta").
   const out = [];
   for (const entry of idx.boards) {
+    if (!!entry.archived !== !!archived) continue;
     const board = await readJson(boardFile(entry.id), null);
     const cardCount = board
       ? board.columns.reduce(
@@ -127,6 +185,7 @@ export async function allCards({ includeComplete = false, includeArchived = fals
   const idx = await readIndex();
   const out = [];
   for (const entry of idx.boards) {
+    if (entry.archived) continue; // archived boards are out of notifications
     const board = await getBoard(entry.id);
     if (!board) continue;
     for (const col of board.columns)
@@ -163,15 +222,19 @@ export async function createBoard({ name, description = '' }) {
       zoom: 100, // 75 | 100 | 125 ...
       autoSort: false,
       autoSortKey: 'priority', // priority | due
-      // The lane whose cards count as "complete" (default: last / Done).
+      // Mirror of the done lane (always the last column) — see doneColumnId.
       completeColumnId: columns[columns.length - 1]?.id || null,
-      // Complete lane shows only cards completed within this many days
+      // Done lane shows only cards completed within this many days
       // (0 = show all). Older ones hide from view but are never deleted.
       completeWindowDays: 0,
       // Which fields render on cards (priority + due date on by default).
       cardFields: { priority: true, dueDate: true, tags: false, source: false },
     },
     columns,
+    archived: false,
+    archivedAt: null,
+    // Calendar feed: off until enabled. token is a secret capability URL part.
+    ics: { token: null, includeDescriptions: false, includeCompleted: false },
   };
   await writeJsonAtomic(boardFile(id), board);
   await upsertIndexEntry(board);
@@ -185,11 +248,75 @@ export async function updateBoard(id, patch) {
     if (patch.name !== undefined) board.name = patch.name;
     if (patch.description !== undefined) board.description = patch.description;
     if (patch.settings) board.settings = { ...board.settings, ...patch.settings };
+    syncComplete(board); // completeColumnId isn't user-settable — re-derive it
     board.updatedAt = nowIso();
     await writeJsonAtomic(boardFile(id), board);
     await upsertIndexEntry(board);
     return board;
   });
+}
+
+/** Archive / restore a board. Archived boards drop out of menus, search,
+ *  notifications and calendar feeds, but keep all their data. */
+export async function setBoardArchived(id, archived) {
+  return withLock(boardFile(id), async () => {
+    const board = await readJson(boardFile(id), null);
+    if (!board) return null;
+    board.archived = !!archived;
+    board.archivedAt = archived ? nowIso() : null;
+    if (!archived) {
+      // Restored boards go to the end of the active list.
+      const idx = await readIndex();
+      board.order = idx.boards.reduce((m, b) => Math.max(m, b.order ?? 0), -1) + 1;
+    }
+    board.updatedAt = nowIso();
+    await writeJsonAtomic(boardFile(id), board);
+    await upsertIndexEntry(board);
+    return board;
+  });
+}
+
+// ---- Calendar (.ics) feed --------------------------------------------------
+
+function newIcsToken() {
+  return crypto.randomBytes(24).toString('base64url'); // 192 bits
+}
+
+/** Enable the feed (keeps an existing token) or rotate it (`rotate: true`). */
+export async function enableIcs(id, { rotate = false } = {}) {
+  return mutateBoard(id, (board) => {
+    board.ics = { includeDescriptions: false, includeCompleted: false, ...(board.ics || {}) };
+    if (rotate || !board.ics.token) board.ics.token = newIcsToken();
+    return board.ics;
+  });
+}
+
+export async function disableIcs(id) {
+  return mutateBoard(id, (board) => {
+    board.ics = { includeDescriptions: false, includeCompleted: false, ...(board.ics || {}), token: null };
+    return board.ics;
+  });
+}
+
+export async function updateIcsOptions(id, patch = {}) {
+  return mutateBoard(id, (board) => {
+    board.ics = { includeDescriptions: false, includeCompleted: false, ...(board.ics || {}) };
+    if (patch.includeDescriptions !== undefined) board.ics.includeDescriptions = !!patch.includeDescriptions;
+    if (patch.includeCompleted !== undefined) board.ics.includeCompleted = !!patch.includeCompleted;
+    return board.ics;
+  });
+}
+
+/** Resolve a feed request. Returns the board only if it exists, is active, has
+ *  a feed enabled, and the token matches (constant-time); otherwise null. */
+export async function getBoardForIcs(id, token) {
+  if (!/^b_[a-z0-9]{6,32}$/i.test(String(id || ''))) return null; // no path tricks
+  const board = await getBoard(id);
+  const expected = board && !board.archived && board.ics && board.ics.token;
+  if (!expected || !token) return null;
+  const a = crypto.createHash('sha256').update(String(expected)).digest();
+  const b = crypto.createHash('sha256').update(String(token)).digest();
+  return crypto.timingSafeEqual(a, b) ? board : null;
 }
 
 export async function deleteBoard(id) {
@@ -204,13 +331,19 @@ export async function reorderBoards(orderedIds) {
     (idx) => {
       idx = idx || { boards: [] };
       const map = new Map(idx.boards.map((b) => [b.id, b]));
-      idx.boards = orderedIds
+      const listed = orderedIds
         .map((id, i) => {
           const b = map.get(id);
           if (b) b.order = i;
           return b;
         })
         .filter(Boolean);
+      // Keep boards the caller didn't list (e.g. archived ones) instead of
+      // silently dropping them from the index.
+      const ids = new Set(listed.map((b) => b.id));
+      const rest = idx.boards.filter((b) => !ids.has(b.id));
+      rest.forEach((b, i) => (b.order = listed.length + i));
+      idx.boards = [...listed, ...rest];
       return idx;
     },
     { boards: [] }
@@ -229,6 +362,7 @@ function mutateBoard(id, fn) {
     const board = await readJson(boardFile(id), null);
     if (!board) return null;
     const result = await fn(board);
+    syncComplete(board);
     board.updatedAt = nowIso();
     await writeJsonAtomic(boardFile(id), board);
     await upsertIndexEntry(board);
@@ -268,7 +402,6 @@ export async function deleteColumn(boardId, columnId) {
   return mutateBoard(boardId, (board) => {
     board.columns = board.columns.filter((c) => c.id !== columnId);
     board.columns.forEach((c, i) => (c.order = i));
-    if (board.settings.completeColumnId === columnId) board.settings.completeColumnId = null;
     return board;
   });
 }
@@ -333,7 +466,7 @@ export async function addCard(boardId, columnId, input = {}) {
       board.columns.find((c) => c.id === columnId) || board.columns[0];
     if (!col) throw new Error('Board has no columns');
     const card = makeCard(input);
-    card.complete = col.id === board.settings.completeColumnId;
+    card.complete = col.id === doneColumnId(board);
     if (card.complete) card.completedAt = nowIso();
     card.order = col.cards.length;
     col.cards.push(card);
@@ -376,11 +509,12 @@ export async function moveCard(boardId, cardId, toColumnId, toIndex) {
     fromCol.cards = fromCol.cards.filter((k) => k.id !== cardId);
     const idx = Math.max(0, Math.min(toIndex ?? toCol.cards.length, toCol.cards.length));
     toCol.cards.splice(idx, 0, card);
-    // Complete status follows the lane: set when entering the complete lane,
-    // cleared when leaving it. completedAt is stamped on the transition.
-    card.complete = toCol.id === board.settings.completeColumnId;
+    // Complete status follows the lane: set when entering the done (last)
+    // lane, cleared when leaving it. completedAt is (re)stamped every time the
+    // card enters the done lane; reordering within it keeps the date.
+    card.complete = toCol.id === doneColumnId(board);
     if (card.complete) {
-      if (!card.completedAt) card.completedAt = nowIso();
+      if (!wasComplete || !card.completedAt) card.completedAt = nowIso();
       if (!wasComplete) card.prevColumnId = fromCol.id; // remember origin for un-complete
     } else {
       card.completedAt = null;
@@ -419,6 +553,7 @@ export async function searchCards(query) {
   const idx = await readIndex();
   const out = [];
   for (const entry of idx.boards) {
+    if (entry.archived) continue;
     const board = await getBoard(entry.id);
     if (!board) continue;
     for (const col of board.columns) {
@@ -485,6 +620,7 @@ export async function queryTasks(opts = {}) {
   const idx = await readIndex();
   const all = [];
   for (const entry of idx.boards) {
+    if (entry.archived) continue;
     const b = await getBoard(entry.id);
     if (!b) continue;
     if (boardFilter && !(b.name.toLowerCase().includes(boardFilter) || b.id === opts.board)) continue;
