@@ -67,7 +67,7 @@ board.
 - **Notifications** — scheduled email + Discord task summaries plus card-moved
   Discord pings.
 - **Backups** — manual and automatic (daily / weekly / monthly with retention);
-  a full snapshot of boards **and** settings, with one-click restore.
+  a full snapshot of boards, the Inbox **and** settings, with one-click restore.
 - **Security** — single username + password login (bcrypt), revocable JWT
   cookie sessions, spoof-proof login rate-limiting, a locked first-run setup,
   security headers (CSP, anti-framing, HSTS), API-key auth, and secrets
@@ -435,11 +435,17 @@ In **App Settings → Backups**:
 
 - **Backup now** / **Restore** at any time.
 - **Automatic backups** — daily / weekly / monthly, with a "keep last N" retention.
-- Each backup is a full snapshot of **boards *and* settings** (secrets stay
+- Each backup is a full snapshot of **boards, the Inbox *and* settings** (secrets stay
   encrypted). Restore takes a safety backup first, and older backups are pruned to
   your retention count. Backups are labeled Automated vs Manual in the list.
 
 CLI: `npm run backup` makes a one-off snapshot.
+
+**Danger zone → Reset all cards** (bottom of the Backups tab, for testing)
+deletes every card on every board — active and archived, archived boards
+included — and empties the Inbox, keeping boards, lanes, routing tags, feeds and
+settings. It asks twice (type `RESET`), only works from a signed-in browser (not
+the API key), and saves a **Pre-reset** backup first so you can restore it.
 
 ---
 
@@ -462,7 +468,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.2.0 && git push origin v2.2.0
+git tag v2.3.0 && git push origin v2.3.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

@@ -772,6 +772,20 @@
     window.location.href = '/login';
   };
 
+  // ---- Danger zone: reset all cards (testing) ----
+  $('#resetCards').onclick = async () => {
+    if (!confirm('⚠️ Reset ALL cards?\n\nThis deletes every card on every board (active and archived, archived boards included) and empties the Inbox.\n\nBoards, lanes, tags, feeds and settings are kept. A backup is taken first.')) return;
+    const typed = prompt('Type RESET to confirm:');
+    if (typed !== 'RESET') { if (typed !== null) toast('Not reset — you must type RESET'); return; }
+    try {
+      const r = await api('/reset-cards', { method: 'POST', body: { confirm: 'RESET' } });
+      toast(`Reset: ${r.cards} card${r.cards === 1 ? '' : 's'} and ${r.inboxItems} Inbox item${r.inboxItems === 1 ? '' : 's'} removed — backup saved`);
+      loadBackups();
+      await loadInbox();
+      if (state.boardId) await refresh();
+    } catch (e) { toast('Reset failed: ' + (e.message || 'error')); }
+  };
+
   // ---- Inbox: re-run routing tags (↻ next to the count) ----
   $('#inboxReprocess').onclick = async () => {
     const btn = $('#inboxReprocess');
@@ -880,7 +894,7 @@
       if (!backups.length) { ul.innerHTML = ''; return; }
       backups.forEach((b) => {
         const li = document.createElement('li');
-        const typeLabel = b.automated ? 'Automated' : (b.reason === 'pre-restore' ? 'Pre-restore' : b.reason === 'pre-upgrade' ? 'Pre-upgrade' : 'Manual');
+        const typeLabel = b.automated ? 'Automated' : (b.reason === 'pre-restore' ? 'Pre-restore' : b.reason === 'pre-upgrade' ? 'Pre-upgrade' : b.reason === 'pre-reset' ? 'Pre-reset' : 'Manual');
         const typeClass = b.automated ? 'auto' : 'manual';
         li.innerHTML = `<span class="b-name">${new Date(b.createdAt).toLocaleString()} <span class="b-type ${typeClass}">${typeLabel}</span></span>`;
         const btn = document.createElement('button');

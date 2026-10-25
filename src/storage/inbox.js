@@ -64,6 +64,13 @@ export async function updateItem(id, patch = {}) {
   return updated;
 }
 
+/** Testing helper: empty the Inbox. Returns how many items were removed. */
+export async function clearAll() {
+  let n = 0;
+  await updateJson(config.inboxFile, (inbox) => { n = ((inbox && inbox.items) || []).length; return { items: [] }; }, EMPTY);
+  return n;
+}
+
 export async function removeItem(id) {
   let removed = null;
   await updateJson(

@@ -30,7 +30,7 @@ export async function createBackup(reason = 'manual') {
   const index = await readJson(path.join(config.boardsDir, '_index.json'), { boards: [] });
   const snapshot = {
     kind: 'kandeck-backup',
-    version: 2, // v2 adds settings + config so a restore is a true full restore
+    version: 3, // v2 added settings + config; v3 adds the Inbox
     createdAt: new Date().toISOString(),
     reason,
     index,
@@ -40,6 +40,9 @@ export async function createBackup(reason = 'manual') {
     // encrypted. v1 backups won't have these; restore tolerates their absence.
     settings: await readJson(config.settingsFile, null),
     config: await readJson(config.configFile, null),
+    // v3: Inbox items (older backups don't have them; restore leaves the
+    // current Inbox alone in that case).
+    inbox: await readJson(config.inboxFile, { items: [] }),
   };
   const stamp = fileStamp();
   const file = backupPath(stamp);
@@ -89,6 +92,7 @@ export async function restoreBackup(fileName) {
   // as-is so restoring an old backup never wipes current settings.
   if (snap.settings) await writeJsonAtomic(config.settingsFile, snap.settings);
   if (snap.config) await writeJsonAtomic(config.configFile, snap.config);
+  if (snap.inbox) await writeJsonAtomic(config.inboxFile, snap.inbox);
   return {
     restored: safe,
     boards: Object.keys(snap.boards || {}).length,

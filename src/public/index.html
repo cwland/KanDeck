@@ -349,7 +349,7 @@
           </section>
 
           <section class="tab-panel" data-tab="backups">
-            <p class="hint">Backups cover the whole app (all boards + settings). Restore from Board settings history is unaffected.</p>
+            <p class="hint">Backups cover the whole app: all boards, the Inbox and settings.</p>
 
             <div class="auto-backup">
               <div class="ai-toggle-row">
@@ -379,6 +379,12 @@
               <button type="button" class="btn ghost" id="appBackupRefresh">↻ Refresh list</button>
             </div>
             <ul class="backup-list" id="backupList"></ul>
+
+            <div class="danger-zone">
+              <div class="dz-title">⚠️ Danger zone</div>
+              <p class="hint">For testing. <b>Reset all cards</b> permanently deletes every card on every board — active and archived, archived boards included — and empties the Inbox. Boards, lanes, routing tags, calendar feeds and settings are kept. A full backup is taken first, so you can undo it from the list above.</p>
+              <button type="button" class="btn danger-solid" id="resetCards">Reset all cards…</button>
+            </div>
           </section>
 
           <section class="tab-panel" data-tab="archives">

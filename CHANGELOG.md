@@ -4,6 +4,11 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.3.0 — 2026-10-25
+
+- **Reset all cards** (for testing) — **App Settings → Backups → Danger zone**. Deletes every card on every board (active and archived) and empties the Inbox, while keeping boards, lanes, tags, feeds and settings. Asks you to type `RESET`, and takes a **Pre-reset** backup first so it can be undone.
+- **Backups now include the Inbox.** Previously a restore brought back boards and settings but not Inbox items. (Older backups restore as before and leave the current Inbox alone.)
+
 ## 2.2.0 — 2026-10-25
 
 - **Board settings** are now split into tabs — **General**, **Lanes**, **Routing**, **Calendar** and **Archived** (with a count) — instead of one long list.

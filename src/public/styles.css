@@ -783,3 +783,11 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
   font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim);
 }
 .wn-sub + .wn-entry { border-top: 0; }
+
+/* Danger zone (App Settings → Backups) */
+.danger-zone { margin-top: 22px; padding: 12px 14px; border: 1px solid #ffc9c9; border-radius: 10px; background: #fff5f5; }
+html[data-theme='dark'] .danger-zone { background: #3a1d1d; border-color: #6b2b2b; }
+.danger-zone .dz-title { font-weight: 800; color: #c92a2a; font-size: .9rem; }
+html[data-theme='dark'] .danger-zone .dz-title { color: #ffa8a8; }
+.btn.danger-solid { background: #e03131; color: #fff; border: 0; }
+.btn.danger-solid:hover { background: #c92a2a; }

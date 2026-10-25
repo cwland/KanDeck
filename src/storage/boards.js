@@ -454,6 +454,21 @@ export async function getBoardForIcs(id, token) {
   return crypto.timingSafeEqual(a, b) ? board : null;
 }
 
+/** Testing helper: delete every card (active + archived) on every board,
+ *  archived boards included. Boards, lanes, routing tags, feeds and settings
+ *  are kept. Returns { boards, cards } counts. */
+export async function clearAllCards() {
+  const idx = await readIndex();
+  let cards = 0;
+  for (const entry of idx.boards) {
+    await mutateBoard(entry.id, (board) => {
+      for (const col of board.columns || []) { cards += (col.cards || []).length; col.cards = []; }
+      return board;
+    });
+  }
+  return { boards: idx.boards.length, cards };
+}
+
 export async function deleteBoard(id) {
   await removeFile(boardFile(id));
   await removeIndexEntry(id);

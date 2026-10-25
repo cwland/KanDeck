@@ -14,7 +14,7 @@ import { Router } from 'express';
 import * as boards from '../storage/boards.js';
 import * as inbox from '../storage/inbox.js';
 import * as settings from '../storage/settings.js';
-import { getApiKey, setApiKey, generateApiKeyValue } from '../auth.js';
+import { getApiKey, setApiKey, generateApiKeyValue, validCookie } from '../auth.js';
 import { events } from '../events.js';
 import { createBackup, listBackups, restoreBackup, rescheduleBackups } from '../services/backup.js';
 import { testEmail, testDiscord, emailProvider, discordProvider } from '../services/notify/index.js';
@@ -264,6 +264,20 @@ router.get('/boards/:id/archived', wrap(async (req, res) => {
     for (const card of col.cards)
       if (card.archived) archived.push({ ...card, columnId: col.id, columnName: col.name });
   res.json({ archived });
+}));
+
+// ---- Reset all cards (testing) ------------------------------------------------
+// Wipes every card (active + archived) on every board and empties the Inbox.
+// Browser session only (not the API key), requires { confirm: "RESET" }, and
+// always takes a full backup first so it can be undone from Backups.
+router.post('/reset-cards', wrap(async (req, res) => {
+  if (!(await validCookie(req))) return res.status(403).json({ error: 'Reset is only available from the app, not the API.' });
+  if (req.body?.confirm !== 'RESET') return res.status(400).json({ error: 'Type RESET to confirm.' });
+  const backup = await createBackup('pre-reset');
+  const { boards: boardCount, cards } = await boards.clearAllCards();
+  const inboxItems = await inbox.clearAll();
+  events.emit('inbox:created', {}); // nudge open browsers to refresh
+  res.json({ ok: true, backup: backup.file, boards: boardCount, cards, inboxItems });
 }));
 
 // ---- Backups (spec 2.1) ----------------------------------------------------
