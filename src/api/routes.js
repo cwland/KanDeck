@@ -436,6 +436,13 @@ router.post('/inbox', wrap(async (req, res) => {
   res.status(201).json(item);
 }));
 
+// Re-run routing tags over everything in the Inbox (the ↻ button).
+router.post('/inbox/reprocess', wrap(async (req, res) => {
+  const result = await inbox.reprocess();
+  for (const m of result.moved) events.emit('card:created', { boardId: m.boardId, card: m.card });
+  res.json({ moved: result.moved.map(({ card, ...rest }) => rest), remaining: result.remaining });
+}));
+
 router.put('/inbox/:id', wrap(async (req, res) => {
   const item = await inbox.updateItem(req.params.id, req.body || {});
   if (!item) return res.status(404).json({ error: 'Inbox item not found' });

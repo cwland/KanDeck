@@ -4,6 +4,16 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.2.0 — 2026-10-25
+
+- **Board settings** are now split into tabs — **General**, **Lanes**, **Routing**, **Calendar** and **Archived** (with a count) — instead of one long list.
+- Board **routing tags** now save the moment you click **Add** or **×** — no need to click the board's Save button.
+- **Re-check the Inbox** — a small **↻** button next to the Inbox count runs every Inbox item through the board routing tags again and moves matches to that board's first lane. Handy after adding a tag to a board.
+
+## 2.1.1 — 2026-10-25
+
+- **App Settings** now has a vertical section menu on the left (with icons) instead of a row of tabs, so every section fits without scrolling sideways. Only the settings area scrolls. On phones it falls back to a swipeable tab strip.
+
 ## 2.1.0 — 2026-10-25
 
 - **Routing tags** — in **Board settings**, add tags to a board (type, click **Add**; remove with ×). A task pushed to KanDeck without a board but with a matching tag goes straight to that board's **first lane** instead of the Inbox.

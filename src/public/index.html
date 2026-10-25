@@ -51,7 +51,9 @@
     <div class="content-row">
       <aside class="inbox-panel" id="inboxPanel">
         <header class="inbox-head">
-          <span>📥 Inbox <b id="inboxCount">0</b></span>
+          <span class="inbox-title">📥 Inbox <b id="inboxCount">0</b>
+            <button type="button" class="inbox-reprocess" id="inboxReprocess" title="Re-check Inbox items against board routing tags" aria-label="Re-check Inbox items against board routing tags">↻</button>
+          </span>
           <button class="icon-btn ghost-icon" id="inboxHide" title="Hide inbox">✕</button>
         </header>
         <ul class="inbox-list" id="inboxList"></ul>
@@ -149,16 +151,16 @@
           <h2>App settings</h2>
           <button class="icon-btn" id="appModalClose" title="Close">✕</button>
         </header>
-        <nav class="modal-tabs" id="appTabs">
-          <button type="button" class="modal-tab active" data-tab="theme">Theme</button>
-          <button type="button" class="modal-tab" data-tab="account">Account</button>
-          <button type="button" class="modal-tab" data-tab="categories">Categories</button>
-          <button type="button" class="modal-tab" data-tab="lanes">Lane colors</button>
-          <button type="button" class="modal-tab" data-tab="notify">Notifications</button>
-          <button type="button" class="modal-tab" data-tab="api">API</button>
-          <button type="button" class="modal-tab" data-tab="calendar">Calendar</button>
-          <button type="button" class="modal-tab" data-tab="backups">Backups</button>
-          <button type="button" class="modal-tab" data-tab="archives">Archives</button>
+        <nav class="modal-tabs" id="appTabs" aria-label="Settings sections">
+          <button type="button" class="modal-tab active" data-tab="theme"><span class="mt-ico" aria-hidden="true">🎨</span>Theme</button>
+          <button type="button" class="modal-tab" data-tab="account"><span class="mt-ico" aria-hidden="true">👤</span>Account</button>
+          <button type="button" class="modal-tab" data-tab="categories"><span class="mt-ico" aria-hidden="true">🏷️</span>Categories</button>
+          <button type="button" class="modal-tab" data-tab="lanes"><span class="mt-ico" aria-hidden="true">🌈</span>Lane colors</button>
+          <button type="button" class="modal-tab" data-tab="notify"><span class="mt-ico" aria-hidden="true">🔔</span>Notifications</button>
+          <button type="button" class="modal-tab" data-tab="api"><span class="mt-ico" aria-hidden="true">🔑</span>API</button>
+          <button type="button" class="modal-tab" data-tab="calendar"><span class="mt-ico" aria-hidden="true">📅</span>Calendar</button>
+          <button type="button" class="modal-tab" data-tab="backups"><span class="mt-ico" aria-hidden="true">💾</span>Backups</button>
+          <button type="button" class="modal-tab" data-tab="archives"><span class="mt-ico" aria-hidden="true">🗄️</span>Archives</button>
         </nav>
         <div class="dirty-banner" id="appDirty" hidden>⚠️ You have unsaved changes — click Save to keep them.</div>
         <div class="modal-body">
@@ -400,77 +402,95 @@
           <h2 id="boardModalTitle">Board settings</h2>
           <button class="icon-btn" id="boardModalClose" title="Close">✕</button>
         </header>
+        <nav class="modal-tabs" id="boardTabs" aria-label="Board settings sections">
+          <button type="button" class="modal-tab active" data-btab="general">General</button>
+          <button type="button" class="modal-tab" data-btab="lanes">Lanes</button>
+          <button type="button" class="modal-tab" data-btab="routing">Routing</button>
+          <button type="button" class="modal-tab" data-btab="calendar">Calendar</button>
+          <button type="button" class="modal-tab" data-btab="archived">Archived <b class="bt-count" id="archivedCount" hidden></b></button>
+        </nav>
         <div class="modal-body">
-          <div class="field">
-            <label>Board name</label>
-            <input id="bmName" type="text" />
-          </div>
-          <div class="field">
-            <label>Description</label>
-            <input id="bmDesc" type="text" />
-          </div>
-
-          <div class="field">
-            <label>Routing tags <small>(auto-route incoming tasks to this board)</small></label>
-            <div class="route-tag-add">
-              <input id="bmTagInput" type="text" maxlength="40" placeholder="Type a tag, e.g. home" autocomplete="off" />
-              <button type="button" class="btn ghost" id="bmTagAdd">Add</button>
+          <section class="tab-panel active" data-btab="general">
+            <div class="field">
+              <label>Board name</label>
+              <input id="bmName" type="text" />
             </div>
-            <div class="route-tag-error" id="bmTagErr" hidden></div>
-            <ul class="route-tags" id="bmTagList"></ul>
-            <p class="hint">A task pushed to KanDeck (API, n8n, scripts) without a board but with one of these tags goes straight into this board's <b>first lane</b>. Tasks with no matching tag still go to the Inbox. Each tag can belong to only one board; matching ignores upper/lower case.</p>
-          </div>
-
-          <div class="field">
-            <label>Lanes <small>(drag to reorder · the last lane is always the done lane)</small></label>
-            <ul class="lane-editor" id="laneEditor"></ul>
-            <button type="button" class="btn ghost" id="addLaneBtn">＋ Add lane</button>
-          </div>
-
-          <div class="field">
-            <label>Show on cards</label>
-            <div class="card-fields">
-              <label><input type="checkbox" id="cfPriority" /> Priority</label>
-              <label><input type="checkbox" id="cfDue" /> Due date</label>
-              <label><input type="checkbox" id="cfTags" /> Labels</label>
-              <label><input type="checkbox" id="cfSource" /> Source</label>
+            <div class="field">
+              <label>Description</label>
+              <input id="bmDesc" type="text" />
             </div>
-          </div>
 
-          <div class="field">
-            <label>Auto-archive done tasks after <small>(days; 0 = never)</small></label>
-            <input id="bmAutoArchive" type="number" min="0" step="1" />
-            <p class="hint">Tasks in the done lane (the last lane) are archived this many days after their completed date. They keep their completed date and stay in the done lane — click the archive-box icon in the lane's title row to show or hide them, or open one and click <b>Unarchive</b>. Archived tasks also appear under <b>Archived cards</b> below.</p>
-          </div>
-
-          <div class="field">
-            <label>Calendar feed <small>(.ics)</small></label>
-            <div class="ai-toggle-row">
-              <label class="switch"><input type="checkbox" id="icsEnabled" /><span></span></label>
-              <span class="ai-toggle-label">Publish this board's due dates as a calendar feed</span>
-            </div>
-            <div id="icsPanel" hidden>
-              <div class="apikey-row">
-                <input id="icsUrl" type="text" readonly />
-                <button type="button" class="btn ghost" id="icsCopy">Copy</button>
-                <a class="btn ghost" id="icsSubscribe" href="#" title="Open in your calendar app">Subscribe</a>
-              </div>
-              <div class="card-fields" style="margin-top:8px">
-                <label><input type="checkbox" id="icsDesc" /> Include card descriptions</label>
-                <label><input type="checkbox" id="icsDone" /> Include done tasks</label>
-              </div>
-              <div class="ai-test-row">
-                <button type="button" class="btn ghost" id="icsRotate">Generate new link</button>
-                <span class="ai-test-status" id="icsStatus"></span>
+            <div class="field">
+              <label>Show on cards</label>
+              <div class="card-fields">
+                <label><input type="checkbox" id="cfPriority" /> Priority</label>
+                <label><input type="checkbox" id="cfDue" /> Due date</label>
+                <label><input type="checkbox" id="cfTags" /> Labels</label>
+                <label><input type="checkbox" id="cfSource" /> Source</label>
               </div>
             </div>
-            <p class="hint">Cards with a due date appear as all-day events; cards without one are published as to-dos (VTODO — Google Calendar ignores these, Apple/Outlook/Thunderbird vary). Anyone with the link can read the feed without logging in, so treat it like a password. <b>Generate new link</b> breaks the old one. These changes apply immediately.</p>
-          </div>
+          </section>
 
-          <div class="field">
-            <label>Archived cards</label>
-            <ul class="archive-list" id="archiveList"></ul>
-          </div>
+          <section class="tab-panel" data-btab="lanes">
+            <div class="field">
+              <label>Lanes <small>(drag to reorder · the last lane is always the done lane)</small></label>
+              <ul class="lane-editor" id="laneEditor"></ul>
+              <button type="button" class="btn ghost" id="addLaneBtn">＋ Add lane</button>
+            </div>
+
+            <div class="field">
+              <label>Auto-archive done tasks after <small>(days; 0 = never)</small></label>
+              <input id="bmAutoArchive" type="number" min="0" step="1" />
+              <p class="hint">Tasks in the done lane (the last lane) are archived this many days after their completed date. They keep their completed date and stay in the done lane — click the archive-box icon in the lane's title row to show or hide them, or open one and click <b>Unarchive</b>. Archived tasks are also listed on the <b>Archived</b> tab.</p>
+            </div>
+          </section>
+
+          <section class="tab-panel" data-btab="routing">
+            <div class="field">
+              <label>Routing tags <small>(auto-route incoming tasks to this board)</small></label>
+              <div class="route-tag-add">
+                <input id="bmTagInput" type="text" maxlength="40" placeholder="Type a tag, e.g. home" autocomplete="off" />
+                <button type="button" class="btn ghost" id="bmTagAdd">Add</button>
+              </div>
+              <div class="route-tag-error" id="bmTagErr" hidden></div>
+              <ul class="route-tags" id="bmTagList"></ul>
+              <p class="hint">A task pushed to KanDeck (API, n8n, scripts) without a board but with one of these tags goes straight into this board's <b>first lane</b>. Tasks with no matching tag still go to the Inbox. Each tag can belong to only one board; matching ignores upper/lower case. Tags save as soon as you click <b>Add</b> or <b>×</b>.</p>
+            </div>
+          </section>
+
+          <section class="tab-panel" data-btab="calendar">
+            <div class="field">
+              <label>Calendar feed <small>(.ics)</small></label>
+              <div class="ai-toggle-row">
+                <label class="switch"><input type="checkbox" id="icsEnabled" /><span></span></label>
+                <span class="ai-toggle-label">Publish this board's due dates as a calendar feed</span>
+              </div>
+              <div id="icsPanel" hidden>
+                <div class="apikey-row">
+                  <input id="icsUrl" type="text" readonly />
+                  <button type="button" class="btn ghost" id="icsCopy">Copy</button>
+                  <a class="btn ghost" id="icsSubscribe" href="#" title="Open in your calendar app">Subscribe</a>
+                </div>
+                <div class="card-fields" style="margin-top:8px">
+                  <label><input type="checkbox" id="icsDesc" /> Include card descriptions</label>
+                  <label><input type="checkbox" id="icsDone" /> Include done tasks</label>
+                </div>
+                <div class="ai-test-row">
+                  <button type="button" class="btn ghost" id="icsRotate">Generate new link</button>
+                  <span class="ai-test-status" id="icsStatus"></span>
+                </div>
+              </div>
+              <p class="hint">Cards with a due date appear as all-day events; cards without one are published as to-dos (VTODO — Google Calendar ignores these, Apple/Outlook/Thunderbird vary). Anyone with the link can read the feed without logging in, so treat it like a password. <b>Generate new link</b> breaks the old one. These changes apply immediately.</p>
+            </div>
+          </section>
+
+          <section class="tab-panel" data-btab="archived">
+            <div class="field">
+              <p class="hint">Cards you (or auto-archive) archived on this board. Unarchive one to put it back in its lane.</p>
+              <ul class="archive-list" id="archiveList"></ul>
+            </div>
+            <p class="hint" id="archiveEmpty">No archived cards on this board.</p>
+          </section>
         </div>
         <footer class="modal-foot">
           <button class="btn ghost" id="bmArchive" title="Hide this board; restore or delete it from App settings → Archives">Archive board</button>

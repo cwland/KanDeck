@@ -83,6 +83,21 @@ export async function removeItem(id) {
  *  Returns null if the item or target board can't be found — the caller turns
  *  that into a 404, and crucially the inbox item is NOT deleted, so a stale or
  *  deleted board id can never silently lose the item. */
+/** Re-run tag routing over the whole Inbox: every item whose tags match a
+ *  board's routing tags moves to that board's first lane. Returns what moved. */
+export async function reprocess() {
+  const moved = [];
+  for (const item of await listItems()) {
+    if (!item.tags || !item.tags.length) continue;
+    const match = await boards.findBoardForTags(item.tags);
+    if (!match) continue;
+    const res = await moveToBoard(item.id, match.board.id);
+    if (res && res.card)
+      moved.push({ id: item.id, subject: item.subject, boardId: match.board.id, boardName: match.board.name, routedBy: match.tag, card: res.card });
+  }
+  return { moved, remaining: (await listItems()).length };
+}
+
 export async function moveToBoard(id, boardId, columnId, index) {
   const items = await listItems();
   const item = items.find((i) => i.id === id);

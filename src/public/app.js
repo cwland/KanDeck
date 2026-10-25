@@ -526,12 +526,22 @@
     loadArchive();
     renderIcs(b.ics);
     openRouteTags(b);
+    setBoardTab('general');
     boardModal.hidden = false;
   }
 
+  // ---- Board settings tabs ----
+  function setBoardTab(tab) {
+    $$('#boardTabs .modal-tab').forEach((x) => x.classList.toggle('active', x.dataset.btab === tab));
+    $$('#boardModal .tab-panel').forEach((x) => x.classList.toggle('active', x.dataset.btab === tab));
+    const body = $('#boardModal .modal-body'); if (body) body.scrollTop = 0;
+  }
+  $$('#boardTabs .modal-tab').forEach((x) => (x.onclick = () => setBoardTab(x.dataset.btab)));
+
   // ---- Routing tags (board settings) ----
-  // Edited locally; saved with the board's Save button. Duplicates across
-  // boards are caught here (from /route-tags) and again by the server.
+  // Saved immediately on Add / × (no need for the board's Save button).
+  // Duplicates across boards are caught here (from /route-tags) and again by
+  // the server, which is the source of truth.
   let routeTags = [];
   let otherBoardTags = new Map(); // normalized tag → { tag, boardName, archived }
   const normTag = (t) => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -544,7 +554,11 @@
       li.innerHTML = `<span>${esc(t)}</span>`;
       const x = document.createElement('button');
       x.type = 'button'; x.className = 'route-tag-x'; x.textContent = '×'; x.title = `Remove "${t}"`;
-      x.onclick = () => { routeTags.splice(i, 1); tagError(''); renderRouteTags(); };
+      x.onclick = async () => {
+        const next = routeTags.filter((_, j) => j !== i);
+        tagError('');
+        if (await saveRouteTags(next)) toast(`Removed tag "${t}"`);
+      };
       li.appendChild(x); ul.appendChild(li);
     });
   }
@@ -558,21 +572,44 @@
       tags.forEach((t) => { if (t.boardId !== b.id) otherBoardTags.set(normTag(t.tag), t); });
     } catch {}
   }
-  function addRouteTags() {
+  /** Persist the board's routing tags right away. Returns true on success;
+   *  on failure shows the server's message and leaves the list unchanged. */
+  async function saveRouteTags(next) {
+    try {
+      const b = await api('/boards/' + state.boardId, { method: 'PUT', body: { routeTags: next } });
+      routeTags = [...(b.routeTags || [])];
+      if (state.board) state.board.routeTags = routeTags;
+      renderRouteTags();
+      return true;
+    } catch (e) {
+      tagError(e.message || 'Could not save tags');
+      return false;
+    }
+  }
+  async function addRouteTags() {
     const parts = $('#bmTagInput').value.split(',').map((t) => t.trim().replace(/\s+/g, ' ')).filter(Boolean);
-    if (!parts.length) return;
+    if (!parts.length) return true;
     const errs = [];
+    const add = [];
     for (const t of parts) {
       if (t.length > 40) { errs.push(`"${t.slice(0, 20)}…" is too long (max 40 characters).`); continue; }
       const owner = otherBoardTags.get(normTag(t));
       if (owner) { errs.push(`"${t}" is already used by board "${owner.boardName}"${owner.archived ? ' (archived)' : ''}.`); continue; }
-      if (routeTags.some((x) => normTag(x) === normTag(t))) { errs.push(`"${t}" is already on this board.`); continue; }
-      routeTags.push(t);
+      if ([...routeTags, ...add].some((x) => normTag(x) === normTag(t))) { errs.push(`"${t}" is already on this board.`); continue; }
+      add.push(t);
     }
     tagError(errs.join(' '));
-    $('#bmTagInput').value = errs.length ? parts.filter((t) => !routeTags.includes(t)).join(', ') : '';
-    renderRouteTags();
+    let ok = !errs.length;
+    if (add.length) {
+      if (await saveRouteTags([...routeTags, ...add])) {
+        toast(`Saved tag${add.length === 1 ? '' : 's'}: ${add.join(', ')}`);
+        if (errs.length) tagError(errs.join(' ')); // keep showing the rejected ones
+      } else ok = false;
+    }
+    // Leave only the rejected text in the box so it can be fixed.
+    $('#bmTagInput').value = parts.filter((t) => !routeTags.some((x) => normTag(x) === normTag(t))).join(', ');
     $('#bmTagInput').focus();
+    return ok;
   }
   $('#bmTagAdd').onclick = addRouteTags;
   $('#bmTagInput').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addRouteTags(); } };
@@ -735,6 +772,28 @@
     window.location.href = '/login';
   };
 
+  // ---- Inbox: re-run routing tags (↻ next to the count) ----
+  $('#inboxReprocess').onclick = async () => {
+    const btn = $('#inboxReprocess');
+    if (btn.disabled) return;
+    btn.disabled = true; btn.classList.add('spinning');
+    try {
+      const r = await api('/inbox/reprocess', { method: 'POST' });
+      const n = r.moved.length;
+      if (!n) toast('No Inbox items matched a board’s routing tags');
+      else {
+        const boardsHit = [...new Set(r.moved.map((m) => m.boardName))];
+        toast(`Moved ${n} item${n === 1 ? '' : 's'} to ${boardsHit.join(', ')}`);
+      }
+      await loadInbox();
+      if (n && state.boardId && r.moved.some((m) => m.boardId === state.boardId)) await refresh();
+    } catch (e) {
+      toast('Re-check failed: ' + (e.message || 'error'));
+    } finally {
+      setTimeout(() => { btn.disabled = false; btn.classList.remove('spinning'); }, 400);
+    }
+  };
+
   // ---- App-wide calendar feed (App settings → Calendar) — live actions ----
   async function copyField(field, status) {
     field.focus(); field.select();
@@ -838,8 +897,14 @@
 
   async function loadArchive() {
     const ul = $('#archiveList'); ul.innerHTML = '';
+    const showCount = (n) => {
+      const c = $('#archivedCount'); c.textContent = n; c.hidden = !n;
+      $('#archiveEmpty').hidden = !!n;
+    };
+    showCount(0);
     try {
       const { archived } = await api('/boards/' + state.boardId + '/archived');
+      showCount(archived.length);
       if (!archived.length) return;
       archived.forEach((c) => {
         const li = document.createElement('li');
@@ -860,16 +925,15 @@
   $('#boardModalClose').onclick = $('#bmCancel').onclick = closeBoardModal;
   $('#bmSave').onclick = async () => {
     const name = $('#bmName').value.trim();
-    if (!name) { toast('Board title is required'); $('#bmName').focus(); return; }
-    // A tag typed but not yet added counts too.
-    if ($('#bmTagInput').value.trim()) { addRouteTags(); if (!$('#bmTagErr').hidden) return; }
+    if (!name) { setBoardTab('general'); toast('Board title is required'); $('#bmName').focus(); return; }
+    // A tag typed but not yet added gets added (and saved) too.
+    if ($('#bmTagInput').value.trim() && !(await addRouteTags())) return;
     try {
       await api('/boards/' + state.boardId, {
         method: 'PUT',
         body: {
           name,
           description: $('#bmDesc').value,
-          routeTags,
           settings: {
             autoArchiveDays: Math.max(0, parseInt($('#bmAutoArchive').value, 10) || 0),
             cardFields: {
@@ -880,10 +944,7 @@
         },
       });
     } catch (e) {
-      // e.g. a routing tag another board grabbed meanwhile — keep the modal open.
-      tagError(e.message || 'Could not save');
-      $('#bmTagErr').scrollIntoView({ block: 'center', behavior: 'smooth' });
-      toast('Board not saved — see the error');
+      toast('Board not saved: ' + (e.message || 'error'));
       return;
     }
     await saveLanes();

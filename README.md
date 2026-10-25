@@ -252,16 +252,18 @@ first-run setup, which only works from your local network (or with
 
 - **Switch boards** from the bottom bar → *Switch board*. Create a new board with
   the **＋** next to the search.
-- **App Settings** (⚙️, top-right) is tabbed: Theme, Account, Categories, Lane
-  colors, Notifications, API, Calendar, Backups, Archives. A single **Save**
+- **App Settings** (⚙️, top-right) has a section menu down the left: Theme,
+  Account, Categories, Lane colors, Notifications, API, Calendar, Backups,
+  Archives. A single **Save**
   applies everything (the Account, API, Calendar and Archives tabs act
   immediately).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
   every other browser.
-- **Board Settings** (⚙️, board area) manages that board's lanes, card display
-  fields, the done-lane window, the calendar feed, archived cards, and
-  **Archive board**.
+- **Board Settings** (⚙️, board area) has tabs: **General** (name, description,
+  what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
+  tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
+  footer has **Archive board**.
 - **Inbox**: items arriving via the API land here for triage — drag them onto a
   board or use the card's **⋮** menu to send it to a board's first column.
 - **What's new**: the first time you open KanDeck after an update, a window
@@ -289,7 +291,7 @@ first-run setup, which only works from your local network (or with
   at the right of the done lane's title to show or hide them (it shows how many
   are archived; remembered per board, per browser). Open one and
   click **Unarchive** to bring it back; it then gets a fresh X-day countdown.
-  Archived cards also appear under **Archived cards** in Board settings.
+  Archived cards are also listed on the **Archived** tab in Board settings.
 
 ## Archiving boards
 
@@ -301,8 +303,8 @@ search, notifications and calendar feeds, keeping all of its cards.
 ## Routing tags
 
 In **Board settings → Routing tags**, type a tag and click **Add** (or press
-Enter; commas add several at once). The board's tags show as chips — click
-**×** to remove one — and are saved with the board's **Save** button.
+Enter; commas add several at once). Tags are saved immediately — no need to
+click the board's **Save** — and show as chips; click **×** to remove one.
 
 - When a task arrives through the API (`POST /api/tasks` or `/api/inbox`)
   **without** a `boardId`, its tags are compared to every board's routing tags
@@ -312,7 +314,9 @@ Enter; commas add several at once). The board's tags show as chips — click
 - A tag can belong to **only one board** — trying to add one that another board
   (even an archived one) already uses shows an error. Archived boards never
   receive routed tasks.
-- Items already in the Inbox aren't re-routed.
+- Items already in the Inbox aren't re-routed automatically — click the small
+  **↻** next to the Inbox count to re-check them all against the current
+  routing tags (handy after adding a tag to a board).
 
 ## Calendar feed (.ics)
 
@@ -360,6 +364,7 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 | `GET` | `/api/boards/:id` | Full board (columns + cards) |
 | `POST` | `/api/tasks` | Create a task (with `boardId` → that board; otherwise a matching routing tag → that board's first lane; else → Inbox) |
 | `GET` | `/api/route-tags` | Every board's routing tags |
+| `POST` | `/api/inbox/reprocess` | Re-run routing tags over the Inbox; returns what moved |
 | `PUT` | `/api/tasks/:id` | Update or move a task |
 | `GET` | `/api/tasks/query` | **Date-filtered task query** (see below) |
 | `GET` | `/api/search?q=` | Search cards across all boards |
@@ -457,7 +462,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.1.0 && git push origin v2.1.0
+git tag v2.2.0 && git push origin v2.2.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

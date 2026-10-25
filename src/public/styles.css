@@ -181,6 +181,16 @@ body.inbox-collapsed .inbox-panel {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px 8px; font-weight: 700; font-size: 1rem;
 }
+.inbox-title { display: inline-flex; align-items: center; gap: 6px; }
+.inbox-reprocess {
+  border: 0; background: transparent; color: inherit; opacity: .6; cursor: pointer;
+  width: 22px; height: 22px; border-radius: 50%; padding: 0; font-size: .95rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.inbox-reprocess:hover, .inbox-reprocess:focus-visible { opacity: 1; background: rgba(255, 255, 255, .45); }
+.inbox-reprocess.spinning { animation: kd-spin .7s linear infinite; opacity: 1; }
+@keyframes kd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .inbox-reprocess.spinning { animation: none; } }
 .inbox-head b {
   display: inline-block; vertical-align: middle; margin-left: 4px;
   font-size: .72rem; font-weight: 700; color: #44546a; /* fixed dark ink: bubble is always light in both themes */
@@ -371,6 +381,17 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 
 /* ---- Lane editor (board settings) ---- */
 .card-fields { display: flex; flex-wrap: wrap; gap: 14px; }
+/* Board settings: fixed-size dialog with tabs; only the tab content scrolls. */
+#boardModal .modal { width: min(94vw, 640px); height: min(86vh, 660px); max-height: none; overflow: hidden; display: flex; flex-direction: column; }
+#boardModal .modal-body { flex: 1; overflow-y: auto; padding-top: 6px; }
+#boardModal .modal-foot { border-top: 1px solid var(--border); padding-top: 12px; }
+#boardModal .archive-list { max-height: none; }
+.bt-count {
+  display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 9px; font-size: .68rem; line-height: 16px;
+  background: var(--surface-2); color: var(--text-dim);
+}
+.bt-count[hidden] { display: none; }
+.modal-tab.active .bt-count { background: var(--accent); color: #fff; }
 /* Routing tags (board settings) */
 .route-tag-add { display: flex; gap: 8px; }
 .route-tag-add input { flex: 1; }
@@ -530,7 +551,38 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .card-subject-input::placeholder { color: var(--text-dim); font-weight: 400; }
 .card-subject-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 /* Tabbed modal (App settings) — wider so all tabs sit on one line. */
-#appModal .modal { width: min(96vw, 800px); }
+/* App settings: vertical section menu on the left, content on the right.
+   The menu stays put; only the content area scrolls. */
+#appModal .modal {
+  width: min(96vw, 920px); height: min(88vh, 720px); max-height: none; overflow: hidden;
+  display: grid; grid-template-columns: 196px minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "head head" "nav banner" "nav body" "nav foot";
+}
+#appModal .modal-head { grid-area: head; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+#appModal .modal-tabs {
+  grid-area: nav; flex-direction: column; gap: 2px; padding: 10px 8px;
+  overflow-y: auto; overflow-x: hidden; border-bottom: 0; border-right: 1px solid var(--border);
+}
+#appModal .modal-tab {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 9px 12px; border-radius: 8px; font-size: .88rem;
+}
+#appModal .modal-tab .mt-ico { width: 20px; text-align: center; font-size: 1rem; }
+#appModal .modal-tab.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+#appModal .modal-tab.active::after { left: 0; right: auto; top: 8px; bottom: 8px; width: 3px; height: auto; border-radius: 0 2px 2px 0; }
+#appModal .dirty-banner { grid-area: banner; margin: 12px 20px 0; }
+#appModal .modal-body { grid-area: body; overflow-y: auto; padding: 8px 20px 16px; }
+#appModal .modal-foot { grid-area: foot; border-top: 1px solid var(--border); padding-top: 12px; }
+/* Phones: fall back to a horizontal, scrollable tab strip above the content. */
+@media (max-width: 640px) {
+  #appModal .modal {
+    height: 92vh; grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "nav" "banner" "body" "foot";
+  }
+  #appModal .modal-tabs { flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid var(--border); padding: 6px 8px; }
+  #appModal .modal-tab { flex: 0 0 auto; gap: 6px; }
+  #appModal .modal-tab.active::after { display: none; }
+}
 .modal-tabs {
   display: flex; gap: 2px; padding: 6px 16px 0; flex-wrap: nowrap; overflow-x: auto;
   border-bottom: 1px solid var(--border); scrollbar-width: thin;
