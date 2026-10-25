@@ -567,6 +567,7 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .swatch.none::after { content: '∅'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-dim); }
 .swatch.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .created-at { color: var(--text-dim); font-size: .78rem; margin: 14px 0 4px; }
+.created-at .completed-at { color: #2b8a3e; font-weight: 600; }
 .modal-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px 18px; }
 .modal-foot .spacer { flex: 1; }
 .btn { border: 0; border-radius: 8px; padding: 9px 16px; font-weight: 700; cursor: pointer; font-size: .9rem; }

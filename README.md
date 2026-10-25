@@ -242,7 +242,8 @@ reload; the app returns to the first-run "create password" screen.
 - A card gets a **completed date** each time it enters the done lane — by
   dragging it there or clicking its check circle. Reordering inside the done
   lane keeps the date; moving a card out clears it. The date shows as a green
-  **✓ date** badge, only on cards in the done lane.
+  **✓ date** badge on cards in the done lane, and as **✓ Completed …** in the
+  card's detail window.
 - **Show done tasks for the last X days** (Board settings; `0` = show all)
   hides older done cards. They're never deleted: a **Show all** toggle at the
   top of the done lane brings them back (remembered per board, per browser), and
@@ -406,7 +407,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v1.2.0 && git push origin v1.2.0
+git tag v1.2.1 && git push origin v1.2.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

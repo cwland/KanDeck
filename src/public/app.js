@@ -438,7 +438,13 @@
     $('#cardPriority').value = card.priority || 'none';
     $('#cardDue').value = toDateInput(card.dueDate);
     $('#cardTags').value = (card.tags || []).join(', ');
-    $('#cardCreated').textContent = 'Created ' + new Date(card.createdAt).toLocaleString();
+    // Completed date shows only while the card sits in the done (last) lane.
+    const doneCol = (state.board.columns || []).find((c) => c.id === doneColId());
+    const inDone = !!(doneCol && doneCol.cards.some((k) => k.id === card.id));
+    $('#cardCreated').innerHTML = 'Created ' + esc(new Date(card.createdAt).toLocaleString()) +
+      (inDone && card.completedAt
+        ? `<br><span class="completed-at">✓ Completed ${esc(new Date(card.completedAt).toLocaleString())}</span>`
+        : '');
     $('#cardDelete').style.display = '';
     $('#cardArchive').style.display = '';
     cardModal.hidden = false;

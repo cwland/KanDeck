@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 1.2.1 — 2026-10-25
+
+- The **completed date** now also shows in the card's detail window (under the created date) for cards in the done lane.
+
 ## 1.2.0 — 2026-10-25
 
 - **What's new window** — after an update, KanDeck shows the changes in the new version plus the 10 releases before it. Dismiss it and it stays hidden until the next update.
