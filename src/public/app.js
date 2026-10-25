@@ -646,6 +646,56 @@
     st.textContent = ok ? '✓ Copied' : 'Selected — press ⌘/Ctrl-C'; st.className = ok ? 'ai-test-status ok' : 'ai-test-status';
   };
 
+  // ---- App-wide calendar feed (App settings → Calendar) — live actions ----
+  async function copyField(field, status) {
+    field.focus(); field.select();
+    let ok = false;
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(field.value); ok = true; } } catch (_) {}
+    if (!ok) { try { ok = document.execCommand('copy'); } catch (_) {} }
+    status.textContent = ok ? '✓ Copied' : 'Selected — press ⌘/Ctrl-C'; status.className = ok ? 'ai-test-status ok' : 'ai-test-status';
+  }
+  function renderGlobalIcs(g) {
+    g = g || {};
+    const on = !!g.token;
+    $('#gIcsEnabled').checked = on;
+    $('#gIcsPanel').hidden = !on;
+    $('#gIcsStatus').textContent = ''; $('#gIcsStatus').className = 'ai-test-status';
+    $('#gIcsInbox').checked = g.includeInbox !== false;
+    $('#gIcsDesc').checked = !!g.includeDescriptions;
+    $('#gIcsDone').checked = !!g.includeCompleted;
+    const url = on ? `${(state.settings && state.settings.appUrl) || location.origin}/ics/all/${g.token}.ics` : '';
+    $('#gIcsUrl').value = url;
+    $('#gIcsSubscribe').href = on ? url.replace(/^https?:/, 'webcal:') : '#';
+  }
+  async function loadGlobalIcs() {
+    try { renderGlobalIcs(await api('/ics')); } catch {}
+  }
+  $('#gIcsEnabled').onchange = async () => {
+    const on = $('#gIcsEnabled').checked;
+    if (!on && !confirm('Turn off the all-boards calendar feed?\n\nCalendars subscribed to it will stop updating. Turning it back on creates a new link.')) {
+      $('#gIcsEnabled').checked = true; return;
+    }
+    try { renderGlobalIcs(await api('/ics', { method: on ? 'POST' : 'DELETE' })); }
+    catch { $('#gIcsEnabled').checked = !on; toast('Could not update calendar feed'); }
+  };
+  $('#gIcsRotate').onclick = async () => {
+    if (!confirm('Generate a new feed link?\n\nThe current link stops working immediately — re-subscribe your calendars with the new one.')) return;
+    try {
+      renderGlobalIcs(await api('/ics', { method: 'POST', body: { rotate: true } }));
+      $('#gIcsStatus').textContent = '✓ New link generated'; $('#gIcsStatus').className = 'ai-test-status ok';
+    } catch { toast('Could not generate a new link'); }
+  };
+  $('#gIcsInbox').onchange = $('#gIcsDesc').onchange = $('#gIcsDone').onchange = async () => {
+    try {
+      await api('/ics', { method: 'PUT', body: {
+        includeInbox: $('#gIcsInbox').checked,
+        includeDescriptions: $('#gIcsDesc').checked,
+        includeCompleted: $('#gIcsDone').checked,
+      } });
+    } catch { toast('Could not save feed options'); }
+  };
+  $('#gIcsCopy').onclick = () => copyField($('#gIcsUrl'), $('#gIcsStatus'));
+
   // ---- Archived boards (App settings → Archives) — live actions ----
   async function loadArchivedBoards() {
     const ul = $('#archivedBoards'); ul.innerHTML = '';
@@ -788,7 +838,7 @@
   // tab, whose key actions commit to the server immediately. Everything else
   // (theme, categories, lanes, AI chat, notifications, auto-backup) is persisted
   // by the main Save button, so it DOES flag unsaved changes.
-  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"]';
+  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"], [data-tab="calendar"]';
   const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);
@@ -802,6 +852,7 @@
     renderLaneColorsEditor();
     fillAIChatFields();
     loadApiKey();
+    loadGlobalIcs();
     loadNotifications();
     loadBackupConfig();
     loadBackups();

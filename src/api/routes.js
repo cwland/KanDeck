@@ -294,6 +294,25 @@ router.put('/changelog/seen', wrap(async (req, res) => {
   res.json({ lastSeenVersion: await settings.setLastSeenVersion(config.version) });
 }));
 
+// ---- App-wide calendar feed (App settings → Calendar) ----------------------
+// The feed itself is served publicly at /ics/all/:token.ics (server.js).
+
+router.get('/ics', wrap(async (req, res) => {
+  res.json(await settings.getGlobalIcs());
+}));
+
+router.post('/ics', wrap(async (req, res) => {
+  res.json(await settings.enableGlobalIcs({ rotate: !!req.body?.rotate }));
+}));
+
+router.put('/ics', wrap(async (req, res) => {
+  res.json(await settings.updateGlobalIcsOptions(req.body || {}));
+}));
+
+router.delete('/ics', wrap(async (req, res) => {
+  res.json(await settings.disableGlobalIcs());
+}));
+
 // ---- API key management (for external apps) --------------------------------
 // Behind requireApiAuth, so only an authenticated session (or an existing key)
 // can read or rotate it.

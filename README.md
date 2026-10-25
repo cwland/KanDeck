@@ -48,8 +48,9 @@ your board.
   date when they land there, and can auto-archive after N days.
 - **Archive boards** instead of deleting them; restore or permanently delete
   from **App Settings → Archives**.
-- **Calendar feed** — a per-board, read-only `.ics` subscription link (dated
-  cards as events, undated cards as to-dos).
+- **Calendar feeds** — read-only `.ics` subscription links per board, plus one
+  app-wide feed covering every board and the Inbox (dated cards as events,
+  undated cards as to-dos).
 - **What's new** — after an update, a window shows the new version's changes
   and the 10 releases before it; click the version number to reopen it.
 - **App-level categories** (priorities) with editable, high-contrast colors that
@@ -219,8 +220,8 @@ reload; the app returns to the first-run "create password" screen.
 - **Switch boards** from the bottom bar → *Switch board*. Create a new board with
   the **＋** next to the search.
 - **App Settings** (⚙️, top-right) is tabbed: Theme, Categories, Lane colors,
-  AI Chat, Notifications, API, Backups, Archives. A single **Save** applies
-  everything (the API and Archives tabs act immediately).
+  AI Chat, Notifications, API, Calendar, Backups, Archives. A single **Save**
+  applies everything (the API, Calendar and Archives tabs act immediately).
 - **Board Settings** (⚙️, board area) manages that board's lanes, card display
   fields, the done-lane window, the calendar feed, archived cards, and
   **Archive board**.
@@ -272,6 +273,13 @@ Calendar feed**, then **Copy** the link or click **Subscribe**.
 - Options: **Include card descriptions** and **Include done tasks** (both off
   by default). Archived cards and archived boards are never published.
 
+**All boards + Inbox.** **App Settings → Calendar** publishes one app-wide feed
+(`/ics/all/<token>.ics`) with every active board's cards — titles prefixed
+with the board, e.g. `[Home] Fix gate` — plus Inbox items as `[Inbox] …`
+(toggle **Include Inbox items**, on by default). Same descriptions / done-tasks
+options, same secret-link model, and its own **Generate new link**; it's
+independent of the per-board feeds.
+
 **Security.** Calendar apps can't log in, so the feed is protected by a random
 192-bit token in its URL (`/ics/<boardId>/<token>.ics`) — treat the link like a
 password.
@@ -309,7 +317,9 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 | `POST` | `/api/boards/:id/ics` | Enable the board's calendar feed (body `{"rotate":true}` → new token) |
 | `PUT` | `/api/boards/:id/ics` | Feed options `{ includeDescriptions, includeCompleted }` |
 | `DELETE` | `/api/boards/:id/ics` | Disable the feed (revokes the link) |
-| `GET` | `/ics/:boardId/:token.ics` | The feed itself — **no auth header**; the token is the credential |
+| `GET` | `/api/ics` · `POST` · `PUT` · `DELETE` | App-wide feed: read state · enable (`{"rotate":true}` → new token) · options `{ includeInbox, includeDescriptions, includeCompleted }` · disable |
+| `GET` | `/ics/:boardId/:token.ics` | A board's feed — **no auth header**; the token is the credential |
+| `GET` | `/ics/all/:token.ics` | The app-wide feed (all boards + Inbox) — token is the credential |
 
 ### Create a task
 
@@ -411,7 +421,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v1.3.1 && git push origin v1.3.1
+git tag v1.4.0 && git push origin v1.4.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

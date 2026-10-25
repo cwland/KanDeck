@@ -50,10 +50,12 @@ serving the app to your own browser.
 - Access requires a password you set on first run (bcrypt‑hashed, JWT
   httpOnly cookie session).
 - The REST API additionally accepts an API key you generate.
-- **Calendar feeds** (optional, per board, off by default) are the one
-  exception to login: calendar apps can't sign in, so anyone holding a board's
-  feed link can read that board's card titles, due dates, lane, category and
-  tags — plus descriptions and done tasks if you enable those options. Share
+- **Calendar feeds** (optional, per board and one app-wide, all off by
+  default) are the one exception to login: calendar apps can't sign in, so
+  anyone holding a feed link can read the card titles, due dates, lane,
+  category and tags it covers — for the app-wide feed that's every active board
+  and, if enabled, your Inbox — plus descriptions and done tasks if you enable
+  those options. Share
   the link only with calendars you trust; turning the feed off or generating a
   new link revokes the old one immediately. Feeds are inbound only — KanDeck
   sends nothing to calendar providers; they fetch the feed from you.

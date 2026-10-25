@@ -157,6 +157,7 @@
           <button type="button" class="modal-tab" data-tab="ai">AI Chat</button>
           <button type="button" class="modal-tab" data-tab="notify">Notifications</button>
           <button type="button" class="modal-tab" data-tab="api">API</button>
+          <button type="button" class="modal-tab" data-tab="calendar">Calendar</button>
           <button type="button" class="modal-tab" data-tab="backups">Backups</button>
           <button type="button" class="modal-tab" data-tab="archives">Archives</button>
         </nav>
@@ -326,6 +327,31 @@
               <span class="ai-test-status" id="apiKeyStatus"></span>
             </div>
             <p class="hint">Generating a new key takes effect immediately and <b>replaces</b> any existing key — external apps using the old one will need the new value. Anyone with this key has full API access to your boards, so treat it like a password.</p>
+          </section>
+
+          <section class="tab-panel" data-tab="calendar">
+            <p class="hint">One calendar feed (.ics) for <b>every board</b> plus your <b>Inbox</b>. Subscribe to it from Google, Apple or Outlook. Each item's title is prefixed with its board (e.g. <code>[Home]</code>) or <code>[Inbox]</code>. For a single board, use that board's own feed in Board settings.</p>
+            <div class="ai-toggle-row">
+              <label class="switch"><input type="checkbox" id="gIcsEnabled" /><span></span></label>
+              <span class="ai-toggle-label">Publish an all-boards calendar feed</span>
+            </div>
+            <div id="gIcsPanel" hidden>
+              <div class="apikey-row">
+                <input id="gIcsUrl" type="text" readonly />
+                <button type="button" class="btn ghost" id="gIcsCopy">Copy</button>
+                <a class="btn ghost ics-sub" id="gIcsSubscribe" href="#" title="Open in your calendar app">Subscribe</a>
+              </div>
+              <div class="card-fields" style="margin-top:8px">
+                <label><input type="checkbox" id="gIcsInbox" /> Include Inbox items</label>
+                <label><input type="checkbox" id="gIcsDesc" /> Include card descriptions</label>
+                <label><input type="checkbox" id="gIcsDone" /> Include done tasks</label>
+              </div>
+              <div class="ai-test-row">
+                <button type="button" class="btn ghost" id="gIcsRotate">Generate new link</button>
+                <span class="ai-test-status" id="gIcsStatus"></span>
+              </div>
+            </div>
+            <p class="hint">Cards with a due date appear as all-day events; cards without one are published as to-dos (VTODO — Google Calendar ignores these). Archived boards and archived cards are never included. Anyone with the link can read the feed without logging in, so treat it like a password. <b>Generate new link</b> breaks the old one. Changes on this tab apply immediately.</p>
           </section>
 
           <section class="tab-panel" data-tab="backups">

@@ -606,7 +606,7 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 .archived-boards { max-height: 320px; }
 .archived-boards:empty { display: none; }
 .ab-actions { display: flex; gap: 6px; flex: 0 0 auto; }
-#icsSubscribe { text-decoration: none; display: inline-flex; align-items: center; }
+#icsSubscribe, .ics-sub { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* toast */
 .toast {

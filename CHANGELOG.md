@@ -4,6 +4,11 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 1.4.0 — 2026-10-25
+
+- **All-boards calendar feed** — **App Settings → Calendar** publishes one `.ics` link covering every board plus your Inbox. Titles are prefixed with the board name (e.g. `[Home]`) or `[Inbox]`.
+- Options for Inbox items, card descriptions and done tasks, plus **Generate new link** and an on/off switch — the same secret-link security as per-board feeds.
+
 ## 1.3.1 — 2026-10-25
 
 - Removed the version number from the bottom-right corner. Click **KanDeck v…** at the bottom of the Inbox to open the What's new window.

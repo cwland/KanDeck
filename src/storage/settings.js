@@ -6,6 +6,7 @@
  *     `textColor`, so badges stay high-contrast and readable
  *   - laneColors: the palette of colors a lane/column can use
  */
+import crypto from 'node:crypto';
 import config from '../config.js';
 import { readJson, updateJson, writeJsonAtomic, ensureDir } from './store.js';
 import { slugify } from '../util.js';
@@ -273,6 +274,54 @@ export async function setLastOccurrence(channel, key) {
     s.notifications = n;
     return s;
   }, DEFAULTS);
+}
+
+// ---- App-wide calendar feed (App settings → Calendar) ----------------------
+// Same model as the per-board feeds: off until enabled; `token` is the secret
+// part of /ics/all/<token>.ics. Kept out of updateSettings() so the general
+// settings PUT can't set or leak-overwrite it.
+const GLOBAL_ICS_DEFAULT = { token: null, includeDescriptions: false, includeCompleted: false, includeInbox: true };
+
+export async function getGlobalIcs() {
+  const s = await readJson(config.settingsFile, DEFAULTS);
+  return { ...GLOBAL_ICS_DEFAULT, ...((s && s.globalIcs) || {}) };
+}
+
+async function mutateGlobalIcs(fn) {
+  let out;
+  await updateJson(config.settingsFile, (s) => {
+    s = { ...DEFAULTS, ...(s || {}) };
+    const g = { ...GLOBAL_ICS_DEFAULT, ...(s.globalIcs || {}) };
+    fn(g);
+    s.globalIcs = g;
+    out = g;
+    return s;
+  }, DEFAULTS);
+  return out;
+}
+
+export async function enableGlobalIcs({ rotate = false } = {}) {
+  return mutateGlobalIcs((g) => { if (rotate || !g.token) g.token = crypto.randomBytes(24).toString('base64url'); });
+}
+
+export async function disableGlobalIcs() {
+  return mutateGlobalIcs((g) => { g.token = null; });
+}
+
+export async function updateGlobalIcsOptions(patch = {}) {
+  return mutateGlobalIcs((g) => {
+    for (const k of ['includeDescriptions', 'includeCompleted', 'includeInbox'])
+      if (patch[k] !== undefined) g[k] = !!patch[k];
+  });
+}
+
+/** Feed options if `token` matches the enabled global feed (constant-time), else null. */
+export async function getGlobalIcsForToken(token) {
+  const g = await getGlobalIcs();
+  if (!g.token || !token) return null;
+  const a = crypto.createHash('sha256').update(String(g.token)).digest();
+  const b = crypto.createHash('sha256').update(String(token)).digest();
+  return crypto.timingSafeEqual(a, b) ? g : null;
 }
 
 // ---- "What's new" window: last app version whose changelog was dismissed ----

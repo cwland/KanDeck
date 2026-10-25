@@ -6,12 +6,14 @@
  * the URL (a "capability URL"). The feed is read-only, off by default, and can
  * be rotated or revoked from Board settings.
  *
- * Cards with a due date become all-day VEVENTs on that date; cards without one
+ * Also serves the app-wide feed (/ics/all/<token>.ics) — every active board
+ * plus Inbox items. Cards with a due date become all-day VEVENTs on that date; cards without one
  * become VTODOs (note: Google Calendar ignores VTODO; Apple/Thunderbird/Outlook
  * clients vary in whether they show to-dos from a subscribed feed).
  */
-import { getPriorities } from '../storage/settings.js';
-import { getBoardForIcs } from '../storage/boards.js';
+import { getPriorities, getGlobalIcsForToken } from '../storage/settings.js';
+import { getBoardForIcs, listBoards, getBoard } from '../storage/boards.js';
+import { listItems } from '../storage/inbox.js';
 
 // ---- iCalendar text helpers (RFC 5545) -------------------------------------
 
@@ -67,71 +69,106 @@ function nextDay({ y, m, d }) {
 
 // ---- Feed builder ----------------------------------------------------------
 
-export async function buildBoardIcs(board) {
-  const opts = board.ics || {};
-  const prios = await getPriorities().catch(() => []);
-  const prioName = (id) => (prios.find((p) => p.id === id) || {}).name || id;
-  const now = utcStamp(new Date());
+/** iCalendar lines for one card / inbox item: VEVENT if dated, else VTODO.
+ *  ctx: { opts, prioName, now, prefix, info } — prefix goes before the title
+ *  (e.g. "[Board] "), info are the context lines that lead the description. */
+function itemLines(card, ctx) {
+  const { opts, prioName, now } = ctx;
+  const due = dueYmd(card.dueDate);
+  const info = [...(ctx.info || [])];
+  if (card.priority && card.priority !== 'none') info.push(`Category: ${prioName(card.priority)}`);
+  if (card.tags && card.tags.length) info.push(`Tags: ${card.tags.join(', ')}`);
+  if (card.complete && card.completedAt) info.push(`Completed: ${card.completedAt.slice(0, 10)}`);
+  let desc = info.join('\n');
+  if (opts.includeDescriptions && card.description) desc += '\n\n' + card.description;
 
+  const created = card.createdAt && !Number.isNaN(Date.parse(card.createdAt)) ? utcStamp(new Date(card.createdAt)) : null;
+  const completed = card.completedAt && !Number.isNaN(Date.parse(card.completedAt)) ? utcStamp(new Date(card.completedAt)) : null;
+  const common = [
+    `UID:${escText(card.id)}@kandeck`,
+    `DTSTAMP:${completed || created || now}`,
+    ...(created ? [`CREATED:${created}`] : []),
+    `SUMMARY:${escText((card.complete ? '✓ ' : '') + (ctx.prefix || '') + card.subject)}`,
+    `DESCRIPTION:${escText(desc)}`,
+    ...(card.priority && card.priority !== 'none' ? [`CATEGORIES:${escText(prioName(card.priority))}`] : []),
+  ];
+  if (due) {
+    // Dated → all-day event on its due date.
+    return [
+      'BEGIN:VEVENT',
+      ...common,
+      `DTSTART;VALUE=DATE:${ymdStr(due)}`,
+      `DTEND;VALUE=DATE:${ymdStr(nextDay(due))}`,
+      'TRANSP:TRANSPARENT', // all-day reminders shouldn't block free/busy
+      'END:VEVENT',
+    ];
+  }
+  // Undated → to-do (no date to place it on a calendar).
+  return [
+    'BEGIN:VTODO',
+    ...common,
+    `STATUS:${card.complete ? 'COMPLETED' : 'NEEDS-ACTION'}`,
+    ...(card.complete && completed ? [`COMPLETED:${completed}`, 'PERCENT-COMPLETE:100'] : []),
+    'END:VTODO',
+  ];
+}
+
+function calendar(name, body) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//KanDeck//Board Feed//EN',
+    'PRODID:-//KanDeck//Calendar Feed//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${escText('KanDeck · ' + board.name)}`,
+    `X-WR-CALNAME:${escText(name)}`,
     'X-PUBLISHED-TTL:PT1H',
     'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+    ...body,
+    'END:VCALENDAR',
   ];
+  return lines.map(fold).join('\r\n') + '\r\n';
+}
 
+async function prioNamer() {
+  const prios = await getPriorities().catch(() => []);
+  return (id) => (prios.find((p) => p.id === id) || {}).name || id;
+}
+
+function boardLines(board, ctx, { withBoardName = false } = {}) {
+  const out = [];
   for (const col of board.columns || []) {
     for (const card of col.cards || []) {
       if (card.archived) continue;
-      if (card.complete && !opts.includeCompleted) continue;
-      const due = dueYmd(card.dueDate);
-
-      const info = [`Lane: ${col.name}`];
-      if (card.priority && card.priority !== 'none') info.push(`Category: ${prioName(card.priority)}`);
-      if (card.tags && card.tags.length) info.push(`Tags: ${card.tags.join(', ')}`);
-      if (card.complete && card.completedAt) info.push(`Completed: ${card.completedAt.slice(0, 10)}`);
-      let desc = info.join('\n');
-      if (opts.includeDescriptions && card.description) desc += '\n\n' + card.description;
-
-      const created = card.createdAt && !Number.isNaN(Date.parse(card.createdAt)) ? utcStamp(new Date(card.createdAt)) : null;
-      const completed = card.completedAt && !Number.isNaN(Date.parse(card.completedAt)) ? utcStamp(new Date(card.completedAt)) : null;
-      const common = [
-        `UID:${escText(card.id)}@kandeck`,
-        `DTSTAMP:${completed || created || now}`,
-        ...(created ? [`CREATED:${created}`] : []),
-        `SUMMARY:${escText((card.complete ? '✓ ' : '') + card.subject)}`,
-        `DESCRIPTION:${escText(desc)}`,
-        ...(card.priority && card.priority !== 'none' ? [`CATEGORIES:${escText(prioName(card.priority))}`] : []),
-      ];
-
-      if (due) {
-        // Dated card → all-day event on its due date.
-        lines.push(
-          'BEGIN:VEVENT',
-          ...common,
-          `DTSTART;VALUE=DATE:${ymdStr(due)}`,
-          `DTEND;VALUE=DATE:${ymdStr(nextDay(due))}`,
-          'TRANSP:TRANSPARENT', // all-day reminders shouldn't block free/busy
-          'END:VEVENT'
-        );
-      } else {
-        // Undated card → to-do (no date to place it on a calendar).
-        lines.push(
-          'BEGIN:VTODO',
-          ...common,
-          `STATUS:${card.complete ? 'COMPLETED' : 'NEEDS-ACTION'}`,
-          ...(card.complete && completed ? [`COMPLETED:${completed}`, 'PERCENT-COMPLETE:100'] : []),
-          'END:VTODO'
-        );
-      }
+      if (card.complete && !ctx.opts.includeCompleted) continue;
+      out.push(...itemLines(card, {
+        ...ctx,
+        prefix: withBoardName ? `[${board.name}] ` : '',
+        info: [...(withBoardName ? [`Board: ${board.name}`] : []), `Lane: ${col.name}`],
+      }));
     }
   }
-  lines.push('END:VCALENDAR');
-  return lines.map(fold).join('\r\n') + '\r\n';
+  return out;
+}
+
+export async function buildBoardIcs(board) {
+  const ctx = { opts: board.ics || {}, prioName: await prioNamer(), now: utcStamp(new Date()) };
+  return calendar('KanDeck · ' + board.name, boardLines(board, ctx));
+}
+
+/** App-wide feed: every active board (titles prefixed "[Board]") plus, if
+ *  enabled, Inbox items (prefixed "[Inbox]"). Archived boards/cards are skipped. */
+export async function buildGlobalIcs(opts = {}) {
+  const ctx = { opts, prioName: await prioNamer(), now: utcStamp(new Date()) };
+  const body = [];
+  for (const entry of await listBoards()) {
+    const board = await getBoard(entry.id);
+    if (board && !board.archived) body.push(...boardLines(board, ctx, { withBoardName: true }));
+  }
+  if (opts.includeInbox) {
+    for (const item of await listItems())
+      body.push(...itemLines(item, { ...ctx, prefix: '[Inbox] ', info: ['Inbox item (not yet on a board)'] }));
+  }
+  return calendar('KanDeck · All boards', body);
 }
 
 // ---- Express handler (mounted publicly in server.js) -----------------------
@@ -145,13 +182,21 @@ export async function icsHandler(req, res) {
   });
   try {
     const m = String(req.params.file || '').match(/^([A-Za-z0-9_-]{20,128})\.ics$/);
-    const board = m ? await getBoardForIcs(req.params.boardId, m[1]) : null;
+    let body = null;
+    if (m && req.params.boardId === 'all') {
+      // App-wide feed (App settings → Calendar).
+      const g = await getGlobalIcsForToken(m[1]);
+      if (g) body = await buildGlobalIcs(g);
+    } else if (m) {
+      const board = await getBoardForIcs(req.params.boardId, m[1]);
+      if (board) body = await buildBoardIcs(board);
+    }
     // One uniform 404 for every failure (bad id, bad token, disabled, archived)
     // so the endpoint never reveals which boards exist.
-    if (!board) return res.status(404).type('text/plain').send('Not found');
+    if (!body) return res.status(404).type('text/plain').send('Not found');
     res.type('text/calendar; charset=utf-8');
     res.set('Content-Disposition', 'inline; filename="kandeck.ics"');
-    res.send(await buildBoardIcs(board));
+    res.send(body);
   } catch (err) {
     console.error('[ics]', err && err.message);
     res.status(404).type('text/plain').send('Not found');
