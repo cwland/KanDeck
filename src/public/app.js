@@ -66,7 +66,6 @@
     if (s.version) {
       $('#inboxVersion').textContent = 'KanDeck v' + s.version;
     }
-    if (window.initAIChat) window.initAIChat(s);
   }
 
   // ---- API ----
@@ -646,6 +645,47 @@
     st.textContent = ok ? '✓ Copied' : 'Selected — press ⌘/Ctrl-C'; st.className = ok ? 'ai-test-status ok' : 'ai-test-status';
   };
 
+  // ---- Account tab (username / password / sessions) — live actions ----
+  function acStatus(id, text, ok) { const s = $(id); s.textContent = text; s.className = 'ai-test-status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); }
+  async function loadAccount() {
+    ['#acUserPw', '#acCurPw', '#acNewPw', '#acNewPw2'].forEach((id) => ($(id).value = ''));
+    acStatus('#acUserStatus', ''); acStatus('#acPwStatus', '');
+    try {
+      const a = await api('/account');
+      $('#acUsername').value = a.username || '';
+      if (a.minPassword) $('#acMin').textContent = `(min ${a.minPassword})`;
+    } catch {}
+  }
+  async function accountCall(path, method, body) {
+    const res = await fetch('/api/account' + path, {
+      method, credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    return data;
+  }
+  $('#acUserSave').onclick = async () => {
+    try {
+      const r = await accountCall('/username', 'PUT', { username: $('#acUsername').value.trim(), currentPassword: $('#acUserPw').value });
+      $('#acUserPw').value = ''; $('#acUsername').value = r.username || '';
+      acStatus('#acUserStatus', '✓ Username saved', true);
+    } catch (e) { acStatus('#acUserStatus', '✗ ' + e.message, false); }
+  };
+  $('#acPwSave').onclick = async () => {
+    if ($('#acNewPw').value !== $('#acNewPw2').value) return acStatus('#acPwStatus', '✗ New passwords do not match', false);
+    try {
+      await accountCall('/password', 'PUT', { currentPassword: $('#acCurPw').value, newPassword: $('#acNewPw').value });
+      ['#acCurPw', '#acNewPw', '#acNewPw2'].forEach((id) => ($(id).value = ''));
+      acStatus('#acPwStatus', '✓ Password changed — other sessions signed out', true);
+    } catch (e) { acStatus('#acPwStatus', '✗ ' + e.message, false); }
+  };
+  $('#acLogoutAll').onclick = async () => {
+    if (!confirm('Log out every browser, including this one?')) return;
+    try { await accountCall('/logout-all', 'POST'); } catch {}
+    window.location.href = '/login';
+  };
+
   // ---- App-wide calendar feed (App settings → Calendar) — live actions ----
   async function copyField(field, status) {
     field.focus(); field.select();
@@ -732,7 +772,7 @@
       if (!backups.length) { ul.innerHTML = ''; return; }
       backups.forEach((b) => {
         const li = document.createElement('li');
-        const typeLabel = b.automated ? 'Automated' : (b.reason === 'pre-restore' ? 'Pre-restore' : 'Manual');
+        const typeLabel = b.automated ? 'Automated' : (b.reason === 'pre-restore' ? 'Pre-restore' : b.reason === 'pre-upgrade' ? 'Pre-upgrade' : 'Manual');
         const typeClass = b.automated ? 'auto' : 'manual';
         li.innerHTML = `<span class="b-name">${new Date(b.createdAt).toLocaleString()} <span class="b-type ${typeClass}">${typeLabel}</span></span>`;
         const btn = document.createElement('button');
@@ -836,9 +876,9 @@
   }
   // Any input/change inside the modal flags unsaved changes — except the API
   // tab, whose key actions commit to the server immediately. Everything else
-  // (theme, categories, lanes, AI chat, notifications, auto-backup) is persisted
+  // (theme, categories, lanes, notifications, auto-backup) is persisted
   // by the main Save button, so it DOES flag unsaved changes.
-  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"], [data-tab="calendar"]';
+  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"], [data-tab="calendar"], [data-tab="account"]';
   const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);
@@ -850,8 +890,8 @@
     renderPriorityEditor();
     renderBadgeEditor();
     renderLaneColorsEditor();
-    fillAIChatFields();
     loadApiKey();
+    loadAccount();
     loadGlobalIcs();
     loadNotifications();
     loadBackupConfig();
@@ -1026,56 +1066,6 @@
       $('#autoBackupRetention').value = c.retention || 12;
     } catch {}
   }
-  // ---- AI Chat settings tab ----
-  function fillAIChatFields() {
-    const s = state.settings || {};
-    $('#aiEnabled').checked = s.aiChatEnabled === true;
-    $('#aiWebhookUrl').value = s.aiChatWebhookUrl || '';
-    $('#aiToken').value = s.aiChatToken || '';
-    $('#aiTitle').value = s.aiChatTitle || 'AI Assistant';
-    $('#aiHistoryLength').value = s.aiChatHistoryLength != null ? s.aiChatHistoryLength : 10;
-    $('#aiTimeout').value = s.aiChatTimeout != null ? s.aiChatTimeout : 60;
-    $('#aiTestStatus').textContent = '';
-    $('#aiTestStatus').className = 'ai-test-status';
-  }
-  function collectAIChat() {
-    return {
-      aiChatEnabled: $('#aiEnabled').checked,
-      aiChatWebhookUrl: $('#aiWebhookUrl').value.trim(),
-      aiChatToken: $('#aiToken').value.trim(),
-      aiChatTitle: $('#aiTitle').value.trim() || 'AI Assistant',
-      aiChatHistoryLength: parseInt($('#aiHistoryLength').value, 10) || 10,
-      aiChatTimeout: parseInt($('#aiTimeout').value, 10) || 60,
-    };
-  }
-  // Test button: POST a ping to the current (even unsaved) URL + token.
-  $('#aiTestBtn').onclick = async () => {
-    const url = $('#aiWebhookUrl').value.trim();
-    const token = $('#aiToken').value.trim();
-    const status = $('#aiTestStatus');
-    if (!url) { status.textContent = 'Enter a webhook URL first.'; status.className = 'ai-test-status err'; return; }
-    status.textContent = 'Testing…'; status.className = 'ai-test-status';
-    const btn = $('#aiTestBtn'); btn.disabled = true;
-    const ctrl = ('AbortController' in window) ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => ctrl.abort(), 15000) : null;
-    try {
-      const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-      if (token) headers.Authorization = 'Bearer ' + token;
-      const res = await fetch(url, {
-        method: 'POST', headers, cache: 'no-store', signal: ctrl && ctrl.signal,
-        body: JSON.stringify({ source: 'kandeck', sessionId: 'test', message: 'ping', timestamp: new Date().toISOString() }),
-      });
-      if (res.ok) { status.textContent = '✓ n8n answered (HTTP ' + res.status + ').'; status.className = 'ai-test-status ok'; }
-      else { status.textContent = '✗ HTTP ' + res.status + ' — check the URL and auth.'; status.className = 'ai-test-status err'; }
-    } catch (err) {
-      status.textContent = (err && err.name === 'AbortError')
-        ? '✗ Timed out — no response in 15s.'
-        : '✗ Couldn’t reach the webhook (network/CORS/cert).';
-      status.className = 'ai-test-status err';
-    } finally {
-      if (timer) clearTimeout(timer); btn.disabled = false;
-    }
-  };
   function setAppTab(tab) {
     $$('#appTabs .modal-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     $$('#appModal .tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.tab === tab));
@@ -1220,7 +1210,7 @@
     const saveBtn = $('#appSave');
     saveBtn.disabled = true;
     try {
-      const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges, ...collectAIChat() } });
+      const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges } });
       state.settings = s;
       // Auto-backup config (main Save, no separate button).
       try {
@@ -1257,7 +1247,6 @@
       appModal.hidden = true; toast('Settings saved');
       if (state.board) renderBoard();
       renderInbox();
-      if (window.initAIChat) window.initAIChat(state.settings);
     } catch (e) {
       toast('Save failed: ' + (e.message || 'error'));
     } finally {

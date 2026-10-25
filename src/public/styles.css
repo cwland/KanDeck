@@ -633,7 +633,7 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
   body.inbox-collapsed .inbox-panel { transform: translateX(-100%); }
 }
 
-/* ---- AI Chat settings tab ---- */
+/* ---- Shared settings rows: on/off toggle, action + status line ---- */
 .ai-toggle-row {
   display: flex; align-items: center; gap: 10px;
   margin: 10px 0 16px;

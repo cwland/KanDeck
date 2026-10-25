@@ -70,8 +70,9 @@ function nextDay({ y, m, d }) {
 // ---- Feed builder ----------------------------------------------------------
 
 /** iCalendar lines for one card / inbox item: VEVENT if dated, else VTODO.
- *  ctx: { opts, prioName, now, prefix, info } — prefix goes before the title
- *  (e.g. "[Board] "), info are the context lines that lead the description. */
+ *  ctx: { opts, prioName, now, prefix, info, footer } — prefix goes before the
+ *  title (e.g. "[Board] "), info lines lead the description, footer lines end
+ *  it (after the card's own description, if included). */
 function itemLines(card, ctx) {
   const { opts, prioName, now } = ctx;
   const due = dueYmd(card.dueDate);
@@ -81,6 +82,7 @@ function itemLines(card, ctx) {
   if (card.complete && card.completedAt) info.push(`Completed: ${card.completedAt.slice(0, 10)}`);
   let desc = info.join('\n');
   if (opts.includeDescriptions && card.description) desc += '\n\n' + card.description;
+  if (ctx.footer && ctx.footer.length) desc += (desc ? '\n\n' : '') + ctx.footer.join('\n');
 
   const created = card.createdAt && !Number.isNaN(Date.parse(card.createdAt)) ? utcStamp(new Date(card.createdAt)) : null;
   const completed = card.completedAt && !Number.isNaN(Date.parse(card.completedAt)) ? utcStamp(new Date(card.completedAt)) : null;
@@ -143,7 +145,8 @@ function boardLines(board, ctx, { withBoardName = false } = {}) {
       out.push(...itemLines(card, {
         ...ctx,
         prefix: withBoardName ? `[${board.name}] ` : '',
-        info: [...(withBoardName ? [`Board: ${board.name}`] : []), `Lane: ${col.name}`],
+        info: [`Lane: ${col.name}`],
+        footer: withBoardName ? [`Board: ${board.name}`] : [],
       }));
     }
   }
@@ -166,7 +169,7 @@ export async function buildGlobalIcs(opts = {}) {
   }
   if (opts.includeInbox) {
     for (const item of await listItems())
-      body.push(...itemLines(item, { ...ctx, prefix: '[Inbox] ', info: ['Inbox item (not yet on a board)'] }));
+      body.push(...itemLines(item, { ...ctx, prefix: '[Inbox] ', footer: ['Inbox item (not yet on a board)'] }));
   }
   return calendar('KanDeck · All boards', body);
 }

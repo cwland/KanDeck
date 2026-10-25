@@ -24,6 +24,11 @@ services:
       # falls back to JWT_SECRET for backward compatibility.
       SECRETS_KEY: ${SECRETS_KEY:-}
       API_KEY: ${API_KEY:-}
+      # Public URL (used for calendar-feed links) and reverse-proxy trust —
+      # set TRUST_PROXY=1 when behind Nginx Proxy Manager / Cloudflare Tunnel.
+      APP_URL: ${APP_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
       SESSION_TTL: ${SESSION_TTL:-7d}
       # Email/Discord notifications and backup frequency/retention are configured
       # in the app (App Settings → Notifications / Backups), not here. BACKUP_*

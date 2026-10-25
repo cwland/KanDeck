@@ -10,14 +10,45 @@ import config from './config.js';
 import * as boardStore from './storage/boards.js';
 import * as settingsStore from './storage/settings.js';
 import * as inboxStore from './storage/inbox.js';
-import { requireSession, requireApiAuth } from './auth.js';
+import { requireSession, requireApiAuth, getAppConfig } from './auth.js';
 import apiRoutes from './api/routes.js';
-import authRoutes from './api/auth-routes.js';
-import { scheduleBackups } from './services/backup.js';
+import authRoutes, { accountRouter } from './api/auth-routes.js';
+import { scheduleBackups, createBackup } from './services/backup.js';
+import { updateJson } from './storage/store.js';
 import { startNotifications } from './services/notify.js';
 import { icsHandler } from './services/ics.js';
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', config.trustProxy);
+
+// Security headers on every response.
+app.use((req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Content-Security-Policy': [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'", // small inline boot scripts (theme paint, login)
+      "style-src 'self' 'unsafe-inline'",  // inline style attributes (lane colors, badges)
+      "img-src 'self' data:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; '),
+  });
+  // HSTS only when the request actually arrived over HTTPS (req.secure honors
+  // TRUST_PROXY + X-Forwarded-Proto), so plain-HTTP LAN access keeps working.
+  if (req.secure) res.set('Strict-Transport-Security', 'max-age=15552000');
+  next();
+});
+
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
@@ -30,6 +61,8 @@ app.get('/ics/:boardId/:file', icsHandler);
 
 // Auth endpoints (unauthenticated by nature).
 app.use('/api/auth', authRoutes);
+// Account management (username / password / log out everywhere) — session only.
+app.use('/api/account', accountRouter);
 
 // Protected REST API (session cookie OR bearer key).
 app.use('/api', requireApiAuth, apiRoutes);
@@ -72,11 +105,26 @@ function assertSecrets() {
   }
 }
 
+// Upgrading a pre-2.0 install (password but no username yet): take one full
+// backup before the account format changes, so nothing can be lost.
+async function preUpgradeBackup() {
+  try {
+    const c = await getAppConfig();
+    if (!c || !c.passwordHash || c.username || c.preV2BackupAt) return;
+    const b = await createBackup('pre-upgrade');
+    await updateJson(config.configFile, (cur) => ({ ...(cur || {}), preV2BackupAt: b.createdAt }), {});
+    console.log(`[upgrade] pre-2.0 safety backup created: ${b.file}`);
+  } catch (err) {
+    console.error('[upgrade] could not create pre-upgrade backup:', err.message);
+  }
+}
+
 async function start() {
   assertSecrets();
   await settingsStore.init();
   await inboxStore.init();
   await boardStore.init();
+  await preUpgradeBackup();
   boardStore.startAutoArchive();
   await scheduleBackups();
   startNotifications();

@@ -4,11 +4,10 @@ A dead-simple, **self-hosted, single-user** Kanban board — no accounts, no clo
 no clutter. All of your data lives in plain JSON files on your own machine.
 
 KanDeck started as a search for a genuinely simple kanban board that I could
-self-host and actually own. It's a single-user app: you set one password and
-your boards are yours. Beyond the board itself it can plug an **AI chat
-assistant** into your workflow via [n8n](https://n8n.io), and it exposes a
-**REST API** so other apps and automations can create and review the tasks on
-your board.
+self-host and actually own. It's a single-user app: you create one login and
+your boards are yours. It exposes a **REST API** so other apps and automations
+(scripts, [n8n](https://n8n.io), …) can create and review the tasks on your
+board.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-single--user-blue)
@@ -25,13 +24,13 @@ your board.
 - [Quick start (local)](#quick-start-local)
 - [Docker](#docker)
 - [Configuration & secrets](#configuration--secrets)
-- [Reset a forgotten password](#reset-a-forgotten-password)
+- [Exposing KanDeck publicly](#exposing-kandeck-publicly)
+- [Reset a forgotten login](#reset-a-forgotten-login)
 - [Using KanDeck](#using-kandeck)
 - [Done lane & completed dates](#done-lane--completed-dates)
 - [Archiving boards](#archiving-boards)
 - [Calendar feed (.ics)](#calendar-feed-ics)
 - [REST API](#rest-api)
-- [AI Chat (n8n)](#ai-chat-n8n)
 - [Notifications](#notifications)
 - [Backups](#backups)
 - [Building the Docker image (CI)](#building-the-docker-image-ci)
@@ -60,15 +59,15 @@ your board.
 - **Search-as-you-type** across all boards; jumps straight to the card.
 - **Themes** — 20 presets (10 light + 10 dark) with a vertical gradient wash;
   category and badge colors are user-editable with automatically-readable text.
-- **AI Chat** — an optional floating chat bubble backed by an n8n workflow, so
-  you can ask "what's due today?" or "add buy dog food due Friday."
-- **REST API** with a date-filtered task-query endpoint built for assistants.
+- **REST API** with a date-filtered task-query endpoint for automations.
 - **Notifications** — scheduled email + Discord task summaries plus card-moved
   Discord pings.
 - **Backups** — manual and automatic (daily / weekly / monthly with retention);
   a full snapshot of boards **and** settings, with one-click restore.
-- **Security** — single password (bcrypt), JWT cookie sessions, login
-  rate-limiting, API-key auth, and secrets encrypted at rest.
+- **Security** — single username + password login (bcrypt), revocable JWT
+  cookie sessions, spoof-proof login rate-limiting, a locked first-run setup,
+  security headers (CSP, anti-framing, HSTS), API-key auth, and secrets
+  encrypted at rest.
 - **No database.** Everything is flat-file JSON. Runs offline. Mobile-responsive.
 
 ---
@@ -88,7 +87,7 @@ The same board in a dark theme (light and dark presets share an accent, so the
 <table>
   <tr>
     <td width="50%"><img src="docs/img/card-modal.png" alt="Card detail modal"><br><sub>Card details — description (Markdown), category, due date, and tags.</sub></td>
-    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Categories, Lane colors, AI Chat, Notifications, API, and Backups.</sub></td>
+    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Categories, Lane colors, Notifications, API, and Backups.</sub></td>
   </tr>
 </table>
 
@@ -106,7 +105,8 @@ cp .env.example .env          # then edit — at minimum set a strong JWT_SECRET
 npm run dev                   # http://localhost:8080  (auto-reload via nodemon)
 ```
 
-On first visit you'll be asked to **create the application password**. That's it —
+On first visit you'll be asked to **create your login** (username + password, min
+12 characters). That's it —
 there's no signup, no external service.
 
 For a plain (non-reloading) run: `npm start`.
@@ -156,8 +156,10 @@ and survive container rebuilds.
 ### Behind a reverse proxy
 
 KanDeck speaks plain HTTP; terminate TLS at a reverse proxy (Caddy, Nginx Proxy
-Manager, Traefik, …). Use a **trusted certificate** — the AI chat widget calls
-your n8n webhook directly from the browser and a self-signed cert will block it.
+Manager, Traefik, Cloudflare Tunnel, …). Use a **trusted certificate** so browsers
+and calendar apps (which refuse self-signed certs for subscriptions) can connect,
+and set **`TRUST_PROXY=1`** so login rate-limiting sees real client IPs. See
+[Exposing KanDeck publicly](#exposing-kandeck-publicly).
 
 ---
 
@@ -169,7 +171,9 @@ is in [`.env.example`](.env.example). The ones that matter:
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `JWT_SECRET` | **Yes (production)** | Signs session cookies. The server **refuses to start** in production if this is unset, the default, or shorter than 32 characters. Generate with `openssl rand -base64 32`. |
-| `SECRETS_KEY` | Recommended | Encrypts secrets at rest (SMTP password, AI token). Decoupled from `JWT_SECRET` so you can rotate the session secret independently. If blank, `JWT_SECRET` is used. Generate with `openssl rand -base64 32`. |
+| `SECRETS_KEY` | Recommended | Encrypts secrets at rest (the SMTP password). Decoupled from `JWT_SECRET` so you can rotate the session secret independently. If blank, `JWT_SECRET` is used. Generate with `openssl rand -base64 32`. |
+| `TRUST_PROXY` | **Yes, behind a proxy** | Set to `1` when KanDeck sits behind one reverse proxy / tunnel, so the real client IP is used for login rate-limiting and HTTPS is detected for HSTS. Leave unset when exposed directly (then `X-Forwarded-For` is ignored and can't be spoofed). Also accepts Express values like `loopback`. |
+| `SETUP_TOKEN` | Optional | A one-time secret required to create the first login. Without it, first-run setup only works from a direct local-network request — so a stranger can't claim a fresh install on a public IP. |
 | `API_KEY` | Optional | A static API key for external tools. You can also generate/rotate one in **App Settings → API**. |
 | `APP_URL` | Recommended behind a proxy | Public base URL (e.g. `https://kandeck.example.com`). Used for links in notifications and for calendar-feed URLs. If blank, feed URLs use whatever address you opened KanDeck on. |
 | `DATA_DIR` | Optional | Where the JSON store lives (default `./data`). |
@@ -180,38 +184,62 @@ Keep your `.env` **out of source control** (it's already gitignored).
 
 ---
 
-## Reset a forgotten password
+## Exposing KanDeck publicly
+
+KanDeck is built to be safe to put on the internet (for example so calendar
+apps can reach your `.ics` feeds), but check these first:
+
+1. **HTTPS only** — put it behind a reverse proxy or Cloudflare Tunnel with a
+   trusted certificate. Never publish plain HTTP on port 8080.
+2. **`TRUST_PROXY=1`** behind that proxy, so the login throttle (10 failures per
+   IP, 100 overall, per 15 minutes) uses real client IPs.
+3. **Strong secrets** — a long random `JWT_SECRET` (the server refuses weak ones
+   in production) and a password of at least 12 characters.
+4. **Calendar feeds** are the only thing reachable without logging in, and each
+   is protected by its own secret link — rotate one if it leaks.
+5. **Optional extra layer:** with Cloudflare, put **Cloudflare Access** in front
+   of the app and add a *bypass* rule for `/ics/*` (so calendars can fetch
+   feeds) and a service token for `/api/*` (n8n / scripts). Add a rate-limit
+   rule for `/api/auth/login` too.
+
+What KanDeck does on its own: bcrypt-hashed password, `httpOnly` + `SameSite`
+session cookies that can be revoked (**Log out all sessions**, password
+change), a first-run setup that strangers can't claim (local network or
+`SETUP_TOKEN` only), security headers on every response (CSP, `X-Frame-Options`,
+`nosniff`, `no-referrer`, and HSTS over HTTPS), and no `X-Powered-By`.
+
+---
+
+## Reset a forgotten login
 
 KanDeck is single-user and offline, so there's no email-based "forgot password"
 flow — but because you host it yourself, resetting takes one command. The
-password is only ever stored as a **bcrypt hash** in `config.json`, so this
-doesn't recover the old password; it clears or replaces it. Your boards,
-settings, and backups are left untouched.
-
-**Local / bare-metal:**
-
-```bash
-npm run reset-password                  # clears it → the app asks you to set a new one on next load
-npm run reset-password -- "new-pass"    # …or set a new password directly (min 6 chars)
-```
+password is only ever stored as a **bcrypt hash** in `config.json`, so this sets
+a new one rather than recovering the old one. Your boards, settings, backups and
+API key are left untouched, and every existing session is signed out.
 
 **Docker** — run it inside the running container:
 
 ```bash
-docker compose exec kandeck npm run reset-password
-# or set one directly:
-docker compose exec kandeck npm run reset-password -- "new-pass"
+docker compose exec kandeck npm run reset-password -- <username> <new-password>
 ```
 
-(Not using compose? `docker exec -it kandeck npm run reset-password`.)
+**Local / bare-metal:**
 
-**If the container won't start** (so you can't exec into it), edit the file
-directly on the host — it lives in your bind-mounted data dir at
-`./data/config.json`. Set `"passwordHash": null` (or delete the file) and
-reload; the app returns to the first-run "create password" screen.
+```bash
+npm run reset-password -- <username> <new-password>
+```
 
-> Passing a password as an argument leaves it in your shell history. The
-> no-argument form (clear, then set a new one in the UI) avoids that.
+Running it with **no arguments** clears the login instead; the app then shows
+first-run setup, which only works from your local network (or with
+`SETUP_TOKEN`).
+
+**If the container won't start** (so you can't exec into it), edit
+`./data/config.json` on the host: set `"passwordHash": null` and
+`"username": null`, then create a new login from your local network.
+
+> Passing a password as an argument leaves it in your shell history; clear it
+> afterwards (e.g. `history -d`) if that matters to you.
 
 ---
 
@@ -219,9 +247,13 @@ reload; the app returns to the first-run "create password" screen.
 
 - **Switch boards** from the bottom bar → *Switch board*. Create a new board with
   the **＋** next to the search.
-- **App Settings** (⚙️, top-right) is tabbed: Theme, Categories, Lane colors,
-  AI Chat, Notifications, API, Calendar, Backups, Archives. A single **Save**
-  applies everything (the API, Calendar and Archives tabs act immediately).
+- **App Settings** (⚙️, top-right) is tabbed: Theme, Account, Categories, Lane
+  colors, Notifications, API, Calendar, Backups, Archives. A single **Save**
+  applies everything (the Account, API, Calendar and Archives tabs act
+  immediately).
+- **Account** (App Settings) changes your username or password (current password
+  required) and has **Log out all sessions**. Changing the password signs out
+  every other browser.
 - **Board Settings** (⚙️, board area) manages that board's lanes, card display
   fields, the done-lane window, the calendar feed, archived cards, and
   **Archive board**.
@@ -352,28 +384,6 @@ top-level `summary` and `today`.
 
 ---
 
-## AI Chat (n8n)
-
-KanDeck ships an optional floating chat widget that talks to an
-[n8n](https://n8n.io) workflow — enable it in **App Settings → AI Chat**. Give the
-n8n agent KanDeck's API and it can answer real questions about your board and even
-add tasks:
-
-> *"What's due today?"* · *"Anything overdue?"* · *"What did I finish this week?"*
-> · *"Add buy dog food due Friday."*
-
-A ready-to-import workflow is at
-[`templates/n8n/kandeck-chat-sample.json`](templates/n8n/kandeck-chat-sample.json)
-— it includes the webhook + auth gate, the AI agent, **both** KanDeck task tools
-(read + create), and the system prompt that makes the agent map questions to the
-right query. Full walkthrough (security, the two tokens, the recommended prompt)
-is in **[`docs/AI-CHAT-SETUP.md`](docs/AI-CHAT-SETUP.md)**.
-
-The chat widget stores its conversation locally in your browser; only your typed
-messages are sent to the webhook URL you configure.
-
----
-
 ## Notifications
 
 Configured in **App Settings → Notifications** (no env vars):
@@ -421,7 +431,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v1.4.0 && git push origin v1.4.0
+git tag v2.0.0 && git push origin v2.0.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without
@@ -432,7 +442,7 @@ CI, use [`scripts/build-amd64.sh`](scripts/build-amd64.sh).
 ## Privacy & License
 
 - **Privacy:** KanDeck has no telemetry and never phones home; your data stays in
-  local files and it only contacts services **you** configure (n8n / SMTP /
+  local files and it only contacts services **you** configure (SMTP /
   Discord). See [`PRIVACY.md`](PRIVACY.md).
 - **License:** [MIT](LICENSE) — do essentially anything you want with it.
 

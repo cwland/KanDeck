@@ -23,7 +23,7 @@ Everything is stored locally as JSON files under the data directory:
   `data/config.json`. The plaintext password is never stored.
 - **API key** — used to authenticate external apps to the REST API.
 - **Settings** — theme, categories, notification and backup configuration.
-- **Secrets at rest** — the SMTP password and AI‑chat token are **encrypted**
+- **Secrets at rest** — the SMTP password is **encrypted**
   before being written to disk (AES‑256‑GCM, keyed by `SECRETS_KEY` /
   `JWT_SECRET`).
 - **Backups** — full JSON snapshots of the above in `data/backups/`.
@@ -38,7 +38,6 @@ enable and configure, to the destinations you specify:
 
 | Feature | Outbound request | Configured by you |
 |---------|------------------|-------------------|
-| **AI Chat** | Your browser POSTs your chat messages to the **n8n webhook URL** you enter. From there, your n8n workflow may call an LLM provider (e.g. OpenAI) — that is your workflow's behavior, not KanDeck's. | App Settings → AI Chat |
 | **Email notifications** | The server connects to the **SMTP server** you configure to send task summaries. | App Settings → Notifications |
 | **Discord notifications** | The server POSTs task summaries / pings to the **Discord webhook URL** you configure. | App Settings → Notifications |
 
@@ -47,8 +46,8 @@ serving the app to your own browser.
 
 ## Authentication and access
 
-- Access requires a password you set on first run (bcrypt‑hashed, JWT
-  httpOnly cookie session).
+- Access requires a username and password you set on first run (password
+  bcrypt‑hashed; revocable JWT httpOnly cookie session).
 - The REST API additionally accepts an API key you generate.
 - **Calendar feeds** (optional, per board and one app-wide, all off by
   default) are the one exception to login: calendar apps can't sign in, so
@@ -66,9 +65,9 @@ serving the app to your own browser.
 
 ## Third‑party services
 
-When you use the AI Chat, email, or Discord features, your data is handled by
-those third parties (your n8n instance and any LLM it calls, your email
-provider, Discord) under **their** privacy policies, not this one. Review and
+When you use the email or Discord features, your data is handled by those
+third parties (your email provider, Discord) under **their** privacy policies,
+not this one. Review and
 configure those services according to your own requirements.
 
 ## Changes

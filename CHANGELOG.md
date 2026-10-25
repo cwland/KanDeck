@@ -4,6 +4,20 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.0.0 — 2026-10-25
+
+- **Username + password login.** After upgrading, sign in once with your existing password and choose a username — your boards, settings and API key are untouched, and a full **pre-upgrade backup** is taken automatically first.
+- New **App Settings → Account** tab: change your username or password, and **Log out all sessions**. Changing the password signs out other browsers.
+- Logout and password changes now truly end sessions (they're revocable), and existing sessions from 1.x are signed out once on upgrade.
+- **Hardening for public exposure:** login rate-limiting can no longer be bypassed with fake `X-Forwarded-For` headers (set `TRUST_PROXY=1` behind a proxy), first-run setup is limited to your local network or a `SETUP_TOKEN`, security headers (CSP, anti-framing, HSTS over HTTPS) on every page, and new passwords need at least 12 characters.
+- `npm run reset-password -- <username> <password>` sets a new login directly.
+
+## 1.5.0 — 2026-10-25
+
+- **Removed the AI Chat widget** (the floating chat bubble and the **App Settings → AI Chat** tab), along with its n8n chat template and setup guide. Its saved settings, including the encrypted webhook token, are cleared from `settings.json` on upgrade.
+- The REST API, API key and task-query endpoint are unchanged, so n8n workflows and scripts that call KanDeck keep working.
+- All-boards calendar feed: the **Board:** line (or "Inbox item") now comes at the end of each event's description instead of the start.
+
 ## 1.4.0 — 2026-10-25
 
 - **All-boards calendar feed** — **App Settings → Calendar** publishes one `.ics` link covering every board plus your Inbox. Titles are prefixed with the board name (e.g. `[Home]`) or `[Inbox]`.

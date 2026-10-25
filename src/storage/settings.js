@@ -75,13 +75,6 @@ const DEFAULTS = {
   priorities: DEFAULT_PRIORITIES,
   laneColors: DEFAULT_LANE_COLORS,
   badges: DEFAULT_BADGES,
-  // AI chat (webhook-based, same shape as Auto Dashboard AI).
-  aiChatEnabled: false,
-  aiChatWebhookUrl: '',
-  aiChatToken: '',
-  aiChatHistoryLength: 10,
-  aiChatTimeout: 60,
-  aiChatTitle: 'AI Assistant',
   notifications: DEFAULT_NOTIFICATIONS,
   backup: DEFAULT_BACKUP,
 };
@@ -181,6 +174,20 @@ export async function init() {
   const cur = await readJson(config.settingsFile, null);
   if (!cur) { await updateJson(config.settingsFile, () => DEFAULTS, DEFAULTS); return; }
   await migrateCategories();
+  await dropRemovedSettings();
+}
+
+// The AI chat widget was removed in 1.5.0 — scrub its settings (including the
+// encrypted webhook token) from settings.json. Idempotent.
+const REMOVED_KEYS = ['aiChatEnabled', 'aiChatWebhookUrl', 'aiChatToken', 'aiChatHistoryLength', 'aiChatTimeout', 'aiChatTitle'];
+async function dropRemovedSettings() {
+  const cur = await readJson(config.settingsFile, null);
+  if (!cur || !REMOVED_KEYS.some((k) => k in cur)) return;
+  await updateJson(config.settingsFile, (s) => {
+    s = { ...(s || {}) };
+    for (const k of REMOVED_KEYS) delete s[k];
+    return s;
+  }, DEFAULTS);
 }
 
 export async function getSettings() {
@@ -200,8 +207,6 @@ export async function getSettings() {
   s.notifications = fillNotifications(s.notifications);
   s.notifications.email = { ...s.notifications.email, pass: '', passwordSet: !!s.notifications.email.pass };
   s.backup = fillBackup(s.backup);
-  // AI chat token is stored encrypted; the widget needs the real value client-side.
-  if (s.aiChatToken) s.aiChatToken = decrypt(s.aiChatToken);
   return s;
 }
 
@@ -398,17 +403,6 @@ export async function updateSettings(patch = {}) {
     });
     next.badges = { due: badge('due'), tag: badge('tag'), source: badge('source') };
   }
-  // AI chat (webhook-based, mirrors Auto Dashboard AI settings).
-  for (const k of ['aiChatWebhookUrl', 'aiChatTitle'])
-    if (patch[k] !== undefined) next[k] = String(patch[k]);
-  // The AI chat bearer token is encrypted at rest (decrypted in getSettings for
-  // the client, which needs it to call the webhook directly).
-  if (patch.aiChatToken !== undefined) next.aiChatToken = encrypt(String(patch.aiChatToken));
-  if (patch.aiChatEnabled !== undefined) next.aiChatEnabled = !!patch.aiChatEnabled;
-  if (patch.aiChatHistoryLength !== undefined)
-    next.aiChatHistoryLength = Math.max(1, Math.min(100, parseInt(patch.aiChatHistoryLength, 10) || 10));
-  if (patch.aiChatTimeout !== undefined)
-    next.aiChatTimeout = Math.max(5, Math.min(300, parseInt(patch.aiChatTimeout, 10) || 60));
   return updateJson(
     config.settingsFile,
     (s) => ({ ...DEFAULTS, ...(s || {}), ...next }),
