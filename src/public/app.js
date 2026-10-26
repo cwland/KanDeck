@@ -1815,15 +1815,27 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal-backdrop').forEach((m) => { if (!m.hidden) dismiss(m); }); });
 
   // ---- Live updates (SSE): refresh inbox/board the moment events arrive ----
+  // Live updates. Three layers so counts/boards never go stale behind a proxy:
+  //  1. Server-Sent Events (instant) with a 25 s server heartbeat;
+  //  2. a watchdog that reconnects if nothing (not even a heartbeat) arrives
+  //     for 70 s — proxies sometimes drop the stream without closing it;
+  //  3. a 30 s poll of board counts + Inbox while the tab is visible, plus an
+  //     immediate refresh when you come back to the tab.
+  let es = null, lastEventAt = 0;
   function connectEvents() {
     if (typeof EventSource === 'undefined') return;
-    let es;
+    try { if (es) es.close(); } catch {}
     try { es = new EventSource('/api/events'); } catch { return; }
-    es.addEventListener('inbox', () => loadInbox());
+    lastEventAt = Date.now();
+    const alive = () => { lastEventAt = Date.now(); };
+    es.addEventListener('open', alive);
+    es.addEventListener('ping', alive);
+    es.addEventListener('inbox', () => { alive(); loadInbox(); });
     // Any board changed anywhere → refresh tab counts (debounced), and the
     // current board itself if it's the one that changed and no window is open.
     let boardsTimer = null; const touched = new Set();
     es.addEventListener('boards', (e) => {
+      alive();
       try { const p = JSON.parse(e.data || '{}'); if (p.boardId) touched.add(p.boardId); } catch {}
       clearTimeout(boardsTimer);
       boardsTimer = setTimeout(() => {
@@ -1833,6 +1845,7 @@
       }, 300);
     });
     es.addEventListener('card', (e) => {
+      alive();
       try {
         const p = JSON.parse(e.data || '{}');
         // Refresh the current board when a card there changes, but don't yank
@@ -1840,8 +1853,31 @@
         if (p.boardId && p.boardId === state.boardId && $('#cardModal').hidden && $('#boardModal').hidden) refresh();
       } catch {}
     });
-    // EventSource auto-reconnects on error; nothing to do.
+    // EventSource auto-reconnects on a clean error; the watchdog covers the rest.
   }
+  setInterval(() => {
+    if (document.hidden) return;
+    if (Date.now() - lastEventAt > 70000) connectEvents(); // stalled stream → reconnect
+  }, 15000);
+
+  // Fallback poll: keeps tab counts, the Inbox and the open board current even
+  // if live events can't get through at all.
+  let lastBoardStamp = null;
+  async function pollUpdates() {
+    if (document.hidden || !$('#cardModal').hidden || !$('#boardModal').hidden) return;
+    try {
+      const { boards } = await api('/boards');
+      state.boards = boards; renderBoardSwitcher();
+      const cur = boards.find((b) => b.id === state.boardId);
+      const stamp = cur ? cur.updatedAt : null;
+      if (lastBoardStamp !== null && stamp && stamp !== lastBoardStamp) await refresh();
+      lastBoardStamp = stamp;
+    } catch {}
+    loadInbox();
+  }
+  setInterval(pollUpdates, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { pollUpdates(); if (Date.now() - lastEventAt > 70000) connectEvents(); } });
+  window.addEventListener('focus', () => pollUpdates());
 
   // ---- Go ----
   (async () => {

@@ -1,6 +1,6 @@
 {
   "name": "kandeck",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "KanDeck — a flat-file, self-hosted Kanban app with a REST API, theming, and notifications.",
   "type": "module",
   "main": "src/server.js",

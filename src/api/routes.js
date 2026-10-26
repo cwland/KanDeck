@@ -65,6 +65,9 @@ router.get('/events', (req, res) => {
     'X-Accel-Buffering': 'no',
   });
   if (res.flushHeaders) res.flushHeaders();
+  // ~2 KB of comment padding: some reverse proxies hold back a response until
+  // they've buffered a chunk, which would delay every live update.
+  res.write(':' + ' '.repeat(2048) + '\n\n');
   res.write('retry: 3000\n\n');
 
   const send = (event, data) => {
@@ -82,7 +85,10 @@ router.get('/events', (req, res) => {
   const onBoards = (p) => send('boards', { boardId: p && p.boardId });
   events.on('boards:changed', onBoards);
 
-  const ping = setInterval(() => res.write(': ping\n\n'), 25000);
+  // Heartbeat as a real event, so the browser can tell a dead/stalled stream
+  // (e.g. silently dropped by a proxy) from a quiet one and reconnect.
+  const ping = setInterval(() => send('ping', { t: Date.now() }), 25000);
+  send('ping', { t: Date.now() });
   req.on('close', () => {
     clearInterval(ping);
     events.off('inbox:created', onInbox);

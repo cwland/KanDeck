@@ -4,6 +4,11 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.8.1 — 2026-10-26
+
+- **Fix:** board tab counts (and the Inbox / open board) now keep themselves up to date even when a reverse proxy holds back or drops KanDeck's live-update connection. The connection sends a heartbeat and reconnects if it stalls, and the page also re-checks every 30 seconds and whenever you switch back to the tab.
+- Routing rank **0 or blank** = no rank, always checked last (now spelled out on the Routing tab).
+
 ## 2.8.0 — 2026-10-26
 
 - **Routing rank** — give each board a rank on its **Routing** tab. Incoming tasks are checked against boards in rank order (1, then 2, then 3 …) and go to the first board that owns any of their tags. Unranked boards come after, in tab order.

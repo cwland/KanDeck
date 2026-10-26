@@ -323,7 +323,8 @@ click the board's **Save** — and show as chips; click **×** to remove one.
   2, then 3 … — and routing **stops at the first board that owns any of the
   task's tags**. So a task tagged `Bill, Travel` goes to whichever of those
   boards ranks higher. Boards with no rank (or a tied rank) are checked after,
-  in tab order. The tab shows the full **routing order** across all boards.
+  in tab order — a rank of **0 or blank** means "no rank" and is always checked
+  **last**. The tab shows the full **routing order** across all boards.
 - Tasks with no tags, or no matching tag, go to the **Inbox** as before.
 - A tag can belong to **only one board** — trying to add one that another board
   (even an archived one) already uses shows an error. Archived boards never
@@ -522,7 +523,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.8.0 && git push origin v2.8.0
+git tag v2.8.1 && git push origin v2.8.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

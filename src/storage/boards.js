@@ -376,7 +376,7 @@ async function validateRouteTags(boardId, tags) {
 export function parseRouteRank(v) {
   if (v === undefined || v === null || v === '' || v === 0 || v === '0') return null;
   const n = parseInt(v, 10);
-  if (Number.isNaN(n) || n < 1 || n > 99) throw new Error('Routing rank must be a whole number from 1 to 99 (or blank for none).');
+  if (Number.isNaN(n) || n < 1 || n > 99) throw new Error('Routing rank must be a whole number from 1 to 99 (0 or blank = no rank, checked last).');
   return n;
 }
 

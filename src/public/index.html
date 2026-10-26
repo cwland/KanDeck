@@ -534,12 +534,12 @@
             </div>
 
             <div class="field">
-              <label>Routing rank <small>(1 = checked first; blank = after ranked boards)</small></label>
+              <label>Routing rank <small>(1 = checked first; 0 or blank = checked last)</small></label>
               <div class="route-rank-row">
-                <input id="bmRank" type="number" min="1" max="99" step="1" placeholder="—" />
+                <input id="bmRank" type="number" min="0" max="99" step="1" placeholder="—" />
                 <span class="ai-test-status" id="bmRankStatus"></span>
               </div>
-              <p class="hint">When a task's tags match more than one board, KanDeck checks boards in rank order — rank 1, then 2, then 3 … — and sends it to the <b>first</b> board that owns any of its tags. Boards with no rank (or the same rank) are checked after, in tab order. Saves as soon as you change it.</p>
+              <p class="hint">When a task's tags match more than one board, KanDeck checks boards in rank order — rank 1, then 2, then 3 … — and sends it to the <b>first</b> board that owns any of its tags. A rank of <b>0 or blank</b> means no rank: those boards are checked <b>last</b>. Boards with no rank, or the same rank, are checked in tab order. Saves as soon as you change it.</p>
               <label style="margin-top:12px">Routing order <small>(all boards with routing tags)</small></label>
               <ol class="route-order" id="bmRouteOrder"></ol>
               <p class="hint" id="bmRouteOrderEmpty">No boards have routing tags yet.</p>
