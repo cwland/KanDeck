@@ -272,12 +272,13 @@ first-run setup, which only works from your local network (or with
   what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
   tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
   footer has **Archive board**.
-- **Inbox**: items arriving via the API land here for triage — drag them onto a
+- **Inbox**: open or close it with the tab on the left edge of the board (it
+  shows how many items are waiting). Items arriving via the API land here for triage — drag them onto a
   board or use the card's **⋮** menu to send it to a board's first column.
 - **What's new**: the first time you open KanDeck after an update, a window
   lists what changed in the new version plus the previous 10 releases (newest
   first). Dismiss it and it won't appear again until the next version. Click the
-  **KanDeck v…** version label at the bottom of the Inbox to reopen it.
+  **KanDeck v…** version label at the bottom center of the screen to reopen it.
   Release notes live in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
@@ -516,7 +517,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.6.0 && git push origin v2.6.0
+git tag v2.7.0 && git push origin v2.7.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

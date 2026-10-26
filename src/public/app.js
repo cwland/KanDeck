@@ -80,7 +80,7 @@
     state.themeId = s.theme || window.DEFAULT_THEME || 'light-blue';
     applyTheme(state.themeId);
     if (s.version) {
-      $('#inboxVersion').textContent = 'KanDeck v' + s.version;
+      $('#versionFoot').textContent = 'KanDeck v' + s.version;
     }
   }
 
@@ -1499,6 +1499,7 @@
   }
   function renderInbox() {
     $('#inboxCount').textContent = state.inbox.length;
+    updateInboxTabLabel();
     const ul = $('#inboxList'); ul.innerHTML = '';
     state.inbox.forEach((it) => ul.appendChild(renderInboxCard(it)));
     makeInboxSortable(ul);
@@ -1629,15 +1630,24 @@
     });
   }
   // ---- Inbox / Board bottom toggle ----
-  function setView(v) {
+  // Inbox open/closed via the edge tab (remembered per browser).
+  function setView(v, remember = true) {
     const boardOnly = v === 'board';
     document.body.classList.toggle('inbox-collapsed', boardOnly);
-    $('#bbInbox').classList.toggle('active', !boardOnly);
-    $('#bbBoard').classList.toggle('active', boardOnly);
+    const tab = $('#inboxTab');
+    tab.setAttribute('aria-expanded', boardOnly ? 'false' : 'true');
+    $('#inboxTabChev').textContent = boardOnly ? '›' : '‹';
+    updateInboxTabLabel();
+    if (remember) { try { localStorage.setItem('kandeck.inboxOpen', boardOnly ? '0' : '1'); } catch (_) {} }
   }
-  $('#bbInbox').onclick = () => setView('inbox');
-  $('#bbBoard').onclick = () => setView('board');
-  $('#inboxHide').onclick = () => setView('board');
+  function updateInboxTabLabel() {
+    const n = (state.inbox || []).length;
+    const open = !document.body.classList.contains('inbox-collapsed');
+    const label = `${open ? 'Close' : 'Open'} the Inbox (${n} item${n === 1 ? '' : 's'})`;
+    const tab = $('#inboxTab'); tab.title = label; tab.setAttribute('aria-label', label);
+    const c = $('#inboxTabCount'); c.textContent = n > 99 ? '99+' : n; c.classList.toggle('zero', !n);
+  }
+  $('#inboxTab').onclick = () => setView(document.body.classList.contains('inbox-collapsed') ? 'inbox' : 'board');
 
   // ---- Top bar controls ----
   $('#autoSort').onchange = async (e) => {
@@ -1764,8 +1774,7 @@
     } catch {}
   }
   $('#wnClose').onclick = $('#wnOk').onclick = closeWhatsNew;
-  $('#inboxVersion').onclick = () => openWhatsNew();
-  $('#inboxVersion').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openWhatsNew(); } };
+  $('#versionFoot').onclick = () => openWhatsNew();
 
   // close modals on backdrop click / Esc (board modal rolls back an unsaved new board)
   const dismiss = (m) => {
@@ -1811,7 +1820,8 @@
     await loadSettings();
     await loadBoards();
     await loadInbox();
-    setView(window.innerWidth <= 640 ? 'board' : 'inbox');
+    let saved = null; try { saved = localStorage.getItem('kandeck.inboxOpen'); } catch (_) {}
+    setView(saved === '1' ? 'inbox' : saved === '0' ? 'board' : (window.innerWidth <= 640 ? 'board' : 'inbox'), false);
     connectEvents();
     checkWhatsNew();
   })().catch((e) => console.error(e));

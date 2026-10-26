@@ -179,10 +179,10 @@ body {
 html[data-theme='dark'] .zb-halves { background: rgba(50, 56, 64, .16); border-color: rgba(255, 255, 255, .12); }
 html[data-theme='dark'] .zb-half { color: #e8edf2; }
 html[data-theme='dark'] .zb-half:hover { background: rgba(255, 255, 255, .12); }
-@media (max-width: 640px) { .zoom-bubble { right: 12px; bottom: 60px; } }
+@media (max-width: 640px) { .zoom-bubble { right: 12px; bottom: 14px; } }
 
 /* ---- Content row: inbox + board ---- */
-.content-row { flex: 1 1 auto; display: flex; min-height: 0; overflow: hidden; }
+.content-row { flex: 1 1 auto; display: flex; min-height: 0; overflow: hidden; position: relative; }
 .main-area { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 /* ---- Inbox panel ---- */
@@ -452,7 +452,7 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
 /* ---- Board / columns ---- */
 .board {
   flex: 1 1 auto; display: flex; gap: var(--gap); align-items: flex-start;
-  padding: 6px 18px 76px; overflow-x: auto; overflow-y: hidden;
+  padding: 6px 18px 40px 46px; overflow-x: auto; overflow-y: hidden; /* left: room for the Inbox tab */
 }
 .column {
   /* The whole swim lane takes the lane color as its background. */
@@ -722,12 +722,12 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
   .topbar { flex-wrap: wrap; }
   .search input { width: 120px; }
   .board-tools { gap: 10px; }
-  .board { scroll-snap-type: x mandatory; padding: 6px 12px 76px; }
+  .board { scroll-snap-type: x mandatory; padding: 6px 12px 40px 40px; }
   .column { width: 84vw; min-width: 84vw; scroll-snap-align: start; }
   .add-column { width: 84vw; min-width: 84vw; }
   /* Inbox becomes a full-width overlay on phones — slide via transform. */
   .inbox-panel {
-    position: absolute; inset: 0 0 48px 0; width: 100%; flex-basis: 100%; z-index: 15;
+    position: absolute; inset: 0; width: 100%; flex-basis: 100%; z-index: 15;
     margin-left: 0 !important;
     transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .22s ease;
   }
@@ -837,3 +837,38 @@ html[data-theme='dark'] .danger-zone .dz-title { color: #ffa8a8; }
 .email-view[hidden], .email-input[hidden], .email-view a[hidden] { display: none; }
 .email-badge { text-decoration: none; cursor: pointer; background: #d0ebff; color: #1864ab; font-size: .78rem; line-height: 1.2; }
 .email-badge:hover { filter: brightness(.95); }
+
+/* ---- Inbox edge tab: on the board's left edge (= the panel's right edge when
+   open). Shows the Inbox count; click to slide the Inbox in or out. ---- */
+.main-area { position: relative; }
+.board-header { padding-left: 46px; }
+.inbox-tab {
+  position: absolute; left: 0; top: 70px; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: 30px; padding: 10px 0 8px; border: 1px solid var(--border); border-left: 0;
+  border-radius: 0 12px 12px 0; cursor: pointer;
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow);
+  transition: background .15s ease, width .15s ease;
+}
+.inbox-tab:hover, .inbox-tab:focus-visible { width: 34px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.inbox-tab .it-icon { font-size: 1rem; line-height: 1; }
+.inbox-tab .it-count {
+  min-width: 20px; padding: 1px 5px; border-radius: 10px; text-align: center;
+  font-size: .7rem; font-weight: 800; line-height: 16px; background: var(--accent); color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.inbox-tab .it-count.zero { background: var(--surface-2); color: var(--text-dim); }
+.inbox-tab .it-chev { font-size: 1.1rem; font-weight: 800; line-height: 1; color: var(--text-dim); }
+/* Phones: the Inbox is a full-width overlay, so the open tab sits on its right edge. */
+@media (max-width: 640px) {
+  body:not(.inbox-collapsed) .inbox-tab { left: auto; right: 0; border-left: 1px solid var(--border); border-right: 0; border-radius: 12px 0 0 12px; }
+}
+
+/* ---- Version label (bottom center) — opens What's new ---- */
+.version-foot {
+  position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 30;
+  border: 0; background: transparent; cursor: pointer; padding: 4px 10px; border-radius: 999px;
+  font: inherit; font-size: .72rem; letter-spacing: .03em; color: var(--text-dim); opacity: .8;
+}
+.version-foot:hover, .version-foot:focus-visible { opacity: 1; color: var(--text); background: var(--surface); text-decoration: underline; }
+.version-foot:empty { display: none; }

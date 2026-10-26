@@ -4,6 +4,11 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.7.0 — 2026-10-26
+
+- **Inbox tab on the left edge** — a slim tab shows how many items are in the Inbox; click it to slide the Inbox out, and again (‹) to close it. Your choice is remembered per browser.
+- Removed the Inbox / Board buttons from the bottom of the screen. The **KanDeck version** now sits there instead — click it for What's new.
+
 ## 2.6.0 — 2026-10-26
 
 - **Board tabs at the top** — `Home (1) | Work (5) | …` centered on the board title line replaces the bottom-bar "Switch board". Each number is that board's open cards and updates live, including tasks added or sorted behind the scenes (n8n, API, tag routing, auto-archive).

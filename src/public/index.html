@@ -54,13 +54,17 @@
           <span class="inbox-title">📥 Inbox <b id="inboxCount">0</b>
             <button type="button" class="inbox-reprocess" id="inboxReprocess" title="Re-check Inbox items against board routing tags" aria-label="Re-check Inbox items against board routing tags">↻</button>
           </span>
-          <button class="icon-btn ghost-icon" id="inboxHide" title="Hide inbox">✕</button>
         </header>
         <ul class="inbox-list" id="inboxList"></ul>
-        <p class="inbox-version" id="inboxVersion" role="button" tabindex="0" title="What's new in this version"></p>
       </aside>
 
       <div class="main-area" id="mainArea">
+        <!-- Inbox edge tab: shows the item count; opens / closes the Inbox panel. -->
+        <button type="button" class="inbox-tab" id="inboxTab" aria-controls="inboxPanel" aria-expanded="true">
+          <span class="it-icon" aria-hidden="true">📥</span>
+          <span class="it-count" id="inboxTabCount">0</span>
+          <span class="it-chev" id="inboxTabChev" aria-hidden="true">‹</span>
+        </button>
         <div class="board-header" id="boardHeader">
           <div class="board-meta">
             <h1 id="boardName">—</h1>
@@ -93,11 +97,8 @@
       </div>
     </div>
 
-    <!-- ===== Bottom toggle bar ===== -->
-    <div class="bottombar">
-      <button class="bb-btn" id="bbInbox" data-view="inbox" title="Show the inbox panel">📥 Inbox</button>
-      <button class="bb-btn active" id="bbBoard" data-view="board" title="Show the board only">🗂 Board</button>
-    </div>
+    <!-- ===== Version (bottom center) — opens What's new ===== -->
+    <button type="button" class="version-foot" id="versionFoot" title="What's new in this version"></button>
 
     <!-- ===== Card modal ===== -->
     <div class="modal-backdrop" id="cardModal" hidden>
