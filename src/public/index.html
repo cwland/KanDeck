@@ -158,7 +158,6 @@
       <div class="modal" role="dialog" aria-modal="true" aria-label="App settings">
         <header class="modal-head">
           <h2>App settings</h2>
-          <button class="icon-btn" id="appModalClose" title="Close">✕</button>
         </header>
         <nav class="modal-tabs" id="appTabs" aria-label="Settings sections">
           <button type="button" class="modal-tab active" data-tab="theme"><span class="mt-ico" aria-hidden="true">🎨</span>Theme</button>
@@ -230,10 +229,11 @@
           </section>
 
           <section class="tab-panel" data-tab="notify">
-            <p class="hint">Get scheduled summaries of your tasks by email or Discord. Configure each independently — enable it, set the connection, choose what to include, and pick when it sends.</p>
+            <p class="hint">Get scheduled summaries of your tasks by email, Discord or text message — and alarm reminders by text. Configure each independently — enable it, set the connection, choose what to include, and pick when it sends.</p>
             <nav class="notify-subtabs" id="notifySubtabs">
               <button type="button" class="notify-subtab active" data-sub="email">✉️ Email</button>
               <button type="button" class="notify-subtab" data-sub="discord">💬 Discord</button>
+              <button type="button" class="notify-subtab" data-sub="imessage">📱 Text</button>
             </nav>
 
             <!-- EMAIL -->
@@ -314,6 +314,54 @@
                 <span class="ai-test-status" id="dcStatus"></span>
               </div>
               <p class="hint" style="margin-bottom:0">Saved when you click <b>Save</b> below.</p>
+            </div>
+
+            <!-- TEXT (iMessage Gateway) -->
+            <div class="notify-sub" data-sub="imessage">
+              <div class="ai-toggle-row">
+                <label class="switch"><input type="checkbox" id="tmEnabled" /><span></span></label>
+                <span class="ai-toggle-label">Enable text messages</span>
+              </div>
+              <p class="hint">Texts go through the <b>iMessage Gateway</b> app on your Mac. In the gateway, set <i>Accept connections from</i> to <b>Local network</b>, create an API key for KanDeck on its <b>API Keys</b> page, and if you use its recipient allowlist, add the numbers below.</p>
+
+              <label>Gateway connection</label>
+              <div class="field-row">
+                <div class="field" style="flex:2"><label>Gateway URL</label><input id="tmUrl" type="url" autocomplete="off" placeholder="http://192.168.50.20:8787" /></div>
+                <div class="field"><label>API key</label><input id="tmKey" type="password" autocomplete="off" placeholder="Gateway API key" /></div>
+              </div>
+              <div class="field-row">
+                <div class="field" style="flex:2"><label>Send to <small>(phone or Apple ID; commas for several)</small></label><input id="tmTo" type="text" autocomplete="off" placeholder="+12085550100" /></div>
+                <div class="field"><label>Send as</label><select id="tmService"><option value="iMessage">iMessage</option><option value="SMS">SMS (text)</option></select></div>
+              </div>
+
+              <label>What to send</label>
+              <div class="notify-content">
+                <label class="nc-row"><input type="checkbox" id="tmAlarms" /> <span><b>Alarm reminders</b> — a text when a card's or Inbox item's alarm time arrives</span></label>
+                <label class="nc-row"><input type="checkbox" id="tmSummary" /> <span><b>Daily summary</b> — the task summary below, on a schedule</span></label>
+              </div>
+
+              <div class="notify-cols" id="tmSummaryCols">
+                <div class="notify-col">
+                  <label>Include in summary</label>
+                  <div class="notify-content">
+                    <label class="nc-row"><input type="checkbox" id="tmUpcoming" /> Upcoming tasks — next <input type="number" id="tmUpcomingDays" min="1" max="30" class="days-inp" /> days</label>
+                    <label class="nc-row"><input type="checkbox" id="tmDueToday" /> Tasks due today</label>
+                    <label class="nc-row"><input type="checkbox" id="tmPastDue" /> Past due tasks</label>
+                  </div>
+                </div>
+                <div class="notify-col">
+                  <label>Schedule</label>
+                  <div class="field" style="max-width:150px"><label>Send time</label><input id="tmTime" type="time" /></div>
+                  <div class="weekday-label">Days</div>
+                  <div class="weekday-row" id="tmDays"></div>
+                </div>
+              </div>
+
+              <div class="ai-test-row">
+                <button type="button" class="btn ghost" id="tmTest">Send test text</button>
+                <span class="ai-test-status" id="tmStatus"></span>
+              </div>
+              <p class="hint" style="margin-bottom:0">Saved when you click <b>Save</b> below. The test uses the current (even unsaved) settings. The Mac running the gateway must be awake with Messages signed in.</p>
             </div>
           </section>
 

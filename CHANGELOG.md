@@ -4,6 +4,14 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.5.0 — 2026-10-25
+
+- **Text messages** — new **📱 Text** tab under App Settings → Notifications sends texts through the iMessage Gateway Mac app (iMessage or SMS).
+- **Alarm reminders by text** — KanDeck now texts you when a card's or Inbox item's alarm time arrives (once per alarm; stale alarms aren't sent late).
+- Optional **daily summary by text**, with the same content and schedule options as email and Discord.
+- **Send test text** button, and saving checks the gateway connection and API key first. The API key is encrypted at rest.
+- Removed the ✕ from the top of App Settings — use **Cancel** (or Esc) to close.
+
 ## 2.4.0 — 2026-10-25
 
 - **Alarms** — set a reminder date and time on any card (or Inbox item) in the card window. Cards show an ⏰ badge (toggle it under Board settings → Show on cards).

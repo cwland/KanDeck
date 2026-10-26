@@ -64,8 +64,9 @@ board.
 - **Themes** — 20 presets (10 light + 10 dark) with a vertical gradient wash;
   category and badge colors are user-editable with automatically-readable text.
 - **REST API** with a date-filtered task-query endpoint for automations.
-- **Notifications** — scheduled email + Discord task summaries plus card-moved
-  Discord pings.
+- **Notifications** — scheduled email, Discord and text-message task summaries,
+  **alarm reminders by text** (iMessage/SMS via the iMessage Gateway Mac app),
+  and card-moved Discord pings.
 - **Backups** — manual and automatic (daily / weekly / monthly with retention);
   a full snapshot of boards, the Inbox **and** settings, with one-click restore.
 - **Security** — single username + password login (bcrypt), revocable JWT
@@ -427,13 +428,37 @@ top-level `summary` and `today`.
 
 Configured in **App Settings → Notifications** (no env vars):
 
-- **Scheduled summaries** — an email and/or Discord digest of your tasks
+- **Scheduled summaries** — an email, Discord and/or text digest of your tasks
   (upcoming N days · due today · past due) on a time + weekday schedule you pick.
+- **Alarm reminders by text** — a text message the moment a card's or Inbox
+  item's alarm time arrives.
 - **Card-moved** Discord pings when a card lands in a board's notify lane.
 
 Email uses SMTP you provide (the password is encrypted at rest); Discord uses a
 webhook URL. Each has a **Test** button that validates the connection before you
 rely on it.
+
+### Text messages (📱 Text tab)
+
+Texts are sent through the [iMessage Gateway](https://github.com/cwland/imessage-gateway)
+menu-bar app running on a Mac signed in to Messages.
+
+1. In the gateway: **Settings → Accept connections from → Local network**, then
+   **API Keys → Create Key** (name it `KanDeck`). If you use its recipient
+   allowlist, add the numbers KanDeck will text.
+2. In KanDeck: **App Settings → Notifications → 📱 Text** — enable it, enter the
+   **Gateway URL** (use the Mac's IP, e.g. `http://192.168.50.20:8787`; Docker
+   containers often can't resolve `.local` names), the **API key** (encrypted at
+   rest), who to **send to** (phone numbers or Apple IDs, comma-separated) and
+   **iMessage** or **SMS**.
+3. Choose **Alarm reminders**, **Daily summary**, or both, click **Send test
+   text**, then **Save** (saving checks the gateway and key first).
+
+Alarm reminders are checked every minute and sent once per alarm (changing a
+card's alarm time re-arms it). Alarms that are more than 6 hours overdue — e.g.
+after the server was down — are skipped rather than texted late. Done and
+archived cards never send reminders. The Mac must be awake with Messages signed
+in; see the gateway's README for SMS forwarding and other pitfalls.
 
 ---
 
@@ -476,7 +501,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.4.0 && git push origin v2.4.0
+git tag v2.5.0 && git push origin v2.5.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

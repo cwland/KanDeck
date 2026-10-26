@@ -1167,9 +1167,19 @@
       $('#dcDueToday').checked = d.content.dueToday.enabled; $('#dcPastDue').checked = d.content.pastDue.enabled;
       $('#dcTime').value = d.schedule.time; renderWeekdays('dcDays', d.schedule.days);
       $('#dcStatus').textContent = ''; $('#dcStatus').className = 'ai-test-status';
+      const t = n.imessage;
+      $('#tmEnabled').checked = t.enabled; $('#tmUrl').value = t.url; $('#tmKey').value = '';
+      $('#tmKey').placeholder = t.apiKeySet ? '•••••• (leave blank to keep)' : 'Gateway API key';
+      $('#tmTo').value = t.to; $('#tmService').value = t.service;
+      $('#tmAlarms').checked = t.alarms; $('#tmSummary').checked = t.summaryEnabled;
+      $('#tmUpcoming').checked = t.content.upcoming.enabled; $('#tmUpcomingDays').value = t.content.upcoming.days;
+      $('#tmDueToday').checked = t.content.dueToday.enabled; $('#tmPastDue').checked = t.content.pastDue.enabled;
+      $('#tmTime').value = t.schedule.time; renderWeekdays('tmDays', t.schedule.days);
+      $('#tmStatus').textContent = ''; $('#tmStatus').className = 'ai-test-status';
       // Lock/unlock each sub-panel to match its enable toggle.
       setNotifyFieldsEnabled('email');
       setNotifyFieldsEnabled('discord');
+      setNotifyFieldsEnabled('imessage');
     } catch {}
   }
 
@@ -1198,14 +1208,33 @@
     };
   }
 
+  function collectImessage() {
+    return {
+      enabled: $('#tmEnabled').checked, url: $('#tmUrl').value.trim(), apiKey: $('#tmKey').value.trim(),
+      to: $('#tmTo').value.trim(), service: $('#tmService').value,
+      alarms: $('#tmAlarms').checked, summaryEnabled: $('#tmSummary').checked,
+      content: {
+        upcoming: { enabled: $('#tmUpcoming').checked, days: parseInt($('#tmUpcomingDays').value, 10) || 7 },
+        dueToday: { enabled: $('#tmDueToday').checked }, pastDue: { enabled: $('#tmPastDue').checked },
+      },
+      schedule: { time: $('#tmTime').value || '08:00', days: getWeekdays('tmDays') },
+    };
+  }
+  // Per-channel element ids / collectors / "where to look" text.
+  const NOTIFY = {
+    email: { prefix: 'em', collect: () => collectEmail(), where: 'your inbox' },
+    discord: { prefix: 'dc', collect: () => collectDiscord(), where: 'Discord' },
+    imessage: { prefix: 'tm', collect: () => collectImessage(), where: 'your phone' },
+  };
   async function testNotify(channel) {
-    const st = $(channel === 'email' ? '#emStatus' : '#dcStatus');
-    const btn = $(channel === 'email' ? '#emTest' : '#dcTest');
-    const body = channel === 'email' ? collectEmail() : collectDiscord();
+    const n = NOTIFY[channel];
+    const st = $('#' + n.prefix + 'Status');
+    const btn = $('#' + n.prefix + 'Test');
+    const body = n.collect();
     st.textContent = 'Sending test…'; st.className = 'ai-test-status'; btn.disabled = true;
     try {
       const r = await api('/notifications/' + channel + '/test', { method: 'POST', body });
-      if (r && r.ok) { st.textContent = '✓ Test sent — check ' + (channel === 'email' ? 'your inbox' : 'Discord'); st.className = 'ai-test-status ok'; }
+      if (r && r.ok) { st.textContent = '✓ Test sent — check ' + n.where + (r.messagesRunning === false ? ' (note: the gateway says Messages isn\u2019t running)' : ''); st.className = 'ai-test-status ok'; }
       else { st.textContent = '✗ ' + ((r && r.error) || 'Test failed'); st.className = 'ai-test-status err'; }
     } catch (err) {
       st.textContent = '✗ ' + (err.message || 'Test failed'); st.className = 'ai-test-status err';
@@ -1213,6 +1242,7 @@
   }
   $('#emTest').onclick = () => testNotify('email');
   $('#dcTest').onclick = () => testNotify('discord');
+  $('#tmTest').onclick = () => testNotify('imessage');
 
   // A channel's fields are editable only while its enable toggle is on. Turning
   // it off locks (disables) every field in that sub-panel; turning it on unlocks
@@ -1220,14 +1250,23 @@
   function setNotifyFieldsEnabled(channel) {
     const sub = document.querySelector(`#appModal .notify-sub[data-sub="${channel}"]`);
     if (!sub) return;
-    const toggleId = channel === 'email' ? 'emEnabled' : 'dcEnabled';
+    const toggleId = NOTIFY[channel].prefix + 'Enabled';
     const on = $('#' + toggleId).checked;
     sub.querySelectorAll('input, select, button').forEach((el) => {
       if (el.id === toggleId) return;
       el.disabled = !on;
     });
     sub.classList.toggle('notify-off', !on);
+    if (channel === 'imessage') syncTextSummary();
   }
+  // Text channel: the summary content/schedule only matter when "Daily summary" is ticked.
+  function syncTextSummary() {
+    const on = $('#tmEnabled').checked && $('#tmSummary').checked;
+    $('#tmSummaryCols').classList.toggle('notify-off', !on);
+    $$('#tmSummaryCols input, #tmSummaryCols button').forEach((el) => (el.disabled = !on));
+  }
+  $('#tmSummary').addEventListener('change', syncTextSummary);
+  $('#tmEnabled').addEventListener('change', () => setNotifyFieldsEnabled('imessage'));
   $('#emEnabled').addEventListener('change', () => setNotifyFieldsEnabled('email'));
   $('#dcEnabled').addEventListener('change', () => setNotifyFieldsEnabled('discord'));
 
@@ -1353,7 +1392,6 @@
   }
   $('#appSettingsBtn').onclick = openAppModal;
   // Both the ✕ and Cancel behave the same: prompt if there are unsaved changes.
-  $('#appModalClose').onclick = guardedCloseAppModal;
   $('#appCancel').onclick = guardedCloseAppModal;
   $('#appSave').onclick = async () => {
     const priorities = $$('#priorityEditor .priority-row').map((r) => {
@@ -1394,13 +1432,13 @@
       // Notifications (main Save too). Validation errors keep the modal open on
       // the offending sub-tab so nothing is silently dropped.
       const failed = [];
-      for (const ch of ['email', 'discord']) {
-        const on = $(ch === 'email' ? '#emEnabled' : '#dcEnabled').checked;
-        const st = $(ch === 'email' ? '#emStatus' : '#dcStatus');
+      for (const ch of ['email', 'discord', 'imessage']) {
+        const on = $('#' + NOTIFY[ch].prefix + 'Enabled').checked;
+        const st = $('#' + NOTIFY[ch].prefix + 'Status');
         // Enabled channels are connection-tested server-side before they save.
         if (on) { st.textContent = 'Checking connection…'; st.className = 'ai-test-status'; }
         try {
-          await api('/notifications/' + ch, { method: 'PUT', body: ch === 'email' ? collectEmail() : collectDiscord() });
+          await api('/notifications/' + ch, { method: 'PUT', body: NOTIFY[ch].collect() });
           if (on) { st.textContent = ''; st.className = 'ai-test-status'; }
         } catch (e) { failed.push([ch, e.message || 'Save failed']); }
       }
@@ -1409,7 +1447,7 @@
         setAppTab('notify');
         const sub = document.querySelector(`#notifySubtabs .notify-subtab[data-sub="${ch}"]`);
         if (sub) sub.click();
-        const st = $(ch === 'email' ? '#emStatus' : '#dcStatus');
+        const st = $('#' + NOTIFY[ch].prefix + 'Status');
         st.textContent = '✗ ' + msg; st.className = 'ai-test-status err';
         toast('Fix the notification error to finish saving.');
         return; // keep modal open + dirty

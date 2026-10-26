@@ -63,6 +63,19 @@ const DEFAULT_NOTIFICATIONS = {
     schedule: DEFAULT_SCHEDULE,
     lastOccurrence: null,
   },
+  // Text messages via the iMessage Gateway Mac app (POST /v1/send).
+  imessage: {
+    enabled: false,
+    url: '',          // e.g. http://192.168.50.20:8787
+    apiKey: '',       // gateway API key — stored encrypted at rest
+    to: '',           // phone number(s) / Apple ID email(s), comma separated
+    service: 'iMessage', // iMessage | SMS
+    alarms: true,     // text when a card's / Inbox item's alarm time arrives
+    summaryEnabled: false, // also send the scheduled task summary
+    content: DEFAULT_CONTENT,
+    schedule: DEFAULT_SCHEDULE,
+    lastOccurrence: null,
+  },
 };
 const DEFAULT_BACKUP = {
   autoEnabled: false,
@@ -95,7 +108,7 @@ function fillSchedule(s) {
 }
 function fillNotifications(n) {
   n = n || {};
-  const e = n.email || {}, d = n.discord || {};
+  const e = n.email || {}, d = n.discord || {}, t = n.imessage || {};
   return {
     email: {
       enabled: !!e.enabled,
@@ -112,6 +125,17 @@ function fillNotifications(n) {
       webhookUrl: d.webhookUrl || '',
       content: fillContent(d.content), schedule: fillSchedule(d.schedule),
       lastOccurrence: d.lastOccurrence || null,
+    },
+    imessage: {
+      enabled: !!t.enabled,
+      url: (t.url || '').replace(/\/+$/, ''),
+      apiKey: t.apiKey || '',
+      to: t.to || '',
+      service: t.service === 'SMS' ? 'SMS' : 'iMessage',
+      alarms: t.alarms !== false,
+      summaryEnabled: !!t.summaryEnabled,
+      content: fillContent(t.content), schedule: fillSchedule(t.schedule),
+      lastOccurrence: t.lastOccurrence || null,
     },
   };
 }
@@ -215,6 +239,7 @@ export async function getNotificationConfig() {
   const raw = await readJson(config.settingsFile, DEFAULTS);
   const n = fillNotifications(raw.notifications);
   n.email.pass = decrypt(n.email.pass);
+  n.imessage.apiKey = decrypt(n.imessage.apiKey);
   return n;
 }
 
@@ -222,6 +247,7 @@ export async function getNotificationConfig() {
 export async function getNotificationConfigMasked() {
   const n = fillNotifications((await readJson(config.settingsFile, DEFAULTS)).notifications);
   n.email = { ...n.email, pass: '', passwordSet: !!n.email.pass };
+  n.imessage = { ...n.imessage, apiKey: '', apiKeySet: !!n.imessage.apiKey };
   return n;
 }
 
@@ -246,6 +272,31 @@ function mergeDiscord(cur, patch = {}) {
   if (patch.schedule !== undefined) next.schedule = fillSchedule(patch.schedule);
   if (patch.lastOccurrence !== undefined) next.lastOccurrence = patch.lastOccurrence;
   return next;
+}
+
+function mergeImessage(cur, patch = {}) {
+  const next = { ...cur };
+  if (patch.url !== undefined) next.url = String(patch.url).trim().replace(/\/+$/, '');
+  if (patch.to !== undefined) next.to = String(patch.to).trim();
+  if (patch.service !== undefined) next.service = patch.service === 'SMS' ? 'SMS' : 'iMessage';
+  for (const k of ['enabled', 'alarms', 'summaryEnabled']) if (patch[k] !== undefined) next[k] = !!patch[k];
+  if (patch.content !== undefined) next.content = fillContent(patch.content);
+  if (patch.schedule !== undefined) next.schedule = fillSchedule(patch.schedule);
+  if (patch.lastOccurrence !== undefined) next.lastOccurrence = patch.lastOccurrence;
+  // API key: only replace when a new non-empty value is supplied; blank = keep.
+  if (typeof patch.apiKey === 'string' && patch.apiKey !== '') next.apiKey = encrypt(patch.apiKey.trim());
+  return next;
+}
+
+export async function updateImessageConfig(patch = {}) {
+  const saved = await updateJson(config.settingsFile, (s) => {
+    s = { ...DEFAULTS, ...(s || {}) };
+    const n = fillNotifications(s.notifications);
+    n.imessage = mergeImessage(n.imessage, patch);
+    s.notifications = n;
+    return s;
+  }, DEFAULTS);
+  return fillNotifications(saved.notifications).imessage;
 }
 
 export async function updateEmailConfig(patch = {}) {

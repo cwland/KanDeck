@@ -17,7 +17,7 @@ import * as settings from '../storage/settings.js';
 import { getApiKey, setApiKey, generateApiKeyValue, validCookie } from '../auth.js';
 import { events } from '../events.js';
 import { createBackup, listBackups, restoreBackup, rescheduleBackups } from '../services/backup.js';
-import { testEmail, testDiscord, emailProvider, discordProvider } from '../services/notify/index.js';
+import { testEmail, testDiscord, testImessage, emailProvider, discordProvider, imessageProvider } from '../services/notify/index.js';
 import config from '../config.js';
 import { getChangelog } from '../services/changelog.js';
 
@@ -412,6 +412,31 @@ router.put('/notifications/discord', wrap(async (req, res) => {
   }
   await settings.updateDiscordConfig(body);
   res.json((await settings.getNotificationConfigMasked()).discord);
+}));
+
+router.put('/notifications/imessage', wrap(async (req, res) => {
+  const body = req.body || {};
+  if (body.enabled) {
+    if (!body.alarms && !body.summaryEnabled)
+      return res.status(400).json({ error: 'Choose alarm reminders, the daily summary, or both.' });
+    if (body.summaryEnabled) {
+      const vmsg = validateContentAndSchedule(body);
+      if (vmsg) return res.status(400).json({ error: vmsg });
+    }
+    const saved = (await settings.getNotificationConfig()).imessage;
+    const v = await imessageProvider.verify({
+      ...saved, ...body,
+      url: String(body.url || '').trim().replace(/\/+$/, ''),
+      apiKey: body.apiKey || saved.apiKey,
+    });
+    if (!v.ok) return res.status(400).json({ error: v.error });
+  }
+  await settings.updateImessageConfig(body);
+  res.json((await settings.getNotificationConfigMasked()).imessage);
+}));
+
+router.post('/notifications/imessage/test', wrap(async (req, res) => {
+  res.json(await testImessage(req.body || {}));
 }));
 
 router.post('/notifications/email/test', wrap(async (req, res) => {

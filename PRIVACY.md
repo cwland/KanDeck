@@ -40,6 +40,7 @@ enable and configure, to the destinations you specify:
 |---------|------------------|-------------------|
 | **Email notifications** | The server connects to the **SMTP server** you configure to send task summaries. | App Settings → Notifications |
 | **Discord notifications** | The server POSTs task summaries / pings to the **Discord webhook URL** you configure. | App Settings → Notifications |
+| **Text messages** | The server POSTs alarm reminders and/or task summaries (card titles, board names, due dates) to the **iMessage Gateway URL** you configure, which sends them through Apple's Messages service on your Mac. | App Settings → Notifications → Text |
 
 If you enable none of these, KanDeck makes no outbound requests at all beyond
 serving the app to your own browser.

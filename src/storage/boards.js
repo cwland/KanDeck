@@ -454,6 +454,39 @@ export async function getBoardForIcs(id, token) {
   return crypto.timingSafeEqual(a, b) ? board : null;
 }
 
+// ---- Alarms (reminder texts) ---------------------------------------------------
+// card.alarmSentFor holds the alarm value a reminder was already sent for, so
+// each alarm fires once; changing the alarm time makes it fire again.
+
+/** Open, unarchived cards on active boards whose alarm time has arrived and
+ *  hasn't been handled yet. */
+export async function dueAlarmCards(now = new Date()) {
+  const idx = await readIndex();
+  const out = [];
+  for (const entry of idx.boards) {
+    if (entry.archived) continue;
+    const board = await getBoard(entry.id);
+    if (!board) continue;
+    for (const col of board.columns)
+      for (const card of col.cards) {
+        if (!card.alarm || card.archived || card.complete) continue;
+        if (card.alarmSentFor === card.alarm) continue;
+        const t = Date.parse(card.alarm);
+        if (!Number.isNaN(t) && t <= now.getTime()) out.push({ board, col, card });
+      }
+  }
+  return out;
+}
+
+/** Record that the reminder for `alarm` has been handled (sent or skipped). */
+export async function markAlarmSent(boardId, cardId, alarm) {
+  return mutateBoard(boardId, (board) => {
+    const found = findCard(board, cardId);
+    if (found && found.card.alarm === alarm) found.card.alarmSentFor = alarm;
+    return true;
+  });
+}
+
 /** Testing helper: delete every card (active + archived) on every board,
  *  archived boards included. Boards, lanes, routing tags, feeds and settings
  *  are kept. Returns { boards, cards } counts. */

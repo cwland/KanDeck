@@ -67,6 +67,24 @@ export async function updateItem(id, patch = {}) {
   return updated;
 }
 
+/** Inbox items whose alarm time has arrived and hasn't been handled yet. */
+export async function dueAlarmItems(now = new Date()) {
+  return (await listItems()).filter((i) => {
+    if (!i.alarm || i.alarmSentFor === i.alarm) return false;
+    const t = Date.parse(i.alarm);
+    return !Number.isNaN(t) && t <= now.getTime();
+  });
+}
+
+export async function markAlarmSent(id, alarm) {
+  await updateJson(config.inboxFile, (inbox) => {
+    inbox = inbox || { items: [] };
+    const item = inbox.items.find((i) => i.id === id);
+    if (item && item.alarm === alarm) item.alarmSentFor = alarm;
+    return inbox;
+  }, EMPTY);
+}
+
 /** Testing helper: empty the Inbox. Returns how many items were removed. */
 export async function clearAll() {
   let n = 0;
