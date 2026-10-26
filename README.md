@@ -251,8 +251,15 @@ first-run setup, which only works from your local network (or with
 
 ## Using KanDeck
 
-- **Switch boards** from the bottom bar → *Switch board*. Create a new board with
-  the **＋** next to the search.
+- **Switch boards** with the tabs centered on the board title line —
+  `Home (1) | Work (5) | …`. The number is each board's open cards (not done,
+  not archived) and updates live, even when tasks arrive from n8n or the API.
+  Create a new board with the **＋** next to the search.
+- **Move a card to another board** from its window: pick the **Board** and
+  Save — it lands in that board's first lane with everything kept.
+- **Email** on a card holds an address (opens your mail app) or a link such as
+  the original Gmail message (opens in a new tab). Click it to open, ✏️ to edit;
+  cards show a small ✉️ you can click too.
 - **App Settings** (⚙️, top-right) has a section menu down the left: Theme,
   Account, Categories, Lane colors, Notifications, API, Calendar, Backups,
   Archives. A single **Save**
@@ -365,7 +372,7 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/boards` | List active boards + summary meta (`?archived=1` → archived boards) |
+| `GET` | `/api/boards` | List active boards + summary meta incl. `openCount` (`?archived=1` → archived boards) |
 | `GET` | `/api/boards/:id` | Full board (columns + cards) |
 | `POST` | `/api/tasks` | Create a task (with `boardId` → that board; otherwise a matching routing tag → that board's first lane; else → Inbox) |
 | `GET` | `/api/route-tags` | Every board's routing tags |
@@ -392,6 +399,14 @@ curl -X POST https://kandeck.example.com/api/tasks \
   -H "X-API-Key: $KANDECK_API_KEY" -H "content-type: application/json" \
   -d '{"subject":"Buy milk","priority":"high","dueDate":"2026-08-01"}'
 ```
+
+Add `"email": "https://mail.google.com/mail/u/0/#all/<messageId>"` (or a plain
+address) to link the card to its source email. Only email addresses and
+`http(s)`/`mailto:` links are accepted.
+
+To move an existing card to another board: `PUT /api/tasks/:id` with
+`{"boardId": "<target board id>"}` (or `POST /api/boards/:id/cards/:cardId/transfer`
+with `{"toBoardId": …}`) — it lands in that board's first lane.
 
 Add `"alarm": "2026-08-01T09:00:00-06:00"` to set a reminder (include the
 time-zone offset; send `null` to clear it). It's kept when the task moves from
@@ -501,7 +516,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.5.0 && git push origin v2.5.0
+git tag v2.6.0 && git push origin v2.6.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

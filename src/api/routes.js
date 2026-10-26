@@ -77,6 +77,10 @@ router.get('/events', (req, res) => {
   events.on('card:created', onCard);
   events.on('card:moved', onCard);
   events.on('card:updated', onCard);
+  // Any board/card change anywhere (UI, API, n8n, routing, auto-archive) →
+  // browsers refresh board tabs + counts.
+  const onBoards = (p) => send('boards', { boardId: p && p.boardId });
+  events.on('boards:changed', onBoards);
 
   const ping = setInterval(() => res.write(': ping\n\n'), 25000);
   req.on('close', () => {
@@ -85,6 +89,7 @@ router.get('/events', (req, res) => {
     events.off('card:created', onCard);
     events.off('card:moved', onCard);
     events.off('card:updated', onCard);
+    events.off('boards:changed', onBoards);
   });
 });
 
@@ -215,8 +220,14 @@ router.get('/route-tags', wrap(async (req, res) => {
 router.put('/tasks/:id', wrap(async (req, res) => {
   const located = await boards.findCardAnywhere(req.params.id);
   if (!located) return res.status(404).json({ error: 'Task not found' });
-  const { boardId } = located;
+  let { boardId } = located;
   const body = req.body || {};
+
+  // A different boardId moves the card to that board's first lane first.
+  if (body.boardId && body.boardId !== boardId) {
+    const t = await boards.transferCard(boardId, req.params.id, body.boardId);
+    if (t) { boardId = body.boardId; events.emit('card:moved', { boardId, card: t.card }); }
+  }
 
   // Move if a target column is supplied.
   if (body.columnId || body.toColumnId) {
@@ -230,6 +241,7 @@ router.put('/tasks/:id', wrap(async (req, res) => {
   }
 
   const patch = { ...body };
+  delete patch.boardId;
   delete patch.columnId;
   delete patch.toColumnId;
   delete patch.index;
@@ -248,6 +260,16 @@ router.post('/boards/:id/cards/:cardId/move', wrap(async (req, res) => {
   if (!move) return res.status(404).json({ error: 'Card not found' });
   if (move.movedColumns) events.emit('card:moved', { boardId: req.params.id, ...move });
   res.json(move);
+}));
+
+// Move a card to another board (lands in that board's first lane).
+router.post('/boards/:id/cards/:cardId/transfer', wrap(async (req, res) => {
+  const toBoardId = req.body?.toBoardId;
+  if (!toBoardId) return res.status(400).json({ error: 'toBoardId required' });
+  const result = await boards.transferCard(req.params.id, req.params.cardId, toBoardId);
+  if (!result) return res.status(404).json({ error: 'Card not found (or already on that board)' });
+  events.emit('card:moved', { boardId: toBoardId, card: result.card });
+  res.json(result);
 }));
 
 router.delete('/boards/:id/cards/:cardId', wrap(async (req, res) => {

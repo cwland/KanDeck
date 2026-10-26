@@ -82,6 +82,7 @@ function itemLines(card, ctx) {
   if (card.complete && card.completedAt) info.push(`Completed: ${card.completedAt.slice(0, 10)}`);
   let desc = info.join('\n');
   if (opts.includeDescriptions && card.description) desc += '\n\n' + card.description;
+  if (opts.includeDescriptions && card.email) desc += '\n\nEmail: ' + card.email;
   if (ctx.footer && ctx.footer.length) desc += (desc ? '\n\n' : '') + ctx.footer.join('\n');
 
   const created = card.createdAt && !Number.isNaN(Date.parse(card.createdAt)) ? utcStamp(new Date(card.createdAt)) : null;

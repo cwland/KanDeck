@@ -6,7 +6,15 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
 import config from '../config.js';
-import { newId, nowIso, dueInDays, parseAlarm } from '../util.js';
+import { newId, nowIso, dueInDays, parseAlarm, parseEmailLink } from '../util.js';
+import { events } from '../events.js';
+
+// Tell listeners (the live-update stream → open browsers) that a board's cards
+// or metadata changed, so board tabs / counts refresh. Covers every write path:
+// UI, API, n8n, tag routing, auto-archive, transfers.
+function changed(boardId) {
+  try { events.emit('boards:changed', { boardId }); } catch {}
+}
 import { getLaneColors, getPriorities, DEFAULT_LANE_COLORS } from './settings.js';
 import {
   readJson,
@@ -140,6 +148,7 @@ export async function autoArchiveAll() {
       if (board && autoArchiveBoard(board)) {
         board.updatedAt = nowIso();
         await writeJsonAtomic(boardFile(entry.id), board);
+        changed(entry.id);
         total++;
       }
     });
@@ -232,7 +241,11 @@ export async function listBoards({ archived = false } = {}) {
           0
         )
       : 0;
-    out.push({ ...entry, columns: board ? board.columns.length : 0, cardCount });
+    // Open = not done and not archived (what the board tabs show).
+    const openCount = board
+      ? board.columns.reduce((n, c) => n + c.cards.filter((k) => !k.archived && !k.complete).length, 0)
+      : 0;
+    out.push({ ...entry, columns: board ? board.columns.length : 0, cardCount, openCount });
   }
   return out;
 }
@@ -302,6 +315,7 @@ export async function createBoard({ name, description = '' }) {
   };
   await writeJsonAtomic(boardFile(id), board);
   await upsertIndexEntry(board);
+  changed(id);
   return board;
 }
 
@@ -387,6 +401,7 @@ export async function updateBoard(id, patch) {
     board.updatedAt = nowIso();
     await writeJsonAtomic(boardFile(id), board);
     await upsertIndexEntry(board);
+    changed(id);
     return board;
   });
 }
@@ -407,6 +422,7 @@ export async function setBoardArchived(id, archived) {
     board.updatedAt = nowIso();
     await writeJsonAtomic(boardFile(id), board);
     await upsertIndexEntry(board);
+    changed(id);
     return board;
   });
 }
@@ -505,6 +521,7 @@ export async function clearAllCards() {
 export async function deleteBoard(id) {
   await removeFile(boardFile(id));
   await removeIndexEntry(id);
+  changed(id);
   return true;
 }
 
@@ -549,6 +566,7 @@ function mutateBoard(id, fn) {
     board.updatedAt = nowIso();
     await writeJsonAtomic(boardFile(id), board);
     await upsertIndexEntry(board);
+    changed(id);
     return result === undefined ? board : result;
   });
 }
@@ -632,6 +650,7 @@ export function makeCard(input = {}) {
     createdAt: nowIso(),
     dueDate: input.dueDate || null,
     alarm: parseAlarm(input.alarm), // reminder date-time (ISO, UTC) or null
+    email: parseEmailLink(input.email), // email address or link to the source email
     priority: input.priority || 'none', // urgent|high|medium|low|none
     tags: Array.isArray(input.tags) ? input.tags : [],
     source: input.source || null, // provenance (from inbox item or 'manual')
@@ -674,6 +693,7 @@ export async function updateCard(boardId, cardId, patch) {
       if (patch[key] !== undefined) card[key] = patch[key];
     }
     if (patch.alarm !== undefined) card.alarm = parseAlarm(patch.alarm);
+    if (patch.email !== undefined) card.email = parseEmailLink(patch.email);
     if (patch.archived !== undefined && !!patch.archived !== !!card.archived) {
       card.archived = !!patch.archived;
       if (card.archived) {
@@ -732,6 +752,40 @@ export async function moveCard(boardId, cardId, toColumnId, toIndex) {
       movedColumns: fromCol.id !== toCol.id,
     };
   });
+}
+
+/**
+ * Move a card to another board (e.g. it was mis-categorized). It lands at the
+ * top of the target board's first lane and keeps its id, fields and history.
+ * Returns { card, fromBoardId, toBoardId } or null if not found.
+ */
+export async function transferCard(fromBoardId, cardId, toBoardId) {
+  if (!toBoardId || toBoardId === fromBoardId) return null;
+  const target = await getBoard(toBoardId);
+  if (!target) throw new Error('Target board not found');
+  if (target.archived) throw new Error('Target board is archived');
+  if (!target.columns.length) throw new Error('Target board has no lanes');
+  let card = null;
+  await mutateBoard(fromBoardId, (board) => {
+    for (const col of board.columns) {
+      const i = col.cards.findIndex((k) => k.id === cardId);
+      if (i >= 0) { card = col.cards.splice(i, 1)[0]; col.cards.forEach((c, j) => (c.order = j)); break; }
+    }
+    return board;
+  });
+  if (!card) return null;
+  const moved = await mutateBoard(toBoardId, (board) => {
+    const col = board.columns[0];
+    // Fresh start on the new board: status follows its first lane.
+    card.prevColumnId = null;
+    card.complete = false;
+    card.completedAt = null;
+    col.cards.unshift(card);
+    if (col.autoSort) sortColumn(col, board.settings.autoSortKey);
+    col.cards.forEach((c, j) => (c.order = j));
+    return card;
+  });
+  return { card: moved, fromBoardId, toBoardId };
 }
 
 export async function deleteCard(boardId, cardId) {
@@ -871,6 +925,7 @@ export async function queryTasks(opts = {}) {
           cardId: card.id, subject: card.subject,
           dueDate: card.dueDate || null, dueInDays: dueDays, overdue,
           alarm: card.alarm || null,
+          email: card.email || null,
           priority: card.priority || 'none', priorityName: prioName(card.priority || 'none'),
           tags: card.tags || [], source: card.source || null,
           complete: isComplete, completedAt: card.completedAt || null, completedDaysAgo,

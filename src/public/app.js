@@ -56,7 +56,7 @@
   function priName(id) { const p = priObj(id); return p ? p.name : id; }
   // Which fields to show on cards (per board; priority + due date on by default).
   function cardFields() {
-    return { priority: true, dueDate: true, tags: false, source: false, alarm: true, ...((state.board && state.board.settings.cardFields) || {}) };
+    return { priority: true, dueDate: true, tags: false, source: false, alarm: true, email: true, ...((state.board && state.board.settings.cardFields) || {}) };
   }
   // The last lane is always the done lane, whatever it's called.
   function doneColId(board = state.board) {
@@ -172,6 +172,7 @@
   async function loadBoards(selectId) {
     const { boards } = await api('/boards');
     state.boards = boards;
+    renderBoardSwitcher();
     const current = boards.some((b) => b.id === state.boardId) ? state.boardId : null;
     const target = selectId || current || boards[0]?.id;
     if (target) await openBoard(target);
@@ -191,66 +192,36 @@
     $('#autoSortKey').value = s.autoSortKey || 'priority';
     renderHeader();
     renderBoard();
+    renderBoardSwitcher();
   }
 
-  // ---- Switch-board popover (slides up out of the bottom-bar button) ----
-  const switchPop = $('#switchPop');
-  const bbSwitch = $('#bbSwitch');
+  // Clicking a card's ✉️ opens the link without opening the card window.
+  document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.email-badge')) e.stopPropagation(); }, true);
 
-  function renderBoardList() {
-    const ul = $('#boardList'); ul.innerHTML = '';
-    const boards = state.boards;
-    const n = boards.length;
-    boards.forEach((b, i) => {
-      const li = document.createElement('li');
-      if (b.id === state.boardId) li.className = 'current';
-      // Stagger the reveal so the item nearest the button appears first,
-      // making the list feel like it's being pulled up out of the button.
-      li.style.setProperty('--d', `${(n - 1 - i) * 40}ms`);
-      li.innerHTML =
-        `<span class="bl-name">${esc(b.name)}</span>` +
-        `<span class="bl-meta">${b.cardCount || 0} cards · ${b.columns || 0} lanes</span>`;
-      li.onclick = async () => { closeSwitchPop(); await openBoard(b.id); };
-      ul.appendChild(li);
+  // ---- Board tabs (top, centered): "Home (1) | Work (5)" ----
+  // Counts are open cards (not done, not archived). They're refreshed from the
+  // server whenever any board changes — locally or behind the scenes (API,
+  // n8n, tag routing, auto-archive) via the live event stream.
+  function renderBoardSwitcher() {
+    const nav = $('#boardSwitcher'); if (!nav) return;
+    nav.innerHTML = '';
+    state.boards.forEach((b, i) => {
+      if (i) { const sep = document.createElement('span'); sep.className = 'bs-sep'; sep.textContent = '|'; sep.setAttribute('aria-hidden', 'true'); nav.appendChild(sep); }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bs-tab' + (b.id === state.boardId ? ' active' : '');
+      if (b.id === state.boardId) btn.setAttribute('aria-current', 'page');
+      const n = b.openCount || 0;
+      btn.title = `${b.name} — ${n} open card${n === 1 ? '' : 's'}`;
+      btn.innerHTML = `<span class="bs-name">${esc(b.name)}</span> <span class="bs-count${n ? '' : ' zero'}">(${n})</span>`;
+      btn.onclick = async () => { if (b.id !== state.boardId) await openBoard(b.id); };
+      nav.appendChild(btn);
     });
+    const act = $('.bs-tab.active', nav); if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
-
-  let switchHideTimer = null;
-  function openSwitchPop() {
-    if (switchHideTimer) { clearTimeout(switchHideTimer); switchHideTimer = null; }
-    renderBoardList();
-    switchPop.hidden = false;
-    // Force a reflow so the transition runs from the collapsed state.
-    void switchPop.offsetWidth;
-    switchPop.classList.add('open');
-    bbSwitch.classList.add('pop-open');
-    bbSwitch.setAttribute('aria-expanded', 'true');
-    document.addEventListener('pointerdown', onDocPointerForSwitch, true);
-    document.addEventListener('keydown', onEscForSwitch);
+  async function refreshBoardCounts() {
+    try { state.boards = (await api('/boards')).boards; renderBoardSwitcher(); } catch {}
   }
-
-  function closeSwitchPop() {
-    if (switchPop.hidden) return;
-    switchPop.classList.remove('open');
-    bbSwitch.classList.remove('pop-open');
-    bbSwitch.setAttribute('aria-expanded', 'false');
-    document.removeEventListener('pointerdown', onDocPointerForSwitch, true);
-    document.removeEventListener('keydown', onEscForSwitch);
-    // Keep it in the DOM until the collapse animation finishes.
-    if (switchHideTimer) clearTimeout(switchHideTimer);
-    switchHideTimer = setTimeout(() => { switchPop.hidden = true; switchHideTimer = null; }, 260);
-  }
-
-  function onDocPointerForSwitch(e) {
-    if (!switchPop.contains(e.target) && !bbSwitch.contains(e.target)) closeSwitchPop();
-  }
-  function onEscForSwitch(e) { if (e.key === 'Escape') closeSwitchPop(); }
-
-  bbSwitch.onclick = (e) => {
-    e.stopPropagation();
-    if (switchPop.classList.contains('open')) closeSwitchPop();
-    else openSwitchPop();
-  };
 
   function renderHeader() {
     $('#boardName').textContent = state.board.name;
@@ -307,6 +278,7 @@
       badges += `<span class="badge done-badge" title="Completed ${esc(cd.toLocaleString())}">✓ ${cd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
     if (cf.alarm && card.alarm && !card.complete) badges += alarmBadge(card.alarm, 'badge');
+    if (cf.email && card.email) badges += emailBadge(card.email, 'badge');
     if (cf.source && card.source) {
       const s = state.badges.source;
       badges += `<span class="tag-chip" style="background:${s.color};color:${s.textColor}">${esc(card.source)}</span>`;
@@ -428,7 +400,7 @@
       },
     });
   }
-  async function refresh() { state.board = await api('/boards/' + state.boardId); renderHeader(); renderBoard(); }
+  async function refresh() { state.board = await api('/boards/' + state.boardId); renderHeader(); renderBoard(); refreshBoardCounts(); }
 
   // ---- Card modal ----
   const cardModal = $('#cardModal');
@@ -456,6 +428,49 @@
     return `<span class="${cls} alarm-badge${past ? ' past' : ''}" title="Alarm: ${esc(d.toLocaleString())}${past ? ' (passed)' : ''}">⏰ ${esc(when)}</span>`;
   }
   $('#cardAlarmClear').onclick = () => { $('#cardAlarm').value = ''; };
+
+  // Email field: an address (→ mail app) or a link (→ new tab). Only http(s) /
+  // mailto become links, so nothing like javascript: can sneak in.
+  function emailHref(v) {
+    v = String(v || '').trim(); if (!v) return null;
+    if (/^(https?:|mailto:)/i.test(v)) return v;
+    if (/^[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+$/.test(v)) return 'mailto:' + v;
+    return null;
+  }
+  function emailLabel(v) {
+    if (/^https?:/i.test(v)) { try { const u = new URL(v); return u.hostname.replace(/^www\./, '') + (u.pathname.length > 1 || u.hash ? '/…' : ''); } catch {} }
+    return v.replace(/^mailto:/i, '');
+  }
+  function setEmailUI(v, editing = false) {
+    v = String(v || '').trim();
+    $('#cardEmail').value = v;
+    const href = emailHref(v);
+    const a = $('#cardEmailLink');
+    if (href) { a.href = href; a.textContent = (href.startsWith('mailto:') ? '✉️ ' : '🔗 ') + emailLabel(v); a.title = v; a.hidden = false; }
+    else { a.removeAttribute('href'); a.textContent = ''; a.hidden = true; }
+    $('#cardEmailNone').hidden = !!href;
+    $('#cardEmailView').hidden = editing;
+    $('#cardEmailEditor').hidden = !editing;
+  }
+  $('#cardEmailEdit').onclick = () => { setEmailUI($('#cardEmail').value, true); $('#cardEmail').focus(); $('#cardEmail').select(); };
+  function finishEmailEdit() {
+    const v = $('#cardEmail').value.trim();
+    if (v && !emailHref(v)) { toast('Enter an email address or an http(s) link'); $('#cardEmail').focus(); return false; }
+    setEmailUI(v, false); return true;
+  }
+  $('#cardEmailDone').onclick = finishEmailEdit;
+  $('#cardEmail').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); finishEmailEdit(); } else if (e.key === 'Escape') { e.stopPropagation(); finishEmailEdit(); } };
+  function emailBadge(v, cls) {
+    const href = emailHref(v); if (!href) return '';
+    return `<a class="${cls} email-badge" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(v)}">✉️</a>`;
+  }
+
+  // Board picker in the card window (move a mis-filed card to another board).
+  function fillCardBoardSelect(currentId) {
+    const sel = $('#cardBoard'); sel.innerHTML = '';
+    state.boards.forEach((b) => { const o = document.createElement('option'); o.value = b.id; o.textContent = b.name; sel.appendChild(o); });
+    sel.value = currentId;
+  }
   function buildPriorityOptions() {
     const sel = $('#cardPriority'); sel.innerHTML = '';
     (state.priorities || []).forEach((p) => {
@@ -476,6 +491,8 @@
     $('#cardDue').value = toDateInput(card.dueDate);
     $('#cardAlarm').value = toDateTimeLocal(card.alarm);
     $('#cardTags').value = (card.tags || []).join(', ');
+    setEmailUI(card.email);
+    fillCardBoardSelect(state.boardId); $('#cardBoardField').hidden = state.boards.length < 2;
     // Completed date shows only while the card sits in the done (last) lane.
     const doneCol = (state.board.columns || []).find((c) => c.id === doneColId());
     const inDone = !!(doneCol && doneCol.cards.some((k) => k.id === card.id));
@@ -502,6 +519,8 @@
     $('#cardDue').value = '';
     $('#cardAlarm').value = '';
     $('#cardTags').value = '';
+    setEmailUI('');
+    $('#cardBoardField').hidden = true; // new cards go on the current board
     $('#cardCreated').textContent = '';
     $('#cardDelete').style.display = 'none';
     $('#cardArchive').style.display = 'none';
@@ -518,6 +537,7 @@
       priority: $('#cardPriority').value,
       dueDate: $('#cardDue').value ? new Date($('#cardDue').value + 'T00:00:00').toISOString() : null,
       alarm: alarmFromInput(),
+      email: $('#cardEmail').value.trim() || null,
       tags: $('#cardTags').value.split(',').map((t) => t.trim()).filter(Boolean),
     };
     if (state.editingInboxId) {
@@ -527,6 +547,13 @@
     }
     if (state.editingCardId) {
       await api(`/tasks/${state.editingCardId}`, { method: 'PUT', body });
+      // Board changed → move it there (first lane).
+      const toBoardId = $('#cardBoardField').hidden ? null : $('#cardBoard').value;
+      if (toBoardId && toBoardId !== state.boardId) {
+        await api(`/boards/${state.boardId}/cards/${state.editingCardId}/transfer`, { method: 'POST', body: { toBoardId } });
+        const dest = state.boards.find((b) => b.id === toBoardId);
+        toast(`Moved to ${dest ? dest.name : 'the other board'}`);
+      }
     } else {
       await api(`/boards/${state.boardId}/cards`, { method: 'POST', body: { ...body, columnId: state.newCardColumnId, source: 'manual' } });
     }
@@ -560,7 +587,7 @@
     $('#bmAutoArchive').value = b.settings.autoArchiveDays || 0;
     const cf = cardFields();
     $('#cfPriority').checked = cf.priority; $('#cfDue').checked = cf.dueDate;
-    $('#cfTags').checked = cf.tags; $('#cfSource').checked = cf.source; $('#cfAlarm').checked = cf.alarm;
+    $('#cfTags').checked = cf.tags; $('#cfSource').checked = cf.source; $('#cfAlarm').checked = cf.alarm; $('#cfEmail').checked = cf.email;
     renderLaneEditor(b.columns);
     loadArchive();
     renderIcs(b.ics);
@@ -991,7 +1018,7 @@
             autoArchiveDays: Math.max(0, parseInt($('#bmAutoArchive').value, 10) || 0),
             cardFields: {
               priority: $('#cfPriority').checked, dueDate: $('#cfDue').checked,
-              tags: $('#cfTags').checked, source: $('#cfSource').checked, alarm: $('#cfAlarm').checked,
+              tags: $('#cfTags').checked, source: $('#cfSource').checked, alarm: $('#cfAlarm').checked, email: $('#cfEmail').checked,
             },
           },
         },
@@ -1487,6 +1514,7 @@
     }
     (it.tags || []).forEach((t) => { badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`; });
     badges += alarmBadge(it.alarm, 'tag-chip');
+    badges += emailBadge(it.email, 'tag-chip');
     const src = state.badges.source;
     li.innerHTML =
       `<button class="ic-del" title="Dismiss" aria-label="Dismiss inbox item">✕</button>` +
@@ -1571,6 +1599,8 @@
     $('#cardDue').value = toDateInput(item.dueDate);
     $('#cardAlarm').value = toDateTimeLocal(item.alarm);
     $('#cardTags').value = (item.tags || []).join(', ');
+    setEmailUI(item.email);
+    $('#cardBoardField').hidden = true; // use ⋮ "send to board" for Inbox items
     const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Api');
     $('#cardCreated').textContent = 'Inbox item · Source: ' + cap(item.source || 'api');
     $('#cardDelete').style.display = '';
@@ -1753,6 +1783,18 @@
     let es;
     try { es = new EventSource('/api/events'); } catch { return; }
     es.addEventListener('inbox', () => loadInbox());
+    // Any board changed anywhere → refresh tab counts (debounced), and the
+    // current board itself if it's the one that changed and no window is open.
+    let boardsTimer = null; const touched = new Set();
+    es.addEventListener('boards', (e) => {
+      try { const p = JSON.parse(e.data || '{}'); if (p.boardId) touched.add(p.boardId); } catch {}
+      clearTimeout(boardsTimer);
+      boardsTimer = setTimeout(() => {
+        const mine = touched.has(state.boardId); touched.clear();
+        refreshBoardCounts();
+        if (mine && state.boardId && $('#cardModal').hidden && $('#boardModal').hidden) refresh();
+      }, 300);
+    });
     es.addEventListener('card', (e) => {
       try {
         const p = JSON.parse(e.data || '{}');

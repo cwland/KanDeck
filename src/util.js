@@ -42,6 +42,23 @@ export function parseAlarm(v) {
   return new Date(t).toISOString();
 }
 
+/** Normalize a card's email field: an email address (opens the mail app) or
+ *  an http(s)/mailto link (e.g. a Gmail message URL). null/'' clears it.
+ *  Anything else (javascript:, data:, …) is rejected so it can't become a
+ *  dangerous link. */
+export function parseEmailLink(v) {
+  if (v === undefined || v === null || v === false) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (s.length > 2000) throw new Error('email is too long (max 2000 characters)');
+  if (/^[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+$/.test(s)) return s; // plain address
+  if (/^mailto:/i.test(s)) return s;
+  if (/^https?:\/\//i.test(s)) {
+    try { new URL(s); return s; } catch { /* fall through */ }
+  }
+  throw new Error('email must be an email address, or a link starting with http, https or mailto');
+}
+
 /** slugify a board name into a safe filename stem. */
 export function slugify(s) {
   return (

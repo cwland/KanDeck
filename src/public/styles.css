@@ -106,8 +106,30 @@ body {
 
 /* ---- Board header ---- */
 .board-header {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 16px; padding: 12px 18px; flex: 0 0 auto; flex-wrap: wrap;
+  /* title · centered board tabs · tools — the middle column stays centered */
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
+  gap: 16px; padding: 12px 18px; flex: 0 0 auto;
+}
+.board-header .board-meta { min-width: 0; }
+.board-header .board-tools { justify-self: end; }
+.board-switcher {
+  display: flex; align-items: center; gap: 2px; max-width: 56vw; overflow-x: auto; scrollbar-width: none;
+  padding: 3px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow);
+}
+.board-switcher::-webkit-scrollbar { display: none; }
+.board-switcher:empty { display: none; }
+.bs-tab {
+  flex: 0 0 auto; border: 0; background: transparent; color: var(--text-dim); cursor: pointer;
+  padding: 6px 12px; border-radius: 999px; font: inherit; font-size: .88rem; font-weight: 600; white-space: nowrap;
+}
+.bs-tab:hover { color: var(--text); background: var(--surface-2); }
+.bs-tab.active { color: #fff; background: var(--accent); }
+.bs-count { font-variant-numeric: tabular-nums; opacity: .85; }
+.bs-count.zero { opacity: .55; }
+.bs-sep { color: var(--border); font-weight: 300; user-select: none; }
+@media (max-width: 900px) {
+  .board-header { grid-template-columns: minmax(0, 1fr) auto; }
+  .board-switcher { grid-column: 1 / -1; grid-row: 2; max-width: 100%; justify-self: center; }
 }
 .board-meta h1 { margin: 0; font-size: 1.35rem; }
 .board-meta p { margin: 2px 0 0; color: var(--text-dim); font-size: .9rem; }
@@ -800,3 +822,18 @@ html[data-theme='dark'] .danger-zone { background: #3a1d1d; border-color: #6b2b2
 html[data-theme='dark'] .danger-zone .dz-title { color: #ffa8a8; }
 .btn.danger-solid { background: #e03131; color: #fff; border: 0; }
 .btn.danger-solid:hover { background: #c92a2a; }
+
+/* Card window: Email field (link + ✏️, or an input while editing) */
+.email-view { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.email-view a { color: var(--accent); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 44px); }
+.email-view a:hover { text-decoration: underline; }
+.email-none { color: var(--text-dim); font-size: .88rem; }
+.email-edit, .email-done {
+  border: 0; background: var(--surface-2); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: .85rem; flex: 0 0 auto;
+}
+.email-edit:hover, .email-done:hover { background: var(--accent); color: #fff; }
+.email-input { display: flex; gap: 6px; align-items: center; }
+.email-input input { flex: 1; min-width: 0; }
+.email-view[hidden], .email-input[hidden], .email-view a[hidden] { display: none; }
+.email-badge { text-decoration: none; cursor: pointer; background: #d0ebff; color: #1864ab; font-size: .78rem; line-height: 1.2; }
+.email-badge:hover { filter: brightness(.95); }

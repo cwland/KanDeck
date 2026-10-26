@@ -4,6 +4,12 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.6.0 — 2026-10-26
+
+- **Board tabs at the top** — `Home (1) | Work (5) | …` centered on the board title line replaces the bottom-bar "Switch board". Each number is that board's open cards and updates live, including tasks added or sorted behind the scenes (n8n, API, tag routing, auto-archive).
+- **Move a card to another board** — pick a different **Board** in the card window and Save; it lands in that board's first lane with all its details. The API can do it too (`boardId` on `PUT /api/tasks/:id`).
+- **Email field** on cards and Inbox items — an address or a link to the source email. Click to open (new tab / mail app), ✏️ to edit; integrations can set it with `"email"`. Cards show a clickable ✉️ (toggle under Board settings → Show on cards).
+
 ## 2.5.0 — 2026-10-25
 
 - **Text messages** — new **📱 Text** tab under App Settings → Notifications sends texts through the iMessage Gateway Mac app (iMessage or SMS).
