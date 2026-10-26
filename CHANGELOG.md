@@ -4,6 +4,11 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.8.0 — 2026-10-26
+
+- **Routing rank** — give each board a rank on its **Routing** tab. Incoming tasks are checked against boards in rank order (1, then 2, then 3 …) and go to the first board that owns any of their tags. Unranked boards come after, in tab order.
+- The Routing tab shows the full **routing order** across all boards. The rank saves as soon as you change it.
+
 ## 2.7.1 — 2026-10-26
 
 - The card window's **Email** field now sits right under the description and spans the full width, showing the whole address or link.

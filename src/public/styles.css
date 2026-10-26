@@ -876,3 +876,18 @@ html[data-theme='dark'] .danger-zone .dz-title { color: #ffa8a8; }
 }
 .version-foot:hover, .version-foot:focus-visible { opacity: 1; color: var(--text); background: var(--surface); text-decoration: underline; }
 .version-foot:empty { display: none; }
+
+/* Board settings → Routing: rank + overall routing order */
+.route-rank-row { display: flex; align-items: center; gap: 12px; }
+#boardModal .route-rank-row input[type=number] { width: 90px; flex: 0 0 auto; }
+.route-rank-row .ai-test-status { white-space: nowrap; }
+.route-order { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.route-order:empty { display: none; }
+.route-order li { display: grid; grid-template-columns: 26px minmax(0, 140px) 70px minmax(0, 1fr); align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: .85rem; }
+.route-order li:last-child { border-bottom: 0; }
+.route-order li.current { background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 700; }
+.route-order .ro-step { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-size: .75rem; font-weight: 800; }
+.route-order li.current .ro-step { background: var(--accent); color: #fff; }
+.route-order .ro-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.route-order .ro-rank { color: var(--text-dim); font-size: .75rem; }
+.route-order .ro-tags { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

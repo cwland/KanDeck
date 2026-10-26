@@ -316,9 +316,14 @@ Enter; commas add several at once). Tags are saved immediately — no need to
 click the board's **Save** — and show as chips; click **×** to remove one.
 
 - When a task arrives through the API (`POST /api/tasks` or `/api/inbox`)
-  **without** a `boardId`, its tags are compared to every board's routing tags
-  (ignoring upper/lower case). The first match sends the task straight to that
-  board's **first lane**.
+  **without** a `boardId`, its tags are compared to the boards' routing tags
+  (ignoring upper/lower case) and it goes straight to the matching board's
+  **first lane**.
+- **Routing rank** (same tab): boards are checked in rank order — rank 1, then
+  2, then 3 … — and routing **stops at the first board that owns any of the
+  task's tags**. So a task tagged `Bill, Travel` goes to whichever of those
+  boards ranks higher. Boards with no rank (or a tied rank) are checked after,
+  in tab order. The tab shows the full **routing order** across all boards.
 - Tasks with no tags, or no matching tag, go to the **Inbox** as before.
 - A tag can belong to **only one board** — trying to add one that another board
   (even an archived one) already uses shows an error. Archived boards never
@@ -376,7 +381,7 @@ or an API key sent as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 | `GET` | `/api/boards` | List active boards + summary meta incl. `openCount` (`?archived=1` → archived boards) |
 | `GET` | `/api/boards/:id` | Full board (columns + cards) |
 | `POST` | `/api/tasks` | Create a task (with `boardId` → that board; otherwise a matching routing tag → that board's first lane; else → Inbox) |
-| `GET` | `/api/route-tags` | Every board's routing tags |
+| `GET` | `/api/route-tags` | Every board's routing tags, plus `order` — the sequence routing checks boards in |
 | `POST` | `/api/inbox/reprocess` | Re-run routing tags over the Inbox; returns what moved |
 | `PUT` | `/api/tasks/:id` | Update or move a task |
 | `GET` | `/api/tasks/query` | **Date-filtered task query** (see below) |
@@ -517,7 +522,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.7.1 && git push origin v2.7.1
+git tag v2.8.0 && git push origin v2.8.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

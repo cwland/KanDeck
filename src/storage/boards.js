@@ -372,16 +372,40 @@ async function validateRouteTags(boardId, tags) {
 
 /** First active board whose routing tags match one of `tags` (checked in the
  *  task's tag order). Returns { board, tag } or null. */
+/** A board's routing rank: an integer 1–99, or null for "unranked". */
+export function parseRouteRank(v) {
+  if (v === undefined || v === null || v === '' || v === 0 || v === '0') return null;
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n) || n < 1 || n > 99) throw new Error('Routing rank must be a whole number from 1 to 99 (or blank for none).');
+  return n;
+}
+
+/** Active boards that have routing tags, in the order routing checks them:
+ *  rank 1, 2, 3 … first; boards with the same rank, then unranked boards, in
+ *  board-tab order. */
+export async function getRoutingOrder() {
+  const idx = await readIndex();
+  const list = [];
+  for (const [pos, entry] of idx.boards.entries()) {
+    if (entry.archived) continue;
+    const b = await getBoard(entry.id);
+    if (!b || b.archived || !(b.routeTags || []).length) continue;
+    list.push({ board: b, rank: b.routeRank ?? null, pos });
+  }
+  list.sort((a, z) => (a.rank ?? 1e9) - (z.rank ?? 1e9) || a.pos - z.pos);
+  return list.map((x) => x.board);
+}
+
+/** Route a task by its tags: check boards in routing-rank order and stop at
+ *  the first board that owns ANY of the task's tags. Returns { board, tag }
+ *  (the matching tag) or null. */
 export async function findBoardForTags(tags) {
-  const wanted = parseTags(tags);
-  if (!wanted.length) return null;
-  const map = await getRouteTagMap();
-  for (const t of wanted) {
-    const owner = map.get(normalizeTag(t));
-    if (owner && !owner.archived) {
-      const board = await getBoard(owner.boardId);
-      if (board && !board.archived && board.columns.length) return { board, tag: owner.tag };
-    }
+  const wanted = new Set(parseTags(tags).map(normalizeTag));
+  if (!wanted.size) return null;
+  for (const board of await getRoutingOrder()) {
+    if (!board.columns.length) continue;
+    const hit = (board.routeTags || []).find((t) => wanted.has(normalizeTag(t)));
+    if (hit) return { board, tag: hit };
   }
   return null;
 }
@@ -389,10 +413,12 @@ export async function findBoardForTags(tags) {
 export async function updateBoard(id, patch) {
   // Validate routing tags before taking the lock (reads other boards).
   const routeTags = patch.routeTags !== undefined ? await validateRouteTags(id, patch.routeTags) : undefined;
+  const routeRank = patch.routeRank !== undefined ? parseRouteRank(patch.routeRank) : undefined;
   return withLock(boardFile(id), async () => {
     const board = await readJson(boardFile(id), null);
     if (!board) return null;
     if (routeTags !== undefined) board.routeTags = routeTags;
+    if (routeRank !== undefined) board.routeRank = routeRank;
     if (patch.name !== undefined) board.name = patch.name;
     if (patch.description !== undefined) board.description = patch.description;
     if (patch.settings) board.settings = { ...board.settings, ...patch.settings };

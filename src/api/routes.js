@@ -213,7 +213,11 @@ router.post('/tasks', wrap(async (req, res) => {
 // Every board's routing tags (for the board-settings duplicate check).
 router.get('/route-tags', wrap(async (req, res) => {
   const map = await boards.getRouteTagMap();
-  res.json({ tags: [...map.values()] });
+  // `order` = the sequence routing checks boards in (rank 1, 2, 3 …).
+  const order = (await boards.getRoutingOrder()).map((b) => ({
+    boardId: b.id, boardName: b.name, rank: b.routeRank ?? null, tags: b.routeTags || [],
+  }));
+  res.json({ tags: [...map.values()], order });
 }));
 
 // Spec endpoint: update a task (edit fields, move columns).

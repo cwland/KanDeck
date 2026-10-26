@@ -629,13 +629,42 @@
   async function openRouteTags(b) {
     routeTags = [...(b.routeTags || [])];
     $('#bmTagInput').value = ''; tagError('');
+    $('#bmRank').value = b.routeRank ?? '';
+    $('#bmRankStatus').textContent = ''; $('#bmRankStatus').className = 'ai-test-status';
     renderRouteTags();
-    otherBoardTags = new Map();
-    try {
-      const { tags } = await api('/route-tags');
-      tags.forEach((t) => { if (t.boardId !== b.id) otherBoardTags.set(normTag(t.tag), t); });
-    } catch {}
+    await loadRouteOrder(b.id);
   }
+  // Fetch every board's tags (duplicate check) + the overall routing order.
+  async function loadRouteOrder(boardId = state.boardId) {
+    otherBoardTags = new Map();
+    let order = [];
+    try {
+      const r = await api('/route-tags');
+      r.tags.forEach((t) => { if (t.boardId !== boardId) otherBoardTags.set(normTag(t.tag), t); });
+      order = r.order || [];
+    } catch {}
+    const ol = $('#bmRouteOrder'); ol.innerHTML = '';
+    order.forEach((o, i) => {
+      const li = document.createElement('li');
+      if (o.boardId === boardId) li.className = 'current';
+      li.innerHTML = `<span class="ro-step">${i + 1}</span><span class="ro-name">${esc(o.boardName)}</span>` +
+        `<span class="ro-rank">${o.rank ? 'rank ' + o.rank : 'no rank'}</span>` +
+        `<span class="ro-tags">${o.tags.map((t) => esc(t)).join(', ')}</span>`;
+      ol.appendChild(li);
+    });
+    $('#bmRouteOrderEmpty').hidden = order.length > 0;
+  }
+  $('#bmRank').onchange = async () => {
+    const st = $('#bmRankStatus');
+    const v = $('#bmRank').value.trim();
+    try {
+      const b = await api('/boards/' + state.boardId, { method: 'PUT', body: { routeRank: v === '' ? null : v } });
+      if (state.board) state.board.routeRank = b.routeRank ?? null;
+      $('#bmRank').value = b.routeRank ?? '';
+      st.textContent = b.routeRank ? `✓ Rank ${b.routeRank} saved` : '✓ Rank cleared'; st.className = 'ai-test-status ok';
+      loadRouteOrder();
+    } catch (e) { st.textContent = '✗ ' + (e.message || 'Could not save'); st.className = 'ai-test-status err'; }
+  };
   /** Persist the board's routing tags right away. Returns true on success;
    *  on failure shows the server's message and leaves the list unchanged. */
   async function saveRouteTags(next) {
@@ -644,6 +673,7 @@
       routeTags = [...(b.routeTags || [])];
       if (state.board) state.board.routeTags = routeTags;
       renderRouteTags();
+      loadRouteOrder();
       return true;
     } catch (e) {
       tagError(e.message || 'Could not save tags');
