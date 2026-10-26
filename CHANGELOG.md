@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.9.0 — 2026-10-26
+
+- **Quick archive / delete** — a small **✕** in the top-right corner of every card (shown on hover) opens a menu to **Archive** (or **Unarchive**) or **Delete** the card. Delete asks for a second click so nothing is removed by accident.
+
 ## 2.8.1 — 2026-10-26
 
 - **Fix:** board tab counts (and the Inbox / open board) now keep themselves up to date even when a reverse proxy holds back or drops KanDeck's live-update connection. The connection sends a heartbeat and reconnects if it stalls, and the page also re-checks every 30 seconds and whenever you switch back to the tab.

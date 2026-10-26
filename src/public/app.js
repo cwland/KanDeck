@@ -292,8 +292,10 @@
       `<div class="card-title">${esc(card.subject)}</div>` +
       (badges ? `<div class="card-badges">${badges}</div>` : '') +
       `</div>` +
-      `<button class="card-check" title="Mark complete"><span class="chk">✓</span></button>`;
+      `<button class="card-check" title="Mark complete"><span class="chk">✓</span></button>` +
+      `<button class="card-x" title="Archive or delete" aria-label="Archive or delete this card">✕</button>`;
     li.querySelector('.card-check').onclick = (e) => { e.stopPropagation(); toggleComplete(card, li); };
+    li.querySelector('.card-x').onclick = (e) => { e.stopPropagation(); openCardActionMenu(card, e.currentTarget); };
     li.onclick = () => openCardModal(card);
     return li;
   }
@@ -321,6 +323,63 @@
       if (dest) await api(`/boards/${state.boardId}/cards/${card.id}/move`, { method: 'POST', body: { toColumnId: dest.id, index: 0 } });
       await refresh();
     }
+  }
+
+  // ---- Card ✕ menu: Archive / Delete (Delete needs a second click) ----
+  let cardMenuEl = null;
+  function closeCardActionMenu() {
+    if (!cardMenuEl) return;
+    cardMenuEl.remove(); cardMenuEl = null;
+    document.removeEventListener('pointerdown', onCardMenuOutside, true);
+    document.removeEventListener('keydown', onCardMenuKey, true);
+    window.removeEventListener('resize', closeCardActionMenu);
+    $('#board').removeEventListener('scroll', closeCardActionMenu, true);
+  }
+  function onCardMenuOutside(e) { if (cardMenuEl && !cardMenuEl.contains(e.target)) closeCardActionMenu(); }
+  function onCardMenuKey(e) { if (e.key === 'Escape') { e.stopPropagation(); closeCardActionMenu(); } }
+  function openCardActionMenu(card, anchor) {
+    closeCardActionMenu();
+    const m = document.createElement('div');
+    m.className = 'card-act-menu'; m.setAttribute('role', 'menu');
+    m.innerHTML =
+      `<div class="cam-head">${esc(card.subject)}</div>` +
+      `<button type="button" class="cam-item" data-act="archive">${card.archived ? '↩️ Unarchive' : '🗄️ Archive'}</button>` +
+      `<button type="button" class="cam-item danger" data-act="delete">🗑️ Delete</button>` +
+      `<button type="button" class="cam-item muted" data-act="cancel">Cancel</button>`;
+    document.body.appendChild(m);
+    cardMenuEl = m;
+    // Position under the ✕, kept on-screen.
+    const r = anchor.getBoundingClientRect();
+    const w = m.offsetWidth, h = m.offsetHeight;
+    let left = Math.min(r.right - w, window.innerWidth - w - 8); left = Math.max(8, left);
+    let top = r.bottom + 6; if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+    m.style.left = left + 'px'; m.style.top = top + 'px';
+    m.querySelector('[data-act="cancel"]').onclick = closeCardActionMenu;
+    m.querySelector('[data-act="archive"]').onclick = async () => {
+      const archive = !card.archived;
+      closeCardActionMenu();
+      try { await api(`/tasks/${card.id}`, { method: 'PUT', body: { archived: archive } }); toast(archive ? 'Card archived' : 'Card unarchived'); }
+      catch (e) { toast('Failed: ' + (e.message || 'error')); }
+      refresh();
+    };
+    const del = m.querySelector('[data-act="delete"]');
+    del.onclick = async () => {
+      if (!del.classList.contains('confirm')) { // first click arms it
+        del.classList.add('confirm'); del.textContent = '⚠️ Click again to delete';
+        return;
+      }
+      closeCardActionMenu();
+      try { await api(`/boards/${state.boardId}/cards/${card.id}`, { method: 'DELETE' }); toast('Card deleted'); }
+      catch (e) { toast('Delete failed: ' + (e.message || 'error')); }
+      refresh();
+    };
+    setTimeout(() => {
+      document.addEventListener('pointerdown', onCardMenuOutside, true);
+      document.addEventListener('keydown', onCardMenuKey, true);
+      window.addEventListener('resize', closeCardActionMenu);
+      $('#board').addEventListener('scroll', closeCardActionMenu, true);
+      m.querySelector('[data-act="archive"]').focus();
+    }, 0);
   }
 
   function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i) | 0; return h; }
@@ -387,7 +446,7 @@
       animation: 150,
       draggingClass: 'dragging',
       ghostClass: 'dragging',
-      filter: '.archived',      // archived cards can't be dragged…
+      filter: '.archived, .card-x', // archived cards can't be dragged (nor dragged by the ✕)…
       preventOnFilter: false,   // …but can still be clicked open
       onEnd: async (evt) => {
         const cardId = evt.item.dataset.id;

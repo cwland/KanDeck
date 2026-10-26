@@ -255,6 +255,8 @@ first-run setup, which only works from your local network (or with
   `Home (1) | Work (5) | …`. The number is each board's open cards (not done,
   not archived) and updates live, even when tasks arrive from n8n or the API.
   Create a new board with the **＋** next to the search.
+- **Archive or delete a card** with the small **✕** in its top-right corner
+  (Delete needs a second click to confirm).
 - **Move a card to another board** from its window: pick the **Board** and
   Save — it lands in that board's first lane with everything kept.
 - **Email** on a card holds an address (opens your mail app) or a link such as
@@ -523,7 +525,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.8.1 && git push origin v2.8.1
+git tag v2.9.0 && git push origin v2.9.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without
