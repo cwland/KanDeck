@@ -437,10 +437,8 @@
     if (/^[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+$/.test(v)) return 'mailto:' + v;
     return null;
   }
-  function emailLabel(v) {
-    if (/^https?:/i.test(v)) { try { const u = new URL(v); return u.hostname.replace(/^www\./, '') + (u.pathname.length > 1 || u.hash ? '/…' : ''); } catch {} }
-    return v.replace(/^mailto:/i, '');
-  }
+  // Full address / URL (the field spans the window; long links end in …).
+  function emailLabel(v) { return String(v).replace(/^mailto:/i, ''); }
   function setEmailUI(v, editing = false) {
     v = String(v || '').trim();
     $('#cardEmail').value = v;

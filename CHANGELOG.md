@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.7.1 — 2026-10-26
+
+- The card window's **Email** field now sits right under the description and spans the full width, showing the whole address or link.
+
 ## 2.7.0 — 2026-10-26
 
 - **Inbox tab on the left edge** — a slim tab shows how many items are in the Inbox; click it to slide the Inbox out, and again (‹) to close it. Your choice is remembered per browser.

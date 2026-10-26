@@ -825,7 +825,11 @@ html[data-theme='dark'] .danger-zone .dz-title { color: #ffa8a8; }
 
 /* Card window: Email field (link + ✏️, or an input while editing) */
 .email-view { display: flex; align-items: center; gap: 8px; min-height: 36px; }
-.email-view a { color: var(--accent); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(100% - 44px); }
+.card-email-field { width: 100%; }
+.email-view { width: 100%; }
+.email-view a { flex: 1; min-width: 0; color: var(--accent); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.email-view .email-none { flex: 1; }
+.email-input { width: 100%; }
 .email-view a:hover { text-decoration: underline; }
 .email-none { color: var(--text-dim); font-size: .88rem; }
 .email-edit, .email-done {

@@ -111,6 +111,19 @@
           <label>Description <small>(Markdown supported)</small></label>
           <textarea id="cardDesc" rows="5" placeholder="Add a more detailed description…"></textarea>
 
+          <div class="field card-email-field">
+            <label>Email <small>(address or link to the source email)</small></label>
+            <div class="email-view" id="cardEmailView">
+              <a id="cardEmailLink" target="_blank" rel="noopener noreferrer"></a>
+              <span class="email-none" id="cardEmailNone">None</span>
+              <button type="button" class="email-edit" id="cardEmailEdit" title="Edit email" aria-label="Edit email">✏️</button>
+            </div>
+            <div class="email-input" id="cardEmailEditor" hidden>
+              <input id="cardEmail" type="text" placeholder="name@example.com or https://mail.google.com/…" autocomplete="off" />
+              <button type="button" class="email-done" id="cardEmailDone" title="Done" aria-label="Done editing email">✓</button>
+            </div>
+          </div>
+
           <div class="field-row">
             <div class="field" id="cardBoardField">
               <label>Board</label>
@@ -137,19 +150,6 @@
             <div class="field">
               <label>Tags <small>(comma separated)</small></label>
               <input id="cardTags" type="text" placeholder="design, backend, urgent" />
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Email <small>(address or link to the source email)</small></label>
-            <div class="email-view" id="cardEmailView">
-              <a id="cardEmailLink" target="_blank" rel="noopener noreferrer"></a>
-              <span class="email-none" id="cardEmailNone">None</span>
-              <button type="button" class="email-edit" id="cardEmailEdit" title="Edit email" aria-label="Edit email">✏️</button>
-            </div>
-            <div class="email-input" id="cardEmailEditor" hidden>
-              <input id="cardEmail" type="text" placeholder="name@example.com or https://mail.google.com/…" autocomplete="off" />
-              <button type="button" class="email-done" id="cardEmailDone" title="Done" aria-label="Done editing email">✓</button>
             </div>
           </div>
 
