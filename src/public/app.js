@@ -266,8 +266,9 @@
       badges += `<span class="badge" style="background:${pc};color:${tc}">${esc(priName(card.priority))}</span>`;
     }
     if (cf.dueDate && card.dueDate) {
-      const due = new Date(card.dueDate);
-      const overdue = due < new Date();
+      const due = dueLocalDate(card.dueDate);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const overdue = due < today; // red only once the due day has passed
       const dstyle = overdue ? '' : `style="background:${state.badges.due.color};color:${state.badges.due.textColor}"`;
       badges += `<span class="badge due ${overdue ? 'overdue' : ''}" ${dstyle}>📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
     }
@@ -463,9 +464,16 @@
 
   // ---- Card modal ----
   const cardModal = $('#cardModal');
+  // A due date sent as a bare "YYYY-MM-DD" (e.g. from n8n) is a calendar day,
+  // not UTC midnight — read it as local so it doesn't show a day early west of
+  // UTC. Full timestamps (what the card window saves) are read as-is.
+  function dueLocalDate(v) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || '').trim());
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(v);
+  }
   function toDateInput(iso) {
     if (!iso) return '';
-    const d = new Date(iso); const p = (n) => String(n).padStart(2, '0');
+    const d = dueLocalDate(iso); const p = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   }
   // Alarm: stored as ISO (UTC); edited in a local datetime-local input.
@@ -517,9 +525,12 @@
   }
   $('#cardEmailDone').onclick = finishEmailEdit;
   $('#cardEmail').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); finishEmailEdit(); } else if (e.key === 'Escape') { e.stopPropagation(); finishEmailEdit(); } };
+  // Card-face icon for the Email field: 🔗 for a web link, ✉️ for an address.
   function emailBadge(v, cls) {
     const href = emailHref(v); if (!href) return '';
-    return `<a class="${cls} email-badge" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(v)}">✉️</a>`;
+    const isLink = /^https?:/i.test(href);
+    const title = (isLink ? 'Open link: ' : 'Email: ') + emailLabel(v);
+    return `<a class="${cls} email-badge${isLink ? ' link-badge' : ''}" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(title)}" aria-label="${esc(title)}">${isLink ? '🔗' : '✉️'}</a>`;
   }
 
   // Board picker in the card window (move a mis-filed card to another board).

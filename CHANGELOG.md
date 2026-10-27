@@ -4,6 +4,12 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.9.1 — 2026-10-27
+
+- Cards whose Email field holds a **link** now show a small **🔗** next to the priority, date and alarm (click to open it in a new tab). Email addresses keep the ✉️.
+- **Fix:** due dates sent as a plain date (e.g. `"2026-10-30"` from n8n) showed one day early on cards and in the card window for time zones west of UTC. They now show the right day.
+- A card due **today** is no longer shown in red as overdue; it turns red once the due day has passed.
+
 ## 2.9.0 — 2026-10-26
 
 - **Quick archive / delete** — a small **✕** in the top-right corner of every card (shown on hover) opens a menu to **Archive** (or **Unarchive**) or **Delete** the card. Delete asks for a second click so nothing is removed by accident.

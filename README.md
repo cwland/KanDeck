@@ -261,7 +261,7 @@ first-run setup, which only works from your local network (or with
   Save — it lands in that board's first lane with everything kept.
 - **Email** on a card holds an address (opens your mail app) or a link such as
   the original Gmail message (opens in a new tab). Click it to open, ✏️ to edit;
-  cards show a small ✉️ you can click too.
+  cards show a small clickable ✉️ (address) or 🔗 (link) too.
 - **App Settings** (⚙️, top-right) has a section menu down the left: Theme,
   Account, Categories, Lane colors, Notifications, API, Calendar, Backups,
   Archives. A single **Save**
@@ -525,7 +525,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.9.0 && git push origin v2.9.0
+git tag v2.9.1 && git push origin v2.9.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

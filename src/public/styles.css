@@ -841,6 +841,7 @@ html[data-theme='dark'] .danger-zone .dz-title { color: #ffa8a8; }
 .email-view[hidden], .email-input[hidden], .email-view a[hidden] { display: none; }
 .email-badge { text-decoration: none; cursor: pointer; background: #d0ebff; color: #1864ab; font-size: .78rem; line-height: 1.2; }
 .email-badge:hover { filter: brightness(.95); }
+.email-badge.link-badge { background: #e6fcf5; color: #087f5b; }
 
 /* ---- Inbox edge tab: on the board's left edge (= the panel's right edge when
    open). Shows the Inbox count; click to slide the Inbox in or out. ---- */
