@@ -628,7 +628,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.11.2 && git push origin v2.11.2
+git tag v2.11.3 && git push origin v2.11.3
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

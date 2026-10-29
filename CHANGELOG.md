@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.11.3 — 2026-10-29
+
+- **Fix:** after an update the browser could keep using the old app files until a hard refresh, so new features didn't appear. KanDeck now tells the browser to check for newer files on every load (unchanged files are still served from cache).
+
 ## 2.11.2 — 2026-10-29
 
 - **Sign-in tab** tidied up: each method has its own slider, and its settings only show while the slider is on.

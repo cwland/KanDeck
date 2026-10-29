@@ -75,18 +75,23 @@ app.use('/api', requireApiAuth, apiRoutes);
 // ---- Static UI + page gating ----------------------------------------------
 // login/setup pages are public; everything else requires a session.
 const pub = config.publicDir;
+// no-cache = the browser may keep a copy but must check it's current (cheap
+// 304 via ETag), so an update shows up on the next load instead of stale JS/CSS.
+const noCache = (res) => res.set('Cache-Control', 'no-cache');
 app.get(['/login', '/setup'], (req, res) => {
+  noCache(res);
   res.sendFile(path.join(pub, 'login.html'));
 });
 
 // Gate the app shell. Also redirect a direct /index.html hit through the gate
 // so the shell isn't served unauthenticated by the static handler below.
 app.get(['/', '/index.html'], requireSession, (req, res) => {
+  noCache(res);
   res.sendFile(path.join(pub, 'index.html'));
 });
 
 // Serve static assets (css/js/img). These are non-sensitive.
-app.use(express.static(pub, { index: false }));
+app.use(express.static(pub, { index: false, setHeaders: noCache }));
 
 // 404 for anything else.
 app.use((req, res) => {
