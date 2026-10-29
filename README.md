@@ -26,6 +26,7 @@ board.
 - [Configuration & secrets](#configuration--secrets)
 - [Exposing KanDeck publicly](#exposing-kandeck-publicly)
 - [Reset a forgotten login](#reset-a-forgotten-login)
+- [Sign-in: passwords, passkeys & OAuth](#sign-in-passwords-passkeys--oauth)
 - [Using KanDeck](#using-kandeck)
 - [Done lane & completed dates](#done-lane--completed-dates)
 - [Archiving boards](#archiving-boards)
@@ -71,6 +72,9 @@ board.
   a full snapshot of boards, the Inbox **and** settings, with one-click restore.
 - **Passkeys** — sign in with 1Password, iCloud Keychain or a security key;
   the password manager offers it as soon as you click into the login form.
+- **OAuth / OpenID Connect** — "Sign in with Authentik" (or Google, Keycloak …),
+  with a choice of sign-in modes (e.g. OAuth only, passkeys only) and an
+  emergency `npm run auth:reset` if you ever lock yourself out.
 - **Security** — single username + password login (bcrypt), revocable JWT
   cookie sessions, spoof-proof login rate-limiting, a locked first-run setup,
   security headers (CSP, anti-framing, HSTS), API-key auth, and secrets
@@ -207,7 +211,9 @@ apps can reach your `.ics` feeds), but check these first:
 5. **Optional extra layer:** with Cloudflare, put **Cloudflare Access** in front
    of the app and add a *bypass* rule for `/ics/*` (so calendars can fetch
    feeds) and a service token for `/api/*` (n8n / scripts). Add a rate-limit
-   rule for `/api/auth/login` and `/api/auth/passkey/*` too.
+   rule for `/api/auth/login`, `/api/auth/passkey/*` and `/api/auth/oauth/*` too.
+   If Cloudflare Access is your identity provider, you can also point KanDeck's
+   OAuth at it and use **OAuth only**.
 
 What KanDeck does on its own: bcrypt-hashed password, optional passkeys
 (WebAuthn, bound to each hostname, same login throttle), `httpOnly` + `SameSite`
@@ -250,6 +256,86 @@ first-run setup, which only works from your local network (or with
 > Passing a password as an argument leaves it in your shell history; clear it
 > afterwards (e.g. `history -d`) if that matters to you.
 
+**Locked out by OAuth or passkeys** (password sign-in turned off and your
+identity provider is down, or a passkey stopped working)? See the
+[emergency reset](#emergency-reset-lockout).
+
+---
+
+## Sign-in: passwords, passkeys & OAuth
+
+KanDeck has one account, and you can sign in to it three ways: **password**,
+**passkey** (WebAuthn / FIDO2: 1Password, Touch ID / Face ID, YubiKey …) and
+**OAuth / OpenID Connect** (Authentik, Authelia, Keycloak, Google, Microsoft …).
+**App Settings → Sign-in** picks which ones the sign-in page offers:
+
+| Mode | Password | Passkeys | OAuth |
+|------|:---:|:---:|:---:|
+| Password, passkeys and OAuth (`ALL_ENABLED`, default) | ✓ | ✓ | ✓ |
+| Password and OAuth (`PASSWORDS_AND_OAUTH`) | ✓ | – | ✓ |
+| Passkeys and OAuth (`PASSKEYS_AND_OAUTH`) | – | ✓ | ✓ |
+| Passkeys only (`PASSKEYS_ONLY`) | – | ✓ | – |
+| OAuth only (`OAUTH_ONLY`) | – | – | ✓ |
+
+Passkeys also need **Allow passkeys** on and at least one passkey for that
+address; OAuth also needs **Enable OAuth sign-in** on. Methods that are off
+are hidden on the sign-in page **and** refused by the server. KanDeck refuses
+to save a mode that leaves you no proven way in (e.g. *OAuth only* before
+you've linked your account, or *Passkeys only* with no passkeys).
+
+### Setting up OAuth (example: Authentik)
+
+1. In Authentik create an **OAuth2/OpenID Provider** + Application (confidential
+   client). Copy the **redirect URI** shown on KanDeck's Sign-in tab into it
+   (`https://<your-kandeck>/api/auth/oauth/callback`). Add one per address you
+   use KanDeck on.
+2. In KanDeck → **Sign-in**: enter the **Issuer URL** (Authentik: the
+   provider's "OpenID Configuration Issuer", e.g.
+   `https://auth.example.com/application/o/kandeck/`), **Client ID**, **Client
+   secret**, and a **Button label** (`Authentik`). Click **Check provider**.
+3. Click **Link my account** and sign in at the provider. Only that provider
+   account (its subject ID) can now sign in to KanDeck. Optionally list
+   **Allowed emails** too; they work only when the provider marks the email
+   as verified.
+4. Turn on **Enable OAuth sign-in**, pick a mode, and **Save sign-in settings**.
+
+Providers without a discovery document (plain OAuth2) can be set up under
+**Advanced** with explicit authorization, token, userinfo and JWKS URLs. The flow
+uses the authorization-code grant with PKCE, a `state` bound to the browser
+and a `nonce`, and verifies the ID token's signature, issuer, audience and
+expiry. The client secret is encrypted at rest.
+
+**Passkey options:** the *name shown in the passkey prompt* (RP name) and an
+optional *passkey domain* (RP ID). Leave the domain blank so each address has
+its own passkeys, or set e.g. `example.com` to use one passkey on all its
+subdomains.
+
+### Emergency reset (lockout)
+
+If your identity provider is down or a passkey breaks while password sign-in is
+off, turn passwords back on from the server. It takes effect immediately (no
+restart):
+
+```bash
+docker compose exec kandeck npm run auth:reset
+# or, to also switch OAuth and passkeys off:
+docker compose exec kandeck npm run auth:reset -- --disable-oauth-passkeys
+```
+
+Locally: `npm run auth:reset`. It prints the old and new mode. If the container
+won't stay up, set `AUTH_RESET=1` in its environment (or start with
+`node src/server.js --disable-oauth-passkeys`) for one start, then remove it.
+Forgot the password as well? Follow it with `npm run reset-password -- <username> <password>`.
+
+### Where it's stored
+
+Everything lives in `data/config.json`: the account (`username`,
+`passwordHash`), `passkeys` (credential ID, public key, counter, transports,
+hostname, name, dates) and `auth`: `mode` (*auth_mode*), `passkeysEnabled`,
+`rpName`, `rpId` and `oauth` (`enabled`, `providerName`, `issuer`, `clientId`,
+encrypted `clientSecret`, `scopes`, endpoints, `allowedEmails`, and the linked
+subject and email).
+
 ---
 
 ## Using KanDeck
@@ -266,11 +352,11 @@ first-run setup, which only works from your local network (or with
   the original Gmail message (opens in a new tab). Click it to open, ✏️ to edit;
   cards show a small clickable ✉️ (address) or 🔗 (link) too.
 - **App Settings** (⚙️, top-right) has a section menu down the left: Theme,
-  Account, Board settings, Notifications, API, Calendar, Backups, Archives.
-  **Board settings** holds the global categories, badge colors and lane-color
-  palette used by every board. A single **Save**
-  applies everything (the Account, API, Calendar and Archives tabs act
-  immediately).
+  Account, Sign-in, Board settings, Notifications, API, Calendar, Backups,
+  Archives. **Board settings** holds the global categories, badge colors and
+  lane-color palette used by every board. A single **Save** applies everything
+  (the Account, Sign-in, API, Calendar and Archives tabs have their own buttons
+  and act immediately).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
   every other browser. It also manages **Passkeys** (see below).
@@ -285,8 +371,10 @@ first-run setup, which only works from your local network (or with
   a **🔑 Sign in with passkey** button. The button only appears once a passkey
   exists for that address. A passkey is tied to the hostname it was made on, so
   add one on each address you use (e.g. `kandeck.lan` *and*
-  `kandeck.example.com`). Passkeys need HTTPS (or `localhost`). Resetting the
-  login with `reset-login` also removes all passkeys.
+  `kandeck.example.com`). Passkeys need HTTPS (or `localhost`). Clearing the
+  login with `npm run reset-password` (no arguments) also removes all passkeys.
+- **Sign-in** (App Settings) chooses which sign-in methods are offered and sets
+  up OAuth — see [Sign-in: passwords, passkeys & OAuth](#sign-in-passwords-passkeys--oauth).
 - **Inbox**: open or close it with the tab on the left edge of the board (it
   shows how many items are waiting). Items arriving via the API land here for triage — drag them onto a
   board or use the card's **⋮** menu to send it to a board's first column.
@@ -538,7 +626,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.10.1 && git push origin v2.10.1
+git tag v2.11.0 && git push origin v2.11.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

@@ -4,6 +4,13 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.11.0 — 2026-10-29
+
+- **OAuth / OpenID Connect sign-in** — sign in through Authentik, Authelia, Keycloak, Google, Microsoft or any OIDC provider. Set it up in the new **App Settings → Sign-in** tab: issuer URL, client ID and secret, and your own button label (e.g. **Sign in with Authentik**). Click **Link my account** once so only *your* provider account can sign in (or list allowed, verified emails).
+- **Sign-in modes** — choose what the sign-in page offers: *Password, passkeys and OAuth* · *Password and OAuth* · *Passkeys and OAuth* · *Passkeys only* · *OAuth only*. Methods you turn off disappear from the page and are refused by the server too. KanDeck won't save a setup that would lock you out.
+- **Passkey options** — turn passkeys on or off, set the name shown in the passkey prompt, and optionally one passkey domain for all your subdomains.
+- **Emergency reset** — locked out because your identity provider is down or a passkey broke? `docker compose exec kandeck npm run auth:reset` turns password sign-in back on immediately (`-- --disable-oauth-passkeys` also switches OAuth and passkeys off). Or start the container once with `AUTH_RESET=1`.
+
 ## 2.10.1 — 2026-10-29
 
 - **Categories** and **Lane colors** are back in **App Settings** (they're global), now combined on one **Board settings** tab together with the badge colors. They no longer appear in each board's ⚙️ settings.

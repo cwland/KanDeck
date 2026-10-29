@@ -15,6 +15,7 @@ import {
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
 import { getAppConfig, getPasskeys, updatePasskeys, getWebauthnUserId } from '../auth.js';
+import { getAuthSettings } from './auth-settings.js';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const MAX_PASSKEYS = 20;
@@ -39,15 +40,29 @@ function consumer(type, rpID) {
 /** Where the browser is: the RP ID (hostname) and origin, from the request's
  *  Origin header (falling back to Host). The authenticator signs over these, so
  *  a request can't claim another site's identity. */
-export function relyingParty(req) {
+function browserOrigin(req) {
   const origin = req.get('origin');
   if (origin) {
-    try { const u = new URL(origin); return { rpID: u.hostname, origin: u.origin }; } catch {}
+    try { const u = new URL(origin); return { host: u.hostname, origin: u.origin }; } catch {}
   }
   const host = req.get('x-forwarded-host') || req.get('host') || 'localhost';
   const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
   const u = new URL(`${proto}://${host}`);
-  return { rpID: u.hostname, origin: u.origin };
+  return { host: u.hostname, origin: u.origin };
+}
+
+/** The RP ID for a hostname: the configured RP ID (Sign-in settings) when the
+ *  host is that domain or a subdomain of it, otherwise the hostname itself. */
+export function rpIdForHost(host, settings) {
+  const h = String(host || '').toLowerCase();
+  const o = (settings && settings.rpId) || '';
+  return o && (h === o || h.endsWith('.' + o)) ? o : h;
+}
+
+export async function relyingParty(req) {
+  const { host, origin } = browserOrigin(req);
+  const a = await getAuthSettings();
+  return { rpID: rpIdForHost(host, a), origin, rpName: a.rpName || 'KanDeck' };
 }
 
 const toB64 = (buf) => Buffer.from(buf).toString('base64url');
@@ -67,13 +82,13 @@ export async function countFor(rpID) {
 // ---- Registration (signed-in user adds a passkey) ------------------------------
 
 export async function registrationOptions(req) {
-  const { rpID } = relyingParty(req);
+  const { rpID, rpName } = await relyingParty(req);
   const cfg = await getAppConfig();
   const existing = (await getPasskeys()).filter((p) => p.rpID === rpID);
   if ((await getPasskeys()).length >= MAX_PASSKEYS) throw new Error(`You can have up to ${MAX_PASSKEYS} passkeys. Remove one first.`);
   const userName = cfg.username || 'kandeck';
   const options = await generateRegistrationOptions({
-    rpName: 'KanDeck',
+    rpName,
     rpID,
     userName,
     userDisplayName: `${userName} (KanDeck)`,
@@ -87,7 +102,7 @@ export async function registrationOptions(req) {
 }
 
 export async function verifyRegistration(req, response, name) {
-  const { rpID, origin } = relyingParty(req);
+  const { rpID, origin } = await relyingParty(req);
   const v = await verifyRegistrationResponse({
     response,
     expectedChallenge: consumer('reg', rpID),
@@ -132,7 +147,7 @@ export async function renamePasskey(id, name) {
 // ---- Sign-in -----------------------------------------------------------------
 
 export async function authenticationOptions(req) {
-  const { rpID } = relyingParty(req);
+  const { rpID } = await relyingParty(req);
   const options = await generateAuthenticationOptions({
     rpID,
     userVerification: 'preferred',
@@ -144,7 +159,7 @@ export async function authenticationOptions(req) {
 
 /** Returns true if `response` is a valid sign-in with a stored passkey. */
 export async function verifyAuthentication(req, response) {
-  const { rpID, origin } = relyingParty(req);
+  const { rpID, origin } = await relyingParty(req);
   const cred = (await getPasskeys()).find((p) => p.id === response?.id && p.rpID === rpID);
   if (!cred) return false;
   // If the authenticator sent a user handle, it must be this account's.

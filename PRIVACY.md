@@ -24,6 +24,9 @@ Everything is stored locally as JSON files under the data directory:
 - **Passkeys** (optional) — only each passkey's **public** key, ID, name,
   hostname and usage counter are kept in `data/config.json`. The private key
   never leaves your password manager or device.
+- **OAuth sign-in** (optional) — your identity provider's settings (the client
+  secret **encrypted**), plus the linked account's subject ID and email. KanDeck
+  talks only to the provider you configure, and only while you sign in.
 - **API key** — used to authenticate external apps to the REST API.
 - **Settings** — theme, categories, notification and backup configuration.
 - **Secrets at rest** — the SMTP password is **encrypted**
@@ -52,7 +55,8 @@ serving the app to your own browser.
 
 - Access requires a username and password you set on first run (password
   bcrypt‑hashed; revocable JWT httpOnly cookie session), or optionally a
-  passkey you add under App Settings → Account.
+  passkey you add under App Settings → Account, or OAuth / OpenID Connect
+  through an identity provider you configure (App Settings → Sign-in).
 - The REST API additionally accepts an API key you generate.
 - **Calendar feeds** (optional, per board and one app-wide, all off by
   default) are the one exception to login: calendar apps can't sign in, so

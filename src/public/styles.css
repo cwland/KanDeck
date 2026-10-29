@@ -932,3 +932,9 @@ html[data-theme='dark'] .danger-zone .dz-title { color: #ffa8a8; }
 .pk-meta { font-size: .76rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pk-add { align-items: flex-end; }
 .pk-add-btn { flex: 0 0 auto; }
+
+/* App Settings → Sign-in */
+.au-adv { margin: 10px 0 4px; }
+.au-adv summary { cursor: pointer; font-size: .85rem; color: var(--text-dim); }
+.au-linked { font-size: .85rem; margin: 6px 0 2px; }
+#auSummary { font-weight: 600; }

@@ -17,6 +17,7 @@ import { scheduleBackups, createBackup } from './services/backup.js';
 import { updateJson } from './storage/store.js';
 import { startNotifications } from './services/notify.js';
 import { icsHandler } from './services/ics.js';
+import { runEmergencyReset } from './auth-reset.js';
 
 const app = express();
 const HSTS_HOST = (() => { try { return config.appUrl ? new URL(config.appUrl).hostname.toLowerCase() : ''; } catch { return ''; } })();
@@ -125,6 +126,11 @@ async function preUpgradeBackup() {
 
 async function start() {
   assertSecrets();
+  // Emergency sign-in override at startup (see src/auth-reset.js).
+  if (process.argv.includes('--disable-oauth-passkeys') || /^(1|true|yes)$/i.test(process.env.AUTH_RESET || '')) {
+    await runEmergencyReset({ strict: process.argv.includes('--disable-oauth-passkeys') });
+    console.warn('  Remove AUTH_RESET / --disable-oauth-passkeys once you are back in, or it runs on every start.\n');
+  }
   await settingsStore.init();
   await inboxStore.init();
   await boardStore.init();

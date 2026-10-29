@@ -948,8 +948,116 @@
     } finally { btn.disabled = !(window.KanDeckPasskeys && window.KanDeckPasskeys.supported()); }
   };
 
+  // ---- Sign-in methods / OAuth (App Settings → Sign-in) ----
+  let auView = null;
+  function auStatus(sel, msg, ok) { const e = $(sel); e.textContent = msg; e.className = 'ai-test-status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); }
+  function renderSignIn(v) {
+    auView = v;
+    const o = v.oauth;
+    $('#auMode').value = v.mode;
+    $('#auPasskeys').checked = v.passkeysEnabled;
+    $('#auRpName').value = v.rpName === 'KanDeck' ? '' : v.rpName;
+    $('#auRpId').value = v.rpId || '';
+    $('#auRedirect').value = v.redirectUri;
+    $('#auOauth').checked = o.enabled;
+    $('#auProvider').value = o.providerName === 'OAuth' ? '' : o.providerName;
+    $('#auIssuer').value = o.issuer;
+    $('#auClientId').value = o.clientId;
+    $('#auSecret').value = '';
+    $('#auSecret').placeholder = o.hasSecret ? '•••••••• saved (leave blank to keep)' : '';
+    $('#auScopes').value = o.scopes === 'openid email profile' ? '' : o.scopes;
+    $('#auAuthz').value = o.authorizationEndpoint; $('#auToken').value = o.tokenEndpoint;
+    $('#auUserinfo').value = o.userinfoEndpoint; $('#auJwks').value = o.jwksUri;
+    $('#auEmails').value = (o.allowedEmails || []).join(', ');
+    $('#auLinked').innerHTML = o.linked
+      ? `🔗 Linked to <b>${esc(o.linkedEmail || o.linkedName || o.linkedSub)}</b> on ${esc(new Date(o.linkedAt).toLocaleDateString())}${o.lastLoginAt ? ' · last OAuth sign-in ' + esc(new Date(o.lastLoginAt).toLocaleString()) : ''}`
+      : (o.linkedSub ? '⚠️ The linked account belongs to a different provider. Link again.' : 'Not linked yet.');
+    $('#auUnlink').hidden = !o.linkedSub;
+    auSummary();
+  }
+  function auSummary() {
+    const mode = $('#auMode').value;
+    const allow = { password: /ALL|PASSWORDS/.test(mode), passkey: /ALL|PASSKEYS/.test(mode), oauth: mode !== 'PASSKEYS_ONLY' };
+    const on = [];
+    if (allow.password) on.push('Password');
+    if (allow.passkey && $('#auPasskeys').checked) on.push('Passkey' + (auView && !auView.passkeyCount ? ' (none added yet)' : ''));
+    if (allow.oauth && $('#auOauth').checked) on.push(`“Sign in with ${$('#auProvider').value.trim() || 'OAuth'}”`);
+    $('#auSummary').textContent = 'Sign-in page will offer: ' + (on.join(' · ') || 'nothing (not allowed)');
+  }
+  ['#auMode', '#auPasskeys', '#auOauth', '#auProvider'].forEach((s) => $(s).addEventListener('input', auSummary));
+  async function loadSignIn() {
+    auStatus('#auStatus', ''); auStatus('#auTestStatus', '');
+    try { renderSignIn(await accountCall('/auth-settings', 'GET')); } catch (e) { auStatus('#auStatus', '✗ ' + e.message, false); }
+  }
+  function signInBody() {
+    return {
+      mode: $('#auMode').value,
+      passkeysEnabled: $('#auPasskeys').checked,
+      rpName: $('#auRpName').value.trim(),
+      rpId: $('#auRpId').value.trim(),
+      oauth: {
+        enabled: $('#auOauth').checked,
+        providerName: $('#auProvider').value.trim(),
+        issuer: $('#auIssuer').value.trim(),
+        clientId: $('#auClientId').value.trim(),
+        clientSecret: $('#auSecret').value,
+        scopes: $('#auScopes').value.trim(),
+        authorizationEndpoint: $('#auAuthz').value.trim(),
+        tokenEndpoint: $('#auToken').value.trim(),
+        userinfoEndpoint: $('#auUserinfo').value.trim(),
+        jwksUri: $('#auJwks').value.trim(),
+        allowedEmails: $('#auEmails').value,
+      },
+    };
+  }
+  async function saveSignIn() {
+    const v = await accountCall('/auth-settings', 'PUT', signInBody());
+    renderSignIn(v);
+    return v;
+  }
+  $('#auSave').onclick = async () => {
+    try { await saveSignIn(); auStatus('#auStatus', '✓ Sign-in settings saved', true); }
+    catch (e) { auStatus('#auStatus', '✗ ' + e.message, false); }
+  };
+  $('#auTest').onclick = async () => {
+    auStatus('#auTestStatus', 'Checking…');
+    try {
+      await saveSignIn();
+      const r = await accountCall('/auth-settings/oauth/test', 'POST');
+      const e = r.endpoints;
+      auStatus('#auTestStatus', `✓ Found the provider${e.issuer ? ' (' + e.issuer + ')' : ''}${e.jwks_uri ? '' : ' · no signing keys (JWKS)'}`, true);
+    } catch (e) { auStatus('#auTestStatus', '✗ ' + e.message, false); }
+  };
+  $('#auLink').onclick = async () => {
+    // Save first so the flow uses what's on screen, then go to the provider.
+    try { await saveSignIn(); } catch (e) { return auStatus('#auTestStatus', '✗ ' + e.message, false); }
+    window.location.href = '/api/auth/oauth/start?link=1';
+  };
+  $('#auUnlink').onclick = async () => {
+    if (!confirm('Unlink your OAuth account? OAuth sign-in will then only work for the allowed emails.')) return;
+    try { renderSignIn(await accountCall('/auth-settings/oauth/link', 'DELETE')); auStatus('#auTestStatus', 'Unlinked.'); }
+    catch (e) { auStatus('#auTestStatus', '✗ ' + e.message, false); }
+  };
+  $('#auCopyRedirect').onclick = async () => {
+    try { await navigator.clipboard.writeText($('#auRedirect').value); toast('Redirect URI copied'); }
+    catch { $('#auRedirect').select(); }
+  };
+  // Back from the provider after "Link my account": report and reopen the tab.
+  (function oauthReturn() {
+    const q = new URLSearchParams(location.search);
+    const r = q.get('oauth');
+    if (!r) return;
+    history.replaceState(null, '', location.pathname);
+    setTimeout(() => {
+      openAppModal(); setAppTab('signin');
+      if (r === 'linked') { toast('OAuth account linked'); auStatus('#auTestStatus', '✓ Linked. You can now turn on OAuth sign-in and save.', true); }
+      else auStatus('#auTestStatus', '✗ ' + (q.get('msg') || 'Linking failed.'), false);
+    }, 600);
+  })();
+
   async function loadAccount() {
     loadPasskeys();
+    loadSignIn();
     ['#acUserPw', '#acCurPw', '#acNewPw', '#acNewPw2'].forEach((id) => ($(id).value = ''));
     acStatus('#acUserStatus', ''); acStatus('#acPwStatus', '');
     try {
@@ -1229,7 +1337,7 @@
   // tab, whose key actions commit to the server immediately. Everything else
   // (theme, categories, lanes, notifications, auto-backup) is persisted
   // by the main Save button, so it DOES flag unsaved changes.
-  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"], [data-tab="calendar"], [data-tab="account"]';
+  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"], [data-tab="calendar"], [data-tab="account"], [data-tab="signin"]';
   const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);

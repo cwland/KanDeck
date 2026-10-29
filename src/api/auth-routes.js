@@ -20,6 +20,13 @@ import {
 } from '../auth.js';
 import config from '../config.js';
 import * as passkeys from '../services/passkeys.js';
+import * as oauth from '../services/oauth.js';
+import {
+  AUTH_MODES, getAuthSettings, saveAuthSettings, effective, oauthConfigured,
+  oauthMatches, lockoutProblem, publicView,
+} from '../services/auth-settings.js';
+import { encrypt } from '../services/secrets.js';
+import { getPasskeys } from '../auth.js';
 
 const router = Router();
 
@@ -81,13 +88,20 @@ router.get('/status', async (req, res) => {
   const passwordSet = await isPasswordSet();
   const usernameSet = !!(await getUsername());
   const loggedIn = await validCookie(req);
+  const auth = await getAuthSettings();
+  const methods = effective(auth);
   // Passkeys usable on THIS hostname (the page passes location.hostname).
-  const rpHost = String(req.query.host || '').toLowerCase().replace(/[^a-z0-9.\-]/g, '') || passkeys.relyingParty(req).rpID;
+  const host = String(req.query.host || '').toLowerCase().replace(/[^a-z0-9.\-]/g, '');
+  const rpHost = host ? passkeys.rpIdForHost(host, auth) : (await passkeys.relyingParty(req)).rpID;
+  const ready = passwordSet && usernameSet;
   res.json({
     passwordSet,
     usernameSet,
     loggedIn,
-    passkeys: passwordSet && usernameSet ? await passkeys.countFor(rpHost) : 0,
+    // Sign-in methods offered (password is always offered until set up).
+    methods: ready ? methods : { password: true, passkey: false, oauth: false },
+    oauthLabel: auth.oauth.providerName,
+    passkeys: ready && methods.passkey ? await passkeys.countFor(rpHost) : 0,
     minPassword: MIN_PASSWORD,
     setupTokenRequired: !passwordSet && !!config.setupToken,
     setupBlocked: !passwordSet && !config.setupToken && !isDirectLocal(req),
@@ -121,6 +135,8 @@ router.post('/login', async (req, res) => {
     return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
   if (!(await isPasswordSet()))
     return res.status(409).json({ error: 'No account set up', needsSetup: true });
+  if (!effective(await getAuthSettings()).password)
+    return res.status(403).json({ error: 'Password sign-in is turned off. Use a passkey or OAuth, or run npm run auth:reset on the server.' });
   const result = await verifyLogin(req.body?.username, req.body?.password);
   if (result.ok) {
     attempts.delete(ip);
@@ -147,6 +163,7 @@ router.post('/username', requireSessionApi, async (req, res) => {
 router.post('/passkey/options', async (req, res) => {
   try {
     if (!(await isPasswordSet())) return res.status(409).json({ error: 'No account set up' });
+    if (!effective(await getAuthSettings()).passkey) return res.status(403).json({ error: 'Passkey sign-in is turned off.' });
     res.json(await passkeys.authenticationOptions(req));
   } catch (err) {
     res.status(400).json({ error: 'Could not start passkey sign-in' });
@@ -156,6 +173,7 @@ router.post('/passkey/options', async (req, res) => {
 router.post('/passkey/verify', async (req, res) => {
   const ip = req.ip || 'unknown';
   if (throttled(ip)) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
+  if (!effective(await getAuthSettings()).passkey) return res.status(403).json({ error: 'Passkey sign-in is turned off.' });
   let ok = false;
   try { ok = await passkeys.verifyAuthentication(req, req.body?.response); } catch { ok = false; }
   if (!ok) {
@@ -165,6 +183,70 @@ router.post('/passkey/verify', async (req, res) => {
   attempts.delete(ip);
   setSessionCookie(res, await issueToken());
   res.json({ ok: true });
+});
+
+// ---- OAuth / OIDC -----------------------------------------------------------
+// GET /oauth/start            → sign in (when OAuth is on)
+// GET /oauth/start?link=1     → signed-in owner links their provider account
+// GET /oauth/callback         → provider redirects back here
+const OAUTH_COOKIE = 'kandeck_oauth';
+const OAUTH_COOKIE_PATH = '/api/auth/oauth';
+
+router.get('/oauth/start', async (req, res) => {
+  const link = req.query.link === '1';
+  try {
+    if (!(await isPasswordSet())) return res.redirect('/login');
+    const a = await getAuthSettings();
+    if (link) {
+      if (!(await validCookie(req))) return res.redirect('/login');
+      if (!oauthConfigured(a.oauth)) return res.redirect('/?oauth=error&msg=' + encodeURIComponent('Fill in and save the OAuth settings first.'));
+    } else if (!effective(a).oauth) return res.redirect('/login?error=oauth_off');
+    const { url, state } = await oauth.startUrl(req, link ? 'link' : 'login');
+    res.cookie(OAUTH_COOKIE, state, {
+      httpOnly: true, sameSite: 'lax', secure: config.env === 'production', path: OAUTH_COOKIE_PATH, maxAge: 10 * 60 * 1000,
+    });
+    res.redirect(url);
+  } catch (err) {
+    console.error('[oauth] start failed:', err.message);
+    res.redirect(link ? '/?oauth=error&msg=' + encodeURIComponent(err.message.slice(0, 200)) : '/login?error=oauth_provider');
+  }
+});
+
+router.get('/oauth/callback', async (req, res) => {
+  const ip = req.ip || 'unknown';
+  const state = String(req.query.state || '');
+  const bound = req.cookies?.[OAUTH_COOKIE];
+  res.clearCookie(OAUTH_COOKIE, { path: OAUTH_COOKIE_PATH });
+  const p = state && bound === state ? oauth.takePending(state) : null;
+  if (!p) return res.redirect('/login?error=oauth_state');
+  const back = (code, msg) => (p.purpose === 'link'
+    ? res.redirect('/?oauth=' + code + (msg ? '&msg=' + encodeURIComponent(String(msg).slice(0, 200)) : ''))
+    : res.redirect('/login?error=' + code));
+  if (req.query.error) return back('oauth_provider', 'The provider said: ' + (req.query.error_description || req.query.error));
+  if (throttled(ip)) return back('oauth_throttled');
+  try {
+    const id = await oauth.finish(p, String(req.query.code || ''));
+    if (p.purpose === 'link') {
+      if (!(await validCookie(req))) return res.redirect('/login');
+      await saveAuthSettings((a) => ({ ...a, oauth: { ...a.oauth,
+        linkedSub: id.sub, linkedIssuer: p.key, linkedEmail: id.email, linkedName: id.name, linkedAt: new Date().toISOString() } }));
+      return res.redirect('/?oauth=linked');
+    }
+    const a = await getAuthSettings();
+    if (!effective(a).oauth) return back('oauth_off');
+    if (!oauthMatches(a.oauth, id)) {
+      recordFail(ip);
+      console.warn(`[oauth] sign-in refused: ${id.email || id.sub} isn't linked or allowed`);
+      return back('oauth_nomatch');
+    }
+    attempts.delete(ip);
+    await saveAuthSettings((s) => ({ ...s, oauth: { ...s.oauth, lastLoginAt: new Date().toISOString() } }));
+    setSessionCookie(res, await issueToken());
+    res.redirect('/');
+  } catch (err) {
+    console.error('[oauth] callback failed:', err.message);
+    back('oauth_failed', err.message);
+  }
 });
 
 router.post('/logout', (req, res) => {
@@ -206,7 +288,7 @@ accountRouter.put('/password', async (req, res) => {
 
 // Passkeys (Account tab)
 accountRouter.get('/passkeys', async (req, res) => {
-  res.json({ passkeys: await passkeys.listPasskeys(), currentHost: passkeys.relyingParty(req).rpID });
+  res.json({ passkeys: await passkeys.listPasskeys(), currentHost: (await passkeys.relyingParty(req)).rpID });
 });
 
 accountRouter.post('/passkeys/options', async (req, res) => {
@@ -227,8 +309,76 @@ accountRouter.patch('/passkeys/:id', async (req, res) => {
 });
 
 accountRouter.delete('/passkeys/:id', async (req, res) => {
+  const left = (await getPasskeys()).filter((p) => p.id !== req.params.id).length;
+  const problem = lockoutProblem(await getAuthSettings(), left);
+  if (problem) return res.status(409).json({ error: 'Can’t remove your last passkey while it’s your only way to sign in. Turn password sign-in back on first (Sign-in tab).' });
   if (!(await passkeys.removePasskey(req.params.id))) return res.status(404).json({ error: 'Passkey not found' });
   res.json({ ok: true });
+});
+
+// ---- Sign-in settings (App Settings → Sign-in) ------------------------------
+async function signInView(req) {
+  return { ...publicView(await getAuthSettings()), modes: AUTH_MODES, redirectUri: oauth.callbackUrl(req), passkeyCount: (await getPasskeys()).length };
+}
+const URL_FIELDS = ['issuer', 'authorizationEndpoint', 'tokenEndpoint', 'userinfoEndpoint', 'jwksUri'];
+function checkUrl(v, label) {
+  if (!v) return;
+  let u; try { u = new URL(v); } catch { throw new Error(`${label} isn’t a valid URL.`); }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error(`${label} must start with https:// (or http:// on your LAN).`);
+}
+
+accountRouter.get('/auth-settings', async (req, res) => res.json(await signInView(req)));
+
+accountRouter.put('/auth-settings', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const cur = await getAuthSettings();
+    const bo = b.oauth || {};
+    if (b.mode !== undefined && !AUTH_MODES.includes(b.mode)) throw new Error('Unknown sign-in mode.');
+    if (b.rpId && !/^[a-z0-9.-]+$/i.test(String(b.rpId).trim())) throw new Error('Passkey domain (RP ID) must be a plain hostname like example.com.');
+    const labels = { issuer: 'Issuer URL', authorizationEndpoint: 'Authorization endpoint', tokenEndpoint: 'Token endpoint', userinfoEndpoint: 'Userinfo endpoint', jwksUri: 'JWKS URL' };
+    URL_FIELDS.forEach((k) => checkUrl(String(bo[k] ?? cur.oauth[k] ?? '').trim(), labels[k]));
+    const emails = bo.allowedEmails === undefined ? cur.oauth.allowedEmails
+      : (Array.isArray(bo.allowedEmails) ? bo.allowedEmails : String(bo.allowedEmails).split(/[\s,;]+/));
+    const next = {
+      ...cur,
+      mode: b.mode ?? cur.mode,
+      passkeysEnabled: b.passkeysEnabled ?? cur.passkeysEnabled,
+      rpName: b.rpName ?? cur.rpName,
+      rpId: b.rpId ?? cur.rpId,
+      oauth: {
+        ...cur.oauth,
+        ...Object.fromEntries(['enabled', 'providerName', 'issuer', 'clientId', 'scopes', ...URL_FIELDS.slice(1)]
+          .filter((k) => bo[k] !== undefined).map((k) => [k, bo[k]])),
+        allowedEmails: emails,
+        clientSecret: bo.clearSecret ? '' : (bo.clientSecret ? encrypt(String(bo.clientSecret)) : cur.oauth.clientSecret),
+      },
+    };
+    if (next.oauth.enabled && !oauthConfigured(next.oauth))
+      throw new Error('To turn OAuth on, fill in the Client ID and the Issuer URL (or both endpoints).');
+    const problem = lockoutProblem(next, (await getPasskeys()).length);
+    if (problem) throw new Error(problem);
+    await saveAuthSettings(() => next);
+    res.json({ ok: true, ...(await signInView(req)) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+accountRouter.post('/auth-settings/oauth/test', async (req, res) => {
+  try {
+    const m = await oauth.discover((await getAuthSettings()).oauth, { fresh: true });
+    res.json({ ok: true, endpoints: m });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+accountRouter.delete('/auth-settings/oauth/link', async (req, res) => {
+  const cur = await getAuthSettings();
+  const next = { ...cur, oauth: { ...cur.oauth, linkedSub: '', linkedIssuer: '', linkedEmail: '', linkedName: '', linkedAt: null } };
+  const problem = lockoutProblem(next, (await getPasskeys()).length);
+  if (problem) return res.status(409).json({ error: 'Can’t unlink while OAuth is your only way to sign in. Turn password sign-in back on first.' });
+  await saveAuthSettings(() => next);
+  res.json({ ok: true, ...(await signInView(req)) });
 });
 
 accountRouter.post('/logout-all', async (req, res) => {

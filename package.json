@@ -1,6 +1,6 @@
 {
   "name": "kandeck",
-  "version": "2.10.1",
+  "version": "2.11.0",
   "description": "KanDeck — a flat-file, self-hosted Kanban app with a REST API, theming, and notifications.",
   "type": "module",
   "main": "src/server.js",
@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon --watch src --ext js,json,html,css,mjs src/server.js",
     "backup": "node src/services/backup.js --once",
-    "reset-password": "node src/reset-password.js"
+    "reset-password": "node src/reset-password.js",
+    "auth:reset": "node src/auth-reset.js"
   },
   "engines": {
     "node": ">=20"
@@ -19,6 +20,7 @@
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "jose": "^5.10.0",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.13"

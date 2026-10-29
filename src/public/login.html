@@ -34,6 +34,16 @@
       button.passkey-btn { margin-top: 10px; background: #fff; color: #4f46e5; border: 1.5px solid #c7d2fe; }
       button.passkey-btn:hover { background: #eef2ff; }
       button.passkey-btn[hidden] { display: none; }
+      .oauth-btn {
+        display: block; margin-top: 10px; padding: 12px; border-radius: 10px; text-align: center;
+        background: #111827; color: #fff; font-weight: 600; text-decoration: none; font-size: 1rem;
+      }
+      .oauth-btn:hover { background: #374151; }
+      .oauth-btn[hidden] { display: none; }
+      .or { display: flex; align-items: center; gap: 10px; margin: 18px 0 0; color: #9ca3af; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+      .or::before, .or::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+      .or[hidden] { display: none; }
+      .only-hint { margin: 6px 0 0; font-size: .78rem; color: #6b7280; }
       .msg { margin-top: 14px; font-size: .85rem; min-height: 1.2em; }
       .msg.err { color: #dc2626; }
       details.hint {
@@ -77,12 +87,15 @@
       </div>
       <button id="submit" type="submit">Sign in</button>
       <button type="button" id="passkeyBtn" class="passkey-btn" hidden>🔑 Sign in with passkey</button>
+      <div class="or" id="orSep" hidden>or</div>
+      <a class="oauth-btn" id="oauthBtn" href="/api/auth/oauth/start" hidden>Sign in with OAuth</a>
       <div class="msg" id="msg"></div>
       <details class="hint" id="forgot" hidden>
         <summary>Forgot your login?</summary>
         <p>There's no email reset — set a new login on the server where KanDeck runs:</p>
         <p><strong>Docker:</strong> <code>docker&nbsp;compose&nbsp;exec&nbsp;kandeck npm run reset-password -- &lt;username&gt; &lt;new-password&gt;</code></p>
         <p><strong>Local:</strong> <code>npm run reset-password -- &lt;username&gt; &lt;new-password&gt;</code></p>
+        <p><strong>Locked out by OAuth or passkeys?</strong> Turn password sign-in back on: <code>docker&nbsp;compose&nbsp;exec&nbsp;kandeck npm run auth:reset</code></p>
         <p class="muted">Your boards, settings, backups and API key are kept. Full details are in the README.</p>
       </details>
       <div class="ver" id="ver"></div>
@@ -94,6 +107,8 @@
       let minPw = 12;
       const el = (id) => document.getElementById(id);
       const show = (id, on) => (el(id).style.display = on ? 'block' : 'none');
+      // Which sign-in methods the server offers (App Settings → Sign-in).
+      let methods = { password: true, passkey: false, oauth: false };
       function setMode(m, st) {
         mode = m;
         show('userWrap', m !== 'blocked');
@@ -129,8 +144,49 @@
         else if (st.loggedIn && !st.usernameSet) setMode('username', st);
         else if (st.loggedIn && wantUsername) location.href = '/';
         else setMode('login', st);
-        if (mode === 'login') (el('userWrap').style.display === 'none' ? el('password') : el('username')).focus();
+        if (st.methods) methods = st.methods;
+        if (mode === 'login') applyMethods(st);
+        if (mode === 'login') {
+          if (el('userWrap').style.display !== 'none') el('username').focus();
+          else if (methods.password) el('password').focus();
+        }
+        showOauthError();
         return st;
+      }
+      // Show only the enabled methods. Without passwords the username box stays
+      // only as the passkey-autofill target (1Password pops up there).
+      function applyMethods(st) {
+        const pk = methods.passkey && st.passkeys > 0;
+        show('pwWrap', methods.password);
+        show('submit', methods.password);
+        show('userWrap', methods.password || pk);
+        if (!methods.password) {
+          el('userLabel').textContent = pk ? 'Passkey' : 'Username';
+          el('username').placeholder = pk ? 'Click here to pick your passkey' : '';
+        }
+        el('oauthBtn').hidden = !methods.oauth;
+        el('oauthBtn').textContent = 'Sign in with ' + (st.oauthLabel || 'OAuth');
+        el('orSep').hidden = !(methods.oauth && (methods.password || pk));
+        if (!methods.password && !pk && !methods.oauth) {
+          el('subtitle').textContent = methods.passkey
+            ? 'No passkey is set up for this address. Use the address you added one on, or reset sign-in on the server.'
+            : 'No sign-in method is available. Reset sign-in on the server.';
+          el('forgot').hidden = false;
+        }
+      }
+      const OAUTH_ERRORS = {
+        oauth_off: 'OAuth sign-in is turned off.',
+        oauth_state: 'That sign-in link expired or was already used. Please try again.',
+        oauth_provider: 'The sign-in provider couldn’t complete the request.',
+        oauth_failed: 'OAuth sign-in failed. Check the provider settings (details are in the server log).',
+        oauth_nomatch: 'That account isn’t allowed to sign in to this KanDeck.',
+        oauth_throttled: 'Too many attempts. Try again in a few minutes.',
+      };
+      function showOauthError() {
+        const code = new URLSearchParams(location.search).get('error');
+        if (!code || !OAUTH_ERRORS[code]) return;
+        const m = el('msg'); m.textContent = OAUTH_ERRORS[code]; m.className = 'msg err';
+        history.replaceState(null, '', location.pathname);
       }
       async function post(url, body) {
         const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -141,6 +197,8 @@
         const msg = el('msg');
         msg.textContent = ''; msg.className = 'msg';
         const err = (t) => { msg.textContent = t; msg.className = 'msg err'; };
+        // No password sign-in: Enter in the box starts the passkey picker instead.
+        if (mode === 'login' && !methods.password) { if (!el('passkeyBtn').hidden) el('passkeyBtn').click(); return; }
         const username = el('username').value.trim();
         const password = el('password').value;
         let res;
@@ -166,7 +224,7 @@
       let passkeyAbort = null;
       async function setupPasskeys(st) {
         const P = window.KanDeckPasskeys;
-        if (mode !== 'login' || !st.passkeys || !P || !P.supported()) return;
+        if (mode !== 'login' || !methods.passkey || !st.passkeys || !P || !P.supported()) return;
         el('passkeyBtn').hidden = false;
         el('username').setAttribute('autocomplete', 'username webauthn');
         if (await P.conditionalAvailable()) {
