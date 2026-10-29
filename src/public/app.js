@@ -660,7 +660,6 @@
     loadArchive();
     renderIcs(b.ics);
     openRouteTags(b);
-    renderPriorityEditor(); renderBadgeEditor(); renderLaneColorsEditor();
     setBoardTab('general');
     boardModal.hidden = false;
   }
@@ -1157,15 +1156,6 @@
   $('#bmSave').onclick = async () => {
     const name = $('#bmName').value.trim();
     if (!name) { setBoardTab('general'); toast('Board title is required'); $('#bmName').focus(); return; }
-    // Shared categories / badge colors / lane palette (all boards).
-    const look = collectSharedLook();
-    if (look.priorities.filter((p) => p.id !== 'none').length === 0) { setBoardTab('categories'); toast('Add at least one category before saving.'); return; }
-    if (look.laneColors.length === 0) { setBoardTab('lanecolors'); toast('Add at least one lane color before saving.'); return; }
-    try {
-      const s = await api('/settings', { method: 'PUT', body: look });
-      state.settings = { ...(state.settings || {}), ...s };
-      state.priorities = s.priorities; state.laneColors = s.laneColors; if (s.badges) state.badges = s.badges;
-    } catch (e) { toast('Categories / colors not saved: ' + (e.message || 'error')); return; }
     // A tag typed but not yet added gets added (and saved) too.
     if ($('#bmTagInput').value.trim() && !(await addRouteTags())) return;
     try {
@@ -1248,6 +1238,9 @@
     clearAppDirty();
     setAppTab('theme');
     renderThemeGrid();
+    renderPriorityEditor();
+    renderBadgeEditor();
+    renderLaneColorsEditor();
     loadApiKey();
     loadAccount();
     loadGlobalIcs();
@@ -1496,11 +1489,11 @@
     const d = document.createElement('div'); d.className = 'lane-color-chip';
     const input = document.createElement('input'); input.type = 'color'; input.value = c || '#4dabf7';
     const del = document.createElement('button'); del.type = 'button'; del.className = 'lc-del'; del.textContent = '✕'; del.title = 'Remove';
-    del.onclick = () => { d.remove(); };
+    del.onclick = () => { d.remove(); markAppDirty(); };
     d.append(input, del);
     return d;
   }
-  $('#addLaneColorBtn').onclick = () => { $('#laneColorsEditor').appendChild(laneColorChip('#4dabf7')); };
+  $('#addLaneColorBtn').onclick = () => { $('#laneColorsEditor').appendChild(laneColorChip('#4dabf7')); markAppDirty(); };
   function renderPriorityEditor() {
     const ul = $('#priorityEditor'); ul.innerHTML = '';
     state.priorities.forEach((p) => ul.appendChild(priorityRow(p)));
@@ -1550,7 +1543,7 @@
     const preview = document.createElement('span'); preview.className = 'pr-preview';
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'pr-del'; del.textContent = '🗑'; del.title = 'Remove';
-    del.onclick = () => { li.remove(); };
+    del.onclick = () => { li.remove(); markAppDirty(); };
     const refresh = () => {
       preview.textContent = name.value.trim() || 'Preview';
       preview.style.background = bg.querySelector('input').value;
@@ -1563,6 +1556,7 @@
   }
   $('#addPriorityBtn').onclick = () => {
     $('#priorityEditor').appendChild(priorityRow({ id: '', name: '', color: '#a5d8ff', textColor: '#111827' }));
+    markAppDirty();
   };
   function dismissAppModal() {
     applyTheme(state.themeId); clearAppDirty(); appModal.hidden = true;
@@ -1576,8 +1570,8 @@
   $('#appSettingsBtn').onclick = openAppModal;
   // Both the ✕ and Cancel behave the same: prompt if there are unsaved changes.
   $('#appCancel').onclick = guardedCloseAppModal;
-  // Categories, badge colors and the lane-color palette are shared by all
-  // boards but edited in Board settings (Categories / Lane colors tabs).
+  // Categories, badge colors and the lane-color palette — global, edited on
+  // App Settings → Board settings.
   function collectSharedLook() {
     const priorities = $$('#priorityEditor .priority-row').map((r) => {
       if (r.querySelector('.pr-none')) return { id: 'none', name: 'None', color: null, textColor: null };
@@ -1596,10 +1590,19 @@
     return { priorities, laneColors, badges: { due: bd('due'), tag: bd('tag'), source: bd('source') } };
   }
   $('#appSave').onclick = async () => {
+    const look = collectSharedLook();
+    // Guardrails: never let the app be saved with no categories or no lane
+    // colors — the board relies on at least one of each.
+    if (look.priorities.filter((p) => p.id !== 'none').length === 0) {
+      showAppError('Add at least one category before saving.', 'boardlook'); return;
+    }
+    if (look.laneColors.length === 0) {
+      showAppError('Add at least one lane color before saving.', 'boardlook'); return;
+    }
     const saveBtn = $('#appSave');
     saveBtn.disabled = true;
     try {
-      const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme } });
+      const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, ...look } });
       state.settings = s;
       // Auto-backup config (main Save, no separate button).
       try {

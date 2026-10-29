@@ -94,7 +94,7 @@ The same board in a dark theme (light and dark presets share an accent, so the
 <table>
   <tr>
     <td width="50%"><img src="docs/img/card-modal.png" alt="Card detail modal"><br><sub>Card details — description (Markdown), category, due date, and tags.</sub></td>
-    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Account, Notifications, API, Calendar, Backups and Archives.</sub></td>
+    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Account, Board settings, Notifications, API, Calendar, Backups and Archives.</sub></td>
   </tr>
 </table>
 
@@ -266,17 +266,18 @@ first-run setup, which only works from your local network (or with
   the original Gmail message (opens in a new tab). Click it to open, ✏️ to edit;
   cards show a small clickable ✉️ (address) or 🔗 (link) too.
 - **App Settings** (⚙️, top-right) has a section menu down the left: Theme,
-  Account, Notifications, API, Calendar, Backups, Archives. A single **Save**
+  Account, Board settings, Notifications, API, Calendar, Backups, Archives.
+  **Board settings** holds the global categories, badge colors and lane-color
+  palette used by every board. A single **Save**
   applies everything (the Account, API, Calendar and Archives tabs act
   immediately).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
   every other browser. It also manages **Passkeys** (see below).
 - **Board Settings** (⚙️, board area) has tabs: **General** (name, description,
-  what shows on cards), **Lanes** (lanes + auto-archive), **Lane colors** and
-  **Categories** (priority + badge colors — shared by *all* boards), **Routing**
-  (routing tags), **Calendar** (the board's feed) and **Archived** (archived
-  cards). The footer has **Archive board**.
+  what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
+  tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
+  footer has **Archive board**.
 - **Passkeys**: in **App Settings → Account → Passkeys**, give it an optional
   name and click **＋ Add a passkey**; 1Password (or your browser) saves it.
   From then on the sign-in page asks your password manager for the passkey as
@@ -537,7 +538,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.10.0 && git push origin v2.10.0
+git tag v2.10.1 && git push origin v2.10.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

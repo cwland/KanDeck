@@ -173,6 +173,7 @@
         <nav class="modal-tabs" id="appTabs" aria-label="Settings sections">
           <button type="button" class="modal-tab active" data-tab="theme"><span class="mt-ico" aria-hidden="true">🎨</span>Theme</button>
           <button type="button" class="modal-tab" data-tab="account"><span class="mt-ico" aria-hidden="true">👤</span>Account</button>
+          <button type="button" class="modal-tab" data-tab="boardlook"><span class="mt-ico" aria-hidden="true">🏷️</span>Board settings</button>
           <button type="button" class="modal-tab" data-tab="notify"><span class="mt-ico" aria-hidden="true">🔔</span>Notifications</button>
           <button type="button" class="modal-tab" data-tab="api"><span class="mt-ico" aria-hidden="true">🔑</span>API</button>
           <button type="button" class="modal-tab" data-tab="calendar"><span class="mt-ico" aria-hidden="true">📅</span>Calendar</button>
@@ -229,6 +230,23 @@
               <button type="button" class="btn ghost" id="acLogoutAll">Log out all sessions</button>
             </div>
             <p class="hint">Signs out every browser, including this one. Use it if you signed in somewhere you no longer trust. Calendar feeds and the API key are not affected.</p>
+          </section>
+
+          <section class="tab-panel" data-tab="boardlook">
+            <p class="hint">These apply to <b>every board</b>. (Per-board options — name, lanes, routing, calendar — are under the ⚙️ on each board.)</p>
+            <label>Categories</label>
+            <p class="hint">Categories show as a colored badge on cards.</p>
+            <ul class="priority-editor" id="priorityEditor"></ul>
+            <button type="button" class="btn ghost" id="addPriorityBtn">＋ Add category</button>
+
+            <label style="margin-top:18px">Badge colors</label>
+            <p class="hint">Default colors for the due-date and tag badges shown on cards.</p>
+            <ul class="priority-editor" id="badgeEditor"></ul>
+
+            <label style="margin-top:18px">Lane colors</label>
+            <p class="hint">The palette of colors a lane can use. Pick each lane's color on a board's ⚙️ → <b>Lanes</b> tab.</p>
+            <div class="lane-colors-editor" id="laneColorsEditor"></div>
+            <button type="button" class="btn ghost" id="addLaneColorBtn">＋ Add color</button>
           </section>
 
           <section class="tab-panel" data-tab="notify">
@@ -471,8 +489,6 @@
         <nav class="modal-tabs" id="boardTabs" aria-label="Board settings sections">
           <button type="button" class="modal-tab active" data-btab="general">General</button>
           <button type="button" class="modal-tab" data-btab="lanes">Lanes</button>
-          <button type="button" class="modal-tab" data-btab="lanecolors">Lane colors</button>
-          <button type="button" class="modal-tab" data-btab="categories">Categories</button>
           <button type="button" class="modal-tab" data-btab="routing">Routing</button>
           <button type="button" class="modal-tab" data-btab="calendar">Calendar</button>
           <button type="button" class="modal-tab" data-btab="archived">Archived <b class="bt-count" id="archivedCount" hidden></b></button>
@@ -513,22 +529,6 @@
               <input id="bmAutoArchive" type="number" min="0" step="1" />
               <p class="hint">Tasks in the done lane (the last lane) are archived this many days after their completed date. They keep their completed date and stay in the done lane — click the archive-box icon in the lane's title row to show or hide them, or open one and click <b>Unarchive</b>. Archived tasks are also listed on the <b>Archived</b> tab.</p>
             </div>
-          </section>
-
-          <section class="tab-panel" data-btab="categories">
-            <p class="hint"><b>Shared by all boards.</b> Categories show as a colored badge on cards. Saved with this window's <b>Save</b> button.</p>
-            <ul class="priority-editor" id="priorityEditor"></ul>
-            <button type="button" class="btn ghost" id="addPriorityBtn">＋ Add category</button>
-
-            <label style="margin-top:18px">Badge colors</label>
-            <p class="hint">Default colors for the due-date and tag badges shown on cards.</p>
-            <ul class="priority-editor" id="badgeEditor"></ul>
-          </section>
-
-          <section class="tab-panel" data-btab="lanecolors">
-            <p class="hint"><b>Shared by all boards.</b> The palette of colors a lane can use — pick each lane's color on the <b>Lanes</b> tab. Saved with this window's <b>Save</b> button.</p>
-            <div class="lane-colors-editor" id="laneColorsEditor"></div>
-            <button type="button" class="btn ghost" id="addLaneColorBtn">＋ Add color</button>
           </section>
 
           <section class="tab-panel" data-btab="routing">
