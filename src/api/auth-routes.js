@@ -92,7 +92,7 @@ router.get('/status', async (req, res) => {
   const methods = effective(auth);
   // Passkeys usable on THIS hostname (the page passes location.hostname).
   const host = String(req.query.host || '').toLowerCase().replace(/[^a-z0-9.\-]/g, '');
-  const rpHost = host ? passkeys.rpIdForHost(host, auth) : (await passkeys.relyingParty(req)).rpID;
+  const rpHost = host || (await passkeys.relyingParty(req)).rpID;
   const ready = passwordSet && usernameSet;
   res.json({
     passwordSet,
@@ -286,7 +286,7 @@ accountRouter.put('/password', async (req, res) => {
   }
 });
 
-// Passkeys (Account tab)
+// Passkeys (App Settings → Sign-in)
 accountRouter.get('/passkeys', async (req, res) => {
   res.json({ passkeys: await passkeys.listPasskeys(), currentHost: (await passkeys.relyingParty(req)).rpID });
 });
@@ -335,7 +335,6 @@ accountRouter.put('/auth-settings', async (req, res) => {
     const cur = await getAuthSettings();
     const bo = b.oauth || {};
     if (b.mode !== undefined && !AUTH_MODES.includes(b.mode)) throw new Error('Unknown sign-in mode.');
-    if (b.rpId && !/^[a-z0-9.-]+$/i.test(String(b.rpId).trim())) throw new Error('Passkey domain (RP ID) must be a plain hostname like example.com.');
     const labels = { issuer: 'Issuer URL', authorizationEndpoint: 'Authorization endpoint', tokenEndpoint: 'Token endpoint', userinfoEndpoint: 'Userinfo endpoint', jwksUri: 'JWKS URL' };
     URL_FIELDS.forEach((k) => checkUrl(String(bo[k] ?? cur.oauth[k] ?? '').trim(), labels[k]));
     const emails = bo.allowedEmails === undefined ? cur.oauth.allowedEmails
@@ -344,8 +343,6 @@ accountRouter.put('/auth-settings', async (req, res) => {
       ...cur,
       mode: b.mode ?? cur.mode,
       passkeysEnabled: b.passkeysEnabled ?? cur.passkeysEnabled,
-      rpName: b.rpName ?? cur.rpName,
-      rpId: b.rpId ?? cur.rpId,
       oauth: {
         ...cur.oauth,
         ...Object.fromEntries(['enabled', 'providerName', 'issuer', 'clientId', 'scopes', ...URL_FIELDS.slice(1)]

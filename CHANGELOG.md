@@ -4,6 +4,12 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.11.2 — 2026-10-29
+
+- **Sign-in tab** tidied up: each method has its own slider, and its settings only show while the slider is on.
+- **Passkeys** moved here from the Account tab and have no settings any more: just your list and an **＋ Add a passkey** button. A passkey always belongs to the address you add it from (localhost or the current URL).
+- The OAuth **callback (redirect) URL** now sits inside the OAuth settings.
+
 ## 2.11.1 — 2026-10-29
 
 - **What's new** window: earlier releases under **Previous updates** now start collapsed. Click a version (›) to expand its changes; each row shows how many changes it has.

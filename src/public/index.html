@@ -216,16 +216,6 @@
             </div>
             <p class="hint">Changing your password signs out every other browser.</p>
 
-            <label style="margin-top:18px">Passkeys</label>
-            <p class="hint">Sign in with a passkey from 1Password, iCloud Keychain or a security key instead of typing your password. Once you've added one, the sign-in page offers it as soon as you click into the username box. A passkey only works on the address it was created on, so add one for each address you use, e.g. your internal and external KanDeck URLs.</p>
-            <ul class="pk-list" id="pkList"></ul>
-            <p class="hint" id="pkEmpty">No passkeys yet.</p>
-            <div class="field-row pk-add">
-              <div class="field" style="flex:2"><label>Name <small>(optional)</small></label><input id="pkName" type="text" maxlength="60" autocomplete="off" placeholder="e.g. 1Password" /></div>
-              <div class="field pk-add-btn"><button type="button" class="btn primary" id="pkAdd">＋ Add a passkey</button></div>
-            </div>
-            <div class="ai-test-row"><span class="ai-test-status" id="pkStatus"></span></div>
-
             <label style="margin-top:18px">Sessions</label>
             <div class="ai-test-row">
               <button type="button" class="btn ghost" id="acLogoutAll">Log out all sessions</button>
@@ -249,26 +239,29 @@
                 </select>
               </div>
             </div>
-            <div class="ai-toggle-row">
-              <label class="switch"><input type="checkbox" id="auPasskeys" /><span></span></label>
-              <span class="ai-toggle-label">Allow passkeys</span>
-            </div>
             <p class="hint" id="auSummary"></p>
 
-            <label style="margin-top:18px">Passkeys</label>
-            <p class="hint">Add and remove passkeys on the <b>Account</b> tab. Leave the domain blank so each address gets its own passkeys. Set it (e.g. <code>example.com</code>) to share one passkey across all its subdomains; existing passkeys made for another domain then stop working there.</p>
-            <div class="field-row">
-              <div class="field"><label>Name shown in the passkey prompt</label><input id="auRpName" type="text" maxlength="60" placeholder="KanDeck" /></div>
-              <div class="field"><label>Passkey domain (RP ID) <small>(optional)</small></label><input id="auRpId" type="text" maxlength="253" autocapitalize="none" spellcheck="false" placeholder="each address separately" /></div>
+            <div class="ai-toggle-row au-section">
+              <label class="switch"><input type="checkbox" id="auPasskeys" /><span></span></label>
+              <span class="ai-toggle-label">Passkeys</span>
+            </div>
+            <div class="au-body" id="auPkBody">
+              <p class="hint">Sign in with 1Password, iCloud Keychain or a security key. A passkey works on the address you add it from (<b id="pkHost"></b>), so add one from each address you use.</p>
+              <ul class="pk-list" id="pkList"></ul>
+              <p class="hint" id="pkEmpty">No passkeys yet.</p>
+              <div class="ai-test-row">
+                <button type="button" class="btn primary" id="pkAdd">＋ Add a passkey</button>
+                <span class="ai-test-status" id="pkStatus"></span>
+              </div>
             </div>
 
-            <label style="margin-top:18px">OAuth / OpenID Connect</label>
-            <p class="hint">Sign in through an identity provider such as Authentik, Authelia, Keycloak, Google or Microsoft. Create an OAuth2/OIDC app there with this <b>redirect URI</b> (add one for each address you use KanDeck on):</p>
-            <div class="apikey-row"><input id="auRedirect" type="text" readonly /><button type="button" class="btn ghost" id="auCopyRedirect">Copy</button></div>
-            <div class="ai-toggle-row">
+            <div class="ai-toggle-row au-section">
               <label class="switch"><input type="checkbox" id="auOauth" /><span></span></label>
-              <span class="ai-toggle-label">Enable OAuth sign-in</span>
+              <span class="ai-toggle-label">OAuth / OpenID Connect</span>
             </div>
+            <div class="au-body" id="auOauthBody">
+            <p class="hint">Sign in through an identity provider such as Authentik, Authelia, Keycloak, Google or Microsoft. Create an OAuth2/OIDC app there with this <b>callback (redirect) URL</b>, adding one for each address you use KanDeck on:</p>
+            <div class="apikey-row"><input id="auRedirect" type="text" readonly /><button type="button" class="btn ghost" id="auCopyRedirect">Copy</button></div>
             <div class="field-row">
               <div class="field"><label>Button label</label><input id="auProvider" type="text" maxlength="40" placeholder="Authentik" /></div>
               <div class="field" style="flex:2"><label>Issuer URL</label><input id="auIssuer" type="url" spellcheck="false" placeholder="https://auth.example.com/application/o/kandeck/" /></div>
@@ -302,6 +295,7 @@
               <button type="button" class="btn ghost" id="auLink">Link my account</button>
               <button type="button" class="btn ghost" id="auUnlink" hidden>Unlink</button>
               <span class="ai-test-status" id="auTestStatus"></span>
+            </div>
             </div>
 
             <div class="ai-test-row" style="margin-top:18px">

@@ -910,6 +910,8 @@
     let data = { passkeys: [], currentHost: location.hostname };
     try { data = await api('/account/passkeys'); } catch {}
     $('#pkEmpty').hidden = data.passkeys.length > 0;
+    $('#pkHost').textContent = data.currentHost;
+    if (auView) { auView.passkeyCount = data.passkeys.length; auSummary(); }
     data.passkeys.forEach((p) => {
       const li = document.createElement('li');
       const here = p.rpID === data.currentHost;
@@ -937,9 +939,8 @@
     const st = $('#pkStatus'); const btn = $('#pkAdd');
     btn.disabled = true; st.textContent = 'Follow the prompt from 1Password / your browser…'; st.className = 'ai-test-status';
     try {
-      const r = await window.KanDeckPasskeys.register($('#pkName').value.trim());
-      st.textContent = `✓ Passkey “${r.passkey.name}” added for ${r.passkey.rpID}`; st.className = 'ai-test-status ok';
-      $('#pkName').value = '';
+      const r = await window.KanDeckPasskeys.register('');
+      st.textContent = `✓ Passkey added for ${r.passkey.rpID}`; st.className = 'ai-test-status ok';
       loadPasskeys();
     } catch (e) {
       const cancelled = e && (e.name === 'NotAllowedError' || e.name === 'AbortError');
@@ -956,8 +957,6 @@
     const o = v.oauth;
     $('#auMode').value = v.mode;
     $('#auPasskeys').checked = v.passkeysEnabled;
-    $('#auRpName').value = v.rpName === 'KanDeck' ? '' : v.rpName;
-    $('#auRpId').value = v.rpId || '';
     $('#auRedirect').value = v.redirectUri;
     $('#auOauth').checked = o.enabled;
     $('#auProvider').value = o.providerName === 'OAuth' ? '' : o.providerName;
@@ -974,6 +973,7 @@
       : (o.linkedSub ? '⚠️ The linked account belongs to a different provider. Link again.' : 'Not linked yet.');
     $('#auUnlink').hidden = !o.linkedSub;
     auSummary();
+    auSections();
   }
   function auSummary() {
     const mode = $('#auMode').value;
@@ -985,6 +985,12 @@
     $('#auSummary').textContent = 'Sign-in page will offer: ' + (on.join(' · ') || 'nothing (not allowed)');
   }
   ['#auMode', '#auPasskeys', '#auOauth', '#auProvider'].forEach((s) => $(s).addEventListener('input', auSummary));
+  // Each method's settings only show while its slider is on.
+  function auSections() {
+    $('#auPkBody').hidden = !$('#auPasskeys').checked;
+    $('#auOauthBody').hidden = !$('#auOauth').checked;
+  }
+  ['#auPasskeys', '#auOauth'].forEach((s) => $(s).addEventListener('change', auSections));
   async function loadSignIn() {
     auStatus('#auStatus', ''); auStatus('#auTestStatus', '');
     try { renderSignIn(await accountCall('/auth-settings', 'GET')); } catch (e) { auStatus('#auStatus', '✗ ' + e.message, false); }
@@ -993,8 +999,6 @@
     return {
       mode: $('#auMode').value,
       passkeysEnabled: $('#auPasskeys').checked,
-      rpName: $('#auRpName').value.trim(),
-      rpId: $('#auRpId').value.trim(),
       oauth: {
         enabled: $('#auOauth').checked,
         providerName: $('#auProvider').value.trim(),

@@ -15,7 +15,6 @@ import {
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
 import { getAppConfig, getPasskeys, updatePasskeys, getWebauthnUserId } from '../auth.js';
-import { getAuthSettings } from './auth-settings.js';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const MAX_PASSKEYS = 20;
@@ -51,18 +50,11 @@ function browserOrigin(req) {
   return { host: u.hostname, origin: u.origin };
 }
 
-/** The RP ID for a hostname: the configured RP ID (Sign-in settings) when the
- *  host is that domain or a subdomain of it, otherwise the hostname itself. */
-export function rpIdForHost(host, settings) {
-  const h = String(host || '').toLowerCase();
-  const o = (settings && settings.rpId) || '';
-  return o && (h === o || h.endsWith('.' + o)) ? o : h;
-}
-
+/** The relying party is always the address in use (localhost or the current
+ *  hostname), so each address has its own passkeys. */
 export async function relyingParty(req) {
   const { host, origin } = browserOrigin(req);
-  const a = await getAuthSettings();
-  return { rpID: rpIdForHost(host, a), origin, rpName: a.rpName || 'KanDeck' };
+  return { rpID: String(host).toLowerCase(), origin, rpName: 'KanDeck' };
 }
 
 const toB64 = (buf) => Buffer.from(buf).toString('base64url');

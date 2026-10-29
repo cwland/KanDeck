@@ -277,8 +277,9 @@ KanDeck has one account, and you can sign in to it three ways: **password**,
 | Passkeys only (`PASSKEYS_ONLY`) | – | ✓ | – |
 | OAuth only (`OAUTH_ONLY`) | – | – | ✓ |
 
-Passkeys also need **Allow passkeys** on and at least one passkey for that
-address; OAuth also needs **Enable OAuth sign-in** on. Methods that are off
+Each method has its own slider on the Sign-in tab, and its settings only show
+while the slider is on. Passkeys also need at least one passkey for that
+address; OAuth also needs its slider on and the provider filled in. Methods that are off
 are hidden on the sign-in page **and** refused by the server. KanDeck refuses
 to save a mode that leaves you no proven way in (e.g. *OAuth only* before
 you've linked your account, or *Passkeys only* with no passkeys).
@@ -286,7 +287,8 @@ you've linked your account, or *Passkeys only* with no passkeys).
 ### Setting up OAuth (example: Authentik)
 
 1. In Authentik create an **OAuth2/OpenID Provider** + Application (confidential
-   client). Copy the **redirect URI** shown on KanDeck's Sign-in tab into it
+   client). Turn on the **OAuth / OpenID Connect** slider on KanDeck's Sign-in
+   tab and copy the **callback (redirect) URL** shown there into it
    (`https://<your-kandeck>/api/auth/oauth/callback`). Add one per address you
    use KanDeck on.
 2. In KanDeck → **Sign-in**: enter the **Issuer URL** (Authentik: the
@@ -297,7 +299,7 @@ you've linked your account, or *Passkeys only* with no passkeys).
    account (its subject ID) can now sign in to KanDeck. Optionally list
    **Allowed emails** too; they work only when the provider marks the email
    as verified.
-4. Turn on **Enable OAuth sign-in**, pick a mode, and **Save sign-in settings**.
+4. Pick a mode and click **Save sign-in settings**.
 
 Providers without a discovery document (plain OAuth2) can be set up under
 **Advanced** with explicit authorization, token, userinfo and JWKS URLs. The flow
@@ -305,10 +307,9 @@ uses the authorization-code grant with PKCE, a `state` bound to the browser
 and a `nonce`, and verifies the ID token's signature, issuer, audience and
 expiry. The client secret is encrypted at rest.
 
-**Passkey options:** the *name shown in the passkey prompt* (RP name) and an
-optional *passkey domain* (RP ID). Leave the domain blank so each address has
-its own passkeys, or set e.g. `example.com` to use one passkey on all its
-subdomains.
+**Passkeys** have no settings: with the **Passkeys** slider on, the Sign-in tab
+lists your passkeys and has an **＋ Add a passkey** button. A passkey belongs to
+the address you add it from (`localhost` or the current hostname).
 
 ### Emergency reset (lockout)
 
@@ -332,7 +333,7 @@ Forgot the password as well? Follow it with `npm run reset-password -- <username
 Everything lives in `data/config.json`: the account (`username`,
 `passwordHash`), `passkeys` (credential ID, public key, counter, transports,
 hostname, name, dates) and `auth`: `mode` (*auth_mode*), `passkeysEnabled`,
-`rpName`, `rpId` and `oauth` (`enabled`, `providerName`, `issuer`, `clientId`,
+and `oauth` (`enabled`, `providerName`, `issuer`, `clientId`,
 encrypted `clientSecret`, `scopes`, endpoints, `allowedEmails`, and the linked
 subject and email).
 
@@ -359,13 +360,14 @@ subject and email).
   and act immediately).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
-  every other browser. It also manages **Passkeys** (see below).
+  every other browser.
 - **Board Settings** (⚙️, board area) has tabs: **General** (name, description,
   what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
   tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
   footer has **Archive board**.
-- **Passkeys**: in **App Settings → Account → Passkeys**, give it an optional
-  name and click **＋ Add a passkey**; 1Password (or your browser) saves it.
+- **Passkeys**: in **App Settings → Sign-in**, turn on the **Passkeys** slider
+  and click **＋ Add a passkey**; 1Password (or your browser) saves it. Rename
+  or remove passkeys in the same list.
   From then on the sign-in page asks your password manager for the passkey as
   soon as you click into the username box — no button needed — and also shows
   a **🔑 Sign in with passkey** button. The button only appears once a passkey
@@ -626,7 +628,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.11.1 && git push origin v2.11.1
+git tag v2.11.2 && git push origin v2.11.2
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

@@ -7,7 +7,8 @@
  *   oauth.enabled   ← oauth_enabled
  *   oauth.providerName ← oauth_provider_name ("Sign in with <name>")
  *   passkeysEnabled ← passkeys_enabled
- *   rpId / rpName   ← rp_id / rp_name (WebAuthn relying party)
+ *   (rp_id is always the address in use — localhost or the current hostname —
+ *    and rp_name is "KanDeck"; see services/passkeys.js.)
  * The OAuth client secret is encrypted at rest (services/secrets.js).
  */
 import config from '../config.js';
@@ -22,8 +23,6 @@ export function normalize(a) {
   return {
     mode: AUTH_MODES.includes(a.mode) ? a.mode : 'ALL_ENABLED',
     passkeysEnabled: a.passkeysEnabled !== false,
-    rpName: str(a.rpName, 60) || 'KanDeck',
-    rpId: str(a.rpId, 253).toLowerCase(),
     oauth: {
       enabled: !!o.enabled,
       providerName: str(o.providerName, 40) || 'OAuth',
@@ -101,7 +100,7 @@ export function lockoutProblem(a, passkeyCount) {
   if (e.passkey && passkeyCount > 0) return null;
   if (e.oauth && oauthLinked(a.oauth)) return null;
   return 'That would lock you out: with password sign-in off you need a working alternative. '
-    + 'Add a passkey (Account tab) or link your OAuth account (Link my account), and make sure the chosen mode includes it.';
+    + 'Add a passkey or link your OAuth account (Link my account), and make sure the chosen mode includes it.';
 }
 
 /** Browser-safe view (no secret). */
