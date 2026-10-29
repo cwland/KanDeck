@@ -69,6 +69,8 @@ board.
   and card-moved Discord pings.
 - **Backups** — manual and automatic (daily / weekly / monthly with retention);
   a full snapshot of boards, the Inbox **and** settings, with one-click restore.
+- **Passkeys** — sign in with 1Password, iCloud Keychain or a security key;
+  the password manager offers it as soon as you click into the login form.
 - **Security** — single username + password login (bcrypt), revocable JWT
   cookie sessions, spoof-proof login rate-limiting, a locked first-run setup,
   security headers (CSP, anti-framing, HSTS), API-key auth, and secrets
@@ -92,7 +94,7 @@ The same board in a dark theme (light and dark presets share an accent, so the
 <table>
   <tr>
     <td width="50%"><img src="docs/img/card-modal.png" alt="Card detail modal"><br><sub>Card details — description (Markdown), category, due date, and tags.</sub></td>
-    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Categories, Lane colors, Notifications, API, and Backups.</sub></td>
+    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Account, Notifications, API, Calendar, Backups and Archives.</sub></td>
   </tr>
 </table>
 
@@ -100,7 +102,7 @@ The same board in a dark theme (light and dark presets share an accent, so the
 
 ## Quick start (local)
 
-Requires **Node.js ≥ 18**.
+Requires **Node.js ≥ 20**.
 
 ```bash
 git clone https://github.com/cwland/KanDeck.git
@@ -205,9 +207,10 @@ apps can reach your `.ics` feeds), but check these first:
 5. **Optional extra layer:** with Cloudflare, put **Cloudflare Access** in front
    of the app and add a *bypass* rule for `/ics/*` (so calendars can fetch
    feeds) and a service token for `/api/*` (n8n / scripts). Add a rate-limit
-   rule for `/api/auth/login` too.
+   rule for `/api/auth/login` and `/api/auth/passkey/*` too.
 
-What KanDeck does on its own: bcrypt-hashed password, `httpOnly` + `SameSite`
+What KanDeck does on its own: bcrypt-hashed password, optional passkeys
+(WebAuthn, bound to each hostname, same login throttle), `httpOnly` + `SameSite`
 session cookies that can be revoked (**Log out all sessions**, password
 change), a first-run setup that strangers can't claim (local network or
 `SETUP_TOKEN` only), security headers on every response (CSP, `X-Frame-Options`,
@@ -263,17 +266,26 @@ first-run setup, which only works from your local network (or with
   the original Gmail message (opens in a new tab). Click it to open, ✏️ to edit;
   cards show a small clickable ✉️ (address) or 🔗 (link) too.
 - **App Settings** (⚙️, top-right) has a section menu down the left: Theme,
-  Account, Categories, Lane colors, Notifications, API, Calendar, Backups,
-  Archives. A single **Save**
+  Account, Notifications, API, Calendar, Backups, Archives. A single **Save**
   applies everything (the Account, API, Calendar and Archives tabs act
   immediately).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
-  every other browser.
+  every other browser. It also manages **Passkeys** (see below).
 - **Board Settings** (⚙️, board area) has tabs: **General** (name, description,
-  what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
-  tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
-  footer has **Archive board**.
+  what shows on cards), **Lanes** (lanes + auto-archive), **Lane colors** and
+  **Categories** (priority + badge colors — shared by *all* boards), **Routing**
+  (routing tags), **Calendar** (the board's feed) and **Archived** (archived
+  cards). The footer has **Archive board**.
+- **Passkeys**: in **App Settings → Account → Passkeys**, give it an optional
+  name and click **＋ Add a passkey**; 1Password (or your browser) saves it.
+  From then on the sign-in page asks your password manager for the passkey as
+  soon as you click into the username box — no button needed — and also shows
+  a **🔑 Sign in with passkey** button. The button only appears once a passkey
+  exists for that address. A passkey is tied to the hostname it was made on, so
+  add one on each address you use (e.g. `kandeck.lan` *and*
+  `kandeck.example.com`). Passkeys need HTTPS (or `localhost`). Resetting the
+  login with `reset-login` also removes all passkeys.
 - **Inbox**: open or close it with the tab on the left edge of the board (it
   shows how many items are waiting). Items arriving via the API land here for triage — drag them onto a
   board or use the card's **⋮** menu to send it to a board's first column.
@@ -525,7 +537,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.9.1 && git push origin v2.9.1
+git tag v2.10.0 && git push origin v2.10.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

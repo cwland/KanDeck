@@ -19,6 +19,7 @@ import {
   MIN_PASSWORD,
 } from '../auth.js';
 import config from '../config.js';
+import * as passkeys from '../services/passkeys.js';
 
 const router = Router();
 
@@ -80,10 +81,13 @@ router.get('/status', async (req, res) => {
   const passwordSet = await isPasswordSet();
   const usernameSet = !!(await getUsername());
   const loggedIn = await validCookie(req);
+  // Passkeys usable on THIS hostname (the page passes location.hostname).
+  const rpHost = String(req.query.host || '').toLowerCase().replace(/[^a-z0-9.\-]/g, '') || passkeys.relyingParty(req).rpID;
   res.json({
     passwordSet,
     usernameSet,
     loggedIn,
+    passkeys: passwordSet && usernameSet ? await passkeys.countFor(rpHost) : 0,
     minPassword: MIN_PASSWORD,
     setupTokenRequired: !passwordSet && !!config.setupToken,
     setupBlocked: !passwordSet && !config.setupToken && !isDirectLocal(req),
@@ -139,6 +143,30 @@ router.post('/username', requireSessionApi, async (req, res) => {
   }
 });
 
+// ---- Passkey sign-in (no username needed; discoverable credentials) ----------
+router.post('/passkey/options', async (req, res) => {
+  try {
+    if (!(await isPasswordSet())) return res.status(409).json({ error: 'No account set up' });
+    res.json(await passkeys.authenticationOptions(req));
+  } catch (err) {
+    res.status(400).json({ error: 'Could not start passkey sign-in' });
+  }
+});
+
+router.post('/passkey/verify', async (req, res) => {
+  const ip = req.ip || 'unknown';
+  if (throttled(ip)) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
+  let ok = false;
+  try { ok = await passkeys.verifyAuthentication(req, req.body?.response); } catch { ok = false; }
+  if (!ok) {
+    recordFail(ip);
+    return res.status(401).json({ error: 'That passkey wasn’t accepted. Try again, or use your password.' });
+  }
+  attempts.delete(ip);
+  setSessionCookie(res, await issueToken());
+  res.json({ ok: true });
+});
+
 router.post('/logout', (req, res) => {
   clearSessionCookie(res);
   res.json({ ok: true });
@@ -174,6 +202,33 @@ accountRouter.put('/password', async (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// Passkeys (Account tab)
+accountRouter.get('/passkeys', async (req, res) => {
+  res.json({ passkeys: await passkeys.listPasskeys(), currentHost: passkeys.relyingParty(req).rpID });
+});
+
+accountRouter.post('/passkeys/options', async (req, res) => {
+  try { res.json(await passkeys.registrationOptions(req)); }
+  catch (err) { res.status(400).json({ error: err.message || 'Could not start adding a passkey' }); }
+});
+
+accountRouter.post('/passkeys/verify', async (req, res) => {
+  try { res.json({ ok: true, passkey: await passkeys.verifyRegistration(req, req.body?.response, req.body?.name) }); }
+  catch (err) { res.status(400).json({ error: 'Passkey could not be added: ' + (err.message || 'verification failed') }); }
+});
+
+accountRouter.patch('/passkeys/:id', async (req, res) => {
+  try {
+    if (!(await passkeys.renamePasskey(req.params.id, req.body?.name))) return res.status(404).json({ error: 'Passkey not found' });
+    res.json({ ok: true });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+accountRouter.delete('/passkeys/:id', async (req, res) => {
+  if (!(await passkeys.removePasskey(req.params.id))) return res.status(404).json({ error: 'Passkey not found' });
+  res.json({ ok: true });
 });
 
 accountRouter.post('/logout-all', async (req, res) => {

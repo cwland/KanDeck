@@ -85,15 +85,49 @@ export async function verifyLogin(username, password) {
   return { ok: pwOk && userOk };
 }
 
-// Clear the account so the app returns to first-run setup. Other config fields
-// (e.g. the API key) are preserved. Bumps sessionVersion.
+// Clear the account so the app returns to first-run setup (passkeys too).
+// Other config fields (e.g. the API key) are preserved. Bumps sessionVersion.
 export async function clearCredentials() {
   await updateJson(
     config.configFile,
-    (c) => ({ ...(c || {}), username: null, passwordHash: null, createdAt: null, sessionVersion: ((c && c.sessionVersion) || 1) + 1 }),
+    (c) => ({ ...(c || {}), username: null, passwordHash: null, createdAt: null, passkeys: [], sessionVersion: ((c && c.sessionVersion) || 1) + 1 }),
     {}
   );
   return true;
+}
+
+// ---- Passkeys (WebAuthn) — stored in config.json --------------------------------
+// Each: { id, publicKey (base64url COSE key), counter, transports, rpID,
+//         name, createdAt, lastUsedAt, backedUp }
+
+export async function getPasskeys() {
+  const c = await getAppConfig();
+  return Array.isArray(c && c.passkeys) ? c.passkeys : [];
+}
+
+/** Atomically edit the passkey list: fn(list) returns the new list. */
+export async function updatePasskeys(fn) {
+  let out;
+  await updateJson(config.configFile, (c) => {
+    c = { ...(c || {}) };
+    out = fn(Array.isArray(c.passkeys) ? [...c.passkeys] : []);
+    c.passkeys = out;
+    return c;
+  }, {});
+  return out;
+}
+
+/** Stable, random WebAuthn user handle for the single account (created once). */
+export async function getWebauthnUserId() {
+  let id = (await getAppConfig()).webauthnUserId;
+  if (id) return id;
+  await updateJson(config.configFile, (c) => {
+    c = { ...(c || {}) };
+    if (!c.webauthnUserId) c.webauthnUserId = crypto.randomBytes(16).toString('base64url');
+    id = c.webauthnUserId;
+    return c;
+  }, {});
+  return id;
 }
 
 /** Invalidate every existing session (all browsers). */

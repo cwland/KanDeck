@@ -4,6 +4,13 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.10.0 — 2026-10-29
+
+- **Passkeys** — add one or more passkeys under **App Settings → Account** (1Password, iCloud Keychain, a security key …). Once one exists, the sign-in page offers it as soon as you click into the username box (1Password pops up on its own), and a **🔑 Sign in with passkey** button appears. With no passkeys the button stays hidden and nothing changes.
+- A passkey works only on the address it was created on, so add one for each KanDeck address you use (e.g. internal and external). Passkeys can be renamed or removed, and need HTTPS.
+- **Categories** and **Lane colors** moved from App Settings into **Board settings** (new tabs). They're still shared by every board and save with Board settings' **Save** button.
+- KanDeck now needs **Node 20** or newer when run outside Docker (the Docker image already uses it).
+
 ## 2.9.1 — 2026-10-27
 
 - Cards whose Email field holds a **link** now show a small **🔗** next to the priority, date and alarm (click to open it in a new tab). Email addresses keep the ✉️.

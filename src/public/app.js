@@ -660,6 +660,7 @@
     loadArchive();
     renderIcs(b.ics);
     openRouteTags(b);
+    renderPriorityEditor(); renderBadgeEditor(); renderLaneColorsEditor();
     setBoardTab('general');
     boardModal.hidden = false;
   }
@@ -897,7 +898,59 @@
 
   // ---- Account tab (username / password / sessions) — live actions ----
   function acStatus(id, text, ok) { const s = $(id); s.textContent = text; s.className = 'ai-test-status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); }
+  // ---- Passkeys (Account tab) ----
+  async function loadPasskeys() {
+    const ul = $('#pkList'); ul.innerHTML = '';
+    const P = window.KanDeckPasskeys;
+    const st = $('#pkStatus');
+    if (!P || !P.supported()) {
+      $('#pkAdd').disabled = true;
+      st.textContent = window.isSecureContext ? 'This browser doesn’t support passkeys.' : 'Passkeys need HTTPS — open KanDeck through its https:// address.';
+      st.className = 'ai-test-status';
+    }
+    let data = { passkeys: [], currentHost: location.hostname };
+    try { data = await api('/account/passkeys'); } catch {}
+    $('#pkEmpty').hidden = data.passkeys.length > 0;
+    data.passkeys.forEach((p) => {
+      const li = document.createElement('li');
+      const here = p.rpID === data.currentHost;
+      const used = p.lastUsedAt ? 'last used ' + new Date(p.lastUsedAt).toLocaleDateString() : 'not used yet';
+      li.innerHTML =
+        `<div class="pk-main"><b class="pk-name">${esc(p.name)}</b>` +
+        `<span class="pk-meta">${esc(p.rpID)}${here ? ' · this address' : ''} · added ${esc(new Date(p.createdAt).toLocaleDateString())} · ${esc(used)}</span></div>`;
+      const ren = document.createElement('button'); ren.type = 'button'; ren.className = 'mini-btn'; ren.textContent = 'Rename';
+      ren.onclick = async () => {
+        const n = prompt('Passkey name:', p.name); if (n === null || !n.trim()) return;
+        try { await api('/account/passkeys/' + encodeURIComponent(p.id), { method: 'PATCH', body: { name: n.trim() } }); loadPasskeys(); }
+        catch (e) { toast('Rename failed: ' + e.message); }
+      };
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'mini-btn danger'; del.textContent = 'Remove';
+      del.onclick = async () => {
+        if (!confirm(`Remove the passkey “${p.name}”?\n\nYou won’t be able to sign in with it any more. Also delete it from 1Password or your keychain so it isn’t offered.`)) return;
+        try { await api('/account/passkeys/' + encodeURIComponent(p.id), { method: 'DELETE' }); toast('Passkey removed'); loadPasskeys(); }
+        catch (e) { toast('Remove failed: ' + e.message); }
+      };
+      const act = document.createElement('span'); act.className = 'ab-actions'; act.append(ren, del);
+      li.appendChild(act); ul.appendChild(li);
+    });
+  }
+  $('#pkAdd').onclick = async () => {
+    const st = $('#pkStatus'); const btn = $('#pkAdd');
+    btn.disabled = true; st.textContent = 'Follow the prompt from 1Password / your browser…'; st.className = 'ai-test-status';
+    try {
+      const r = await window.KanDeckPasskeys.register($('#pkName').value.trim());
+      st.textContent = `✓ Passkey “${r.passkey.name}” added for ${r.passkey.rpID}`; st.className = 'ai-test-status ok';
+      $('#pkName').value = '';
+      loadPasskeys();
+    } catch (e) {
+      const cancelled = e && (e.name === 'NotAllowedError' || e.name === 'AbortError');
+      st.textContent = cancelled ? 'Cancelled.' : '✗ ' + (e.name === 'InvalidStateError' ? 'That authenticator already has a passkey for this address.' : (e.message || 'Could not add passkey'));
+      st.className = cancelled ? 'ai-test-status' : 'ai-test-status err';
+    } finally { btn.disabled = !(window.KanDeckPasskeys && window.KanDeckPasskeys.supported()); }
+  };
+
   async function loadAccount() {
+    loadPasskeys();
     ['#acUserPw', '#acCurPw', '#acNewPw', '#acNewPw2'].forEach((id) => ($(id).value = ''));
     acStatus('#acUserStatus', ''); acStatus('#acPwStatus', '');
     try {
@@ -1104,6 +1157,15 @@
   $('#bmSave').onclick = async () => {
     const name = $('#bmName').value.trim();
     if (!name) { setBoardTab('general'); toast('Board title is required'); $('#bmName').focus(); return; }
+    // Shared categories / badge colors / lane palette (all boards).
+    const look = collectSharedLook();
+    if (look.priorities.filter((p) => p.id !== 'none').length === 0) { setBoardTab('categories'); toast('Add at least one category before saving.'); return; }
+    if (look.laneColors.length === 0) { setBoardTab('lanecolors'); toast('Add at least one lane color before saving.'); return; }
+    try {
+      const s = await api('/settings', { method: 'PUT', body: look });
+      state.settings = { ...(state.settings || {}), ...s };
+      state.priorities = s.priorities; state.laneColors = s.laneColors; if (s.badges) state.badges = s.badges;
+    } catch (e) { toast('Categories / colors not saved: ' + (e.message || 'error')); return; }
     // A tag typed but not yet added gets added (and saved) too.
     if ($('#bmTagInput').value.trim() && !(await addRouteTags())) return;
     try {
@@ -1186,9 +1248,6 @@
     clearAppDirty();
     setAppTab('theme');
     renderThemeGrid();
-    renderPriorityEditor();
-    renderBadgeEditor();
-    renderLaneColorsEditor();
     loadApiKey();
     loadAccount();
     loadGlobalIcs();
@@ -1437,11 +1496,11 @@
     const d = document.createElement('div'); d.className = 'lane-color-chip';
     const input = document.createElement('input'); input.type = 'color'; input.value = c || '#4dabf7';
     const del = document.createElement('button'); del.type = 'button'; del.className = 'lc-del'; del.textContent = '✕'; del.title = 'Remove';
-    del.onclick = () => { d.remove(); markAppDirty(); };
+    del.onclick = () => { d.remove(); };
     d.append(input, del);
     return d;
   }
-  $('#addLaneColorBtn').onclick = () => { $('#laneColorsEditor').appendChild(laneColorChip('#4dabf7')); markAppDirty(); };
+  $('#addLaneColorBtn').onclick = () => { $('#laneColorsEditor').appendChild(laneColorChip('#4dabf7')); };
   function renderPriorityEditor() {
     const ul = $('#priorityEditor'); ul.innerHTML = '';
     state.priorities.forEach((p) => ul.appendChild(priorityRow(p)));
@@ -1491,7 +1550,7 @@
     const preview = document.createElement('span'); preview.className = 'pr-preview';
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'pr-del'; del.textContent = '🗑'; del.title = 'Remove';
-    del.onclick = () => { li.remove(); markAppDirty(); };
+    del.onclick = () => { li.remove(); };
     const refresh = () => {
       preview.textContent = name.value.trim() || 'Preview';
       preview.style.background = bg.querySelector('input').value;
@@ -1504,7 +1563,6 @@
   }
   $('#addPriorityBtn').onclick = () => {
     $('#priorityEditor').appendChild(priorityRow({ id: '', name: '', color: '#a5d8ff', textColor: '#111827' }));
-    markAppDirty();
   };
   function dismissAppModal() {
     applyTheme(state.themeId); clearAppDirty(); appModal.hidden = true;
@@ -1518,7 +1576,9 @@
   $('#appSettingsBtn').onclick = openAppModal;
   // Both the ✕ and Cancel behave the same: prompt if there are unsaved changes.
   $('#appCancel').onclick = guardedCloseAppModal;
-  $('#appSave').onclick = async () => {
+  // Categories, badge colors and the lane-color palette are shared by all
+  // boards but edited in Board settings (Categories / Lane colors tabs).
+  function collectSharedLook() {
     const priorities = $$('#priorityEditor .priority-row').map((r) => {
       if (r.querySelector('.pr-none')) return { id: 'none', name: 'None', color: null, textColor: null };
       return {
@@ -1529,25 +1589,17 @@
       };
     }).filter((p) => p.name);
     const laneColors = $$('#laneColorsEditor input[type=color]').map((i) => i.value);
-
-    // Guardrails: never let the app be saved with no categories or no lane
-    // colors — the board relies on at least one of each.
-    if (priorities.filter((p) => p.id !== 'none').length === 0) {
-      showAppError('Add at least one category before saving.', 'categories'); return;
-    }
-    if (laneColors.length === 0) {
-      showAppError('Add at least one lane color before saving.', 'lanes'); return;
-    }
-
     const bd = (key) => ({
       color: $(`#badgeEditor [data-badge="${key}"] .bd-color`).value,
       textColor: $(`#badgeEditor [data-badge="${key}"] .bd-text`).value,
     });
-    const badges = { due: bd('due'), tag: bd('tag'), source: bd('source') };
+    return { priorities, laneColors, badges: { due: bd('due'), tag: bd('tag'), source: bd('source') } };
+  }
+  $('#appSave').onclick = async () => {
     const saveBtn = $('#appSave');
     saveBtn.disabled = true;
     try {
-      const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme, priorities, laneColors, badges } });
+      const s = await api('/settings', { method: 'PUT', body: { theme: pendingTheme } });
       state.settings = s;
       // Auto-backup config (main Save, no separate button).
       try {

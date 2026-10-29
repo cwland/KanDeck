@@ -31,6 +31,9 @@
         background: #6366f1; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
       }
       button:hover { background: #4f46e5; }
+      button.passkey-btn { margin-top: 10px; background: #fff; color: #4f46e5; border: 1.5px solid #c7d2fe; }
+      button.passkey-btn:hover { background: #eef2ff; }
+      button.passkey-btn[hidden] { display: none; }
       .msg { margin-top: 14px; font-size: .85rem; min-height: 1.2em; }
       .msg.err { color: #dc2626; }
       details.hint {
@@ -73,6 +76,7 @@
         <input id="setupToken" type="password" autocomplete="off" />
       </div>
       <button id="submit" type="submit">Sign in</button>
+      <button type="button" id="passkeyBtn" class="passkey-btn" hidden>🔑 Sign in with passkey</button>
       <div class="msg" id="msg"></div>
       <details class="hint" id="forgot" hidden>
         <summary>Forgot your login?</summary>
@@ -83,6 +87,7 @@
       </details>
       <div class="ver" id="ver"></div>
     </form>
+    <script src="/webauthn.js"></script>
     <script>
       // Modes: login · setup (first run) · username (pre-2.0 install, pick one) · blocked
       let mode = 'login';
@@ -116,7 +121,7 @@
         }
       }
       async function detect() {
-        const st = await (await fetch('/api/auth/status')).json();
+        const st = await (await fetch('/api/auth/status?host=' + encodeURIComponent(location.hostname))).json();
         if (st.version) el('ver').textContent = 'KanDeck v' + st.version;
         if (st.minPassword) minPw = st.minPassword;
         const wantUsername = new URLSearchParams(location.search).get('step') === 'username';
@@ -125,6 +130,7 @@
         else if (st.loggedIn && wantUsername) location.href = '/';
         else setMode('login', st);
         if (mode === 'login') (el('userWrap').style.display === 'none' ? el('password') : el('username')).focus();
+        return st;
       }
       async function post(url, body) {
         const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -153,7 +159,33 @@
           if (mode === 'login') { const f = el('forgot'); f.hidden = false; }
         }
       });
-      detect();
+      // ---- Passkeys: only offered once one has been added (Account tab). ----
+      // The username box is marked for passkey autofill and a "conditional"
+      // request starts right away, so 1Password / the browser offers the
+      // passkey as soon as the box is focused — no button press needed.
+      let passkeyAbort = null;
+      async function setupPasskeys(st) {
+        const P = window.KanDeckPasskeys;
+        if (mode !== 'login' || !st.passkeys || !P || !P.supported()) return;
+        el('passkeyBtn').hidden = false;
+        el('username').setAttribute('autocomplete', 'username webauthn');
+        if (await P.conditionalAvailable()) {
+          passkeyAbort = new AbortController();
+          P.signIn({ mode: 'conditional', signal: passkeyAbort.signal })
+            .then(() => { window.location.href = '/'; })
+            .catch((e) => { if (e && e.name !== 'AbortError' && e.name !== 'NotAllowedError') showErr(e.message); });
+          // Re-focus so the password manager sees the pending passkey request.
+          const u = el('username'); u.blur(); setTimeout(() => u.focus(), 50);
+        }
+      }
+      function showErr(t) { const m = el('msg'); m.textContent = t; m.className = 'msg err'; }
+      el('passkeyBtn').onclick = async () => {
+        if (passkeyAbort) { passkeyAbort.abort(); passkeyAbort = null; }
+        el('msg').textContent = '';
+        try { await window.KanDeckPasskeys.signIn({ mode: 'modal' }); window.location.href = '/'; }
+        catch (e) { if (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError') showErr(e.message || 'Passkey sign-in failed'); }
+      };
+      detect().then((st) => setupPasskeys(st || {}));
     </script>
   </body>
 </html>

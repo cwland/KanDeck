@@ -173,8 +173,6 @@
         <nav class="modal-tabs" id="appTabs" aria-label="Settings sections">
           <button type="button" class="modal-tab active" data-tab="theme"><span class="mt-ico" aria-hidden="true">🎨</span>Theme</button>
           <button type="button" class="modal-tab" data-tab="account"><span class="mt-ico" aria-hidden="true">👤</span>Account</button>
-          <button type="button" class="modal-tab" data-tab="categories"><span class="mt-ico" aria-hidden="true">🏷️</span>Categories</button>
-          <button type="button" class="modal-tab" data-tab="lanes"><span class="mt-ico" aria-hidden="true">🌈</span>Lane colors</button>
           <button type="button" class="modal-tab" data-tab="notify"><span class="mt-ico" aria-hidden="true">🔔</span>Notifications</button>
           <button type="button" class="modal-tab" data-tab="api"><span class="mt-ico" aria-hidden="true">🔑</span>API</button>
           <button type="button" class="modal-tab" data-tab="calendar"><span class="mt-ico" aria-hidden="true">📅</span>Calendar</button>
@@ -216,27 +214,21 @@
             </div>
             <p class="hint">Changing your password signs out every other browser.</p>
 
+            <label style="margin-top:18px">Passkeys</label>
+            <p class="hint">Sign in with a passkey from 1Password, iCloud Keychain or a security key instead of typing your password. Once you've added one, the sign-in page offers it as soon as you click into the username box. A passkey only works on the address it was created on, so add one for each address you use, e.g. your internal and external KanDeck URLs.</p>
+            <ul class="pk-list" id="pkList"></ul>
+            <p class="hint" id="pkEmpty">No passkeys yet.</p>
+            <div class="field-row pk-add">
+              <div class="field" style="flex:2"><label>Name <small>(optional)</small></label><input id="pkName" type="text" maxlength="60" autocomplete="off" placeholder="e.g. 1Password" /></div>
+              <div class="field pk-add-btn"><button type="button" class="btn primary" id="pkAdd">＋ Add a passkey</button></div>
+            </div>
+            <div class="ai-test-row"><span class="ai-test-status" id="pkStatus"></span></div>
+
             <label style="margin-top:18px">Sessions</label>
             <div class="ai-test-row">
               <button type="button" class="btn ghost" id="acLogoutAll">Log out all sessions</button>
             </div>
             <p class="hint">Signs out every browser, including this one. Use it if you signed in somewhere you no longer trust. Calendar feeds and the API key are not affected.</p>
-          </section>
-
-          <section class="tab-panel" data-tab="categories">
-            <p class="hint">Categories apply across all boards and show as a colored badge on cards.</p>
-            <ul class="priority-editor" id="priorityEditor"></ul>
-            <button type="button" class="btn ghost" id="addPriorityBtn">＋ Add category</button>
-
-            <label style="margin-top:18px">Badge colors</label>
-            <p class="hint">Default colors for the due-date and tag badges shown on cards.</p>
-            <ul class="priority-editor" id="badgeEditor"></ul>
-          </section>
-
-          <section class="tab-panel" data-tab="lanes">
-            <p class="hint">The palette of colors a lane can use. Pick a lane's color per board in Board settings.</p>
-            <div class="lane-colors-editor" id="laneColorsEditor"></div>
-            <button type="button" class="btn ghost" id="addLaneColorBtn">＋ Add color</button>
           </section>
 
           <section class="tab-panel" data-tab="notify">
@@ -479,6 +471,8 @@
         <nav class="modal-tabs" id="boardTabs" aria-label="Board settings sections">
           <button type="button" class="modal-tab active" data-btab="general">General</button>
           <button type="button" class="modal-tab" data-btab="lanes">Lanes</button>
+          <button type="button" class="modal-tab" data-btab="lanecolors">Lane colors</button>
+          <button type="button" class="modal-tab" data-btab="categories">Categories</button>
           <button type="button" class="modal-tab" data-btab="routing">Routing</button>
           <button type="button" class="modal-tab" data-btab="calendar">Calendar</button>
           <button type="button" class="modal-tab" data-btab="archived">Archived <b class="bt-count" id="archivedCount" hidden></b></button>
@@ -519,6 +513,22 @@
               <input id="bmAutoArchive" type="number" min="0" step="1" />
               <p class="hint">Tasks in the done lane (the last lane) are archived this many days after their completed date. They keep their completed date and stay in the done lane — click the archive-box icon in the lane's title row to show or hide them, or open one and click <b>Unarchive</b>. Archived tasks are also listed on the <b>Archived</b> tab.</p>
             </div>
+          </section>
+
+          <section class="tab-panel" data-btab="categories">
+            <p class="hint"><b>Shared by all boards.</b> Categories show as a colored badge on cards. Saved with this window's <b>Save</b> button.</p>
+            <ul class="priority-editor" id="priorityEditor"></ul>
+            <button type="button" class="btn ghost" id="addPriorityBtn">＋ Add category</button>
+
+            <label style="margin-top:18px">Badge colors</label>
+            <p class="hint">Default colors for the due-date and tag badges shown on cards.</p>
+            <ul class="priority-editor" id="badgeEditor"></ul>
+          </section>
+
+          <section class="tab-panel" data-btab="lanecolors">
+            <p class="hint"><b>Shared by all boards.</b> The palette of colors a lane can use — pick each lane's color on the <b>Lanes</b> tab. Saved with this window's <b>Save</b> button.</p>
+            <div class="lane-colors-editor" id="laneColorsEditor"></div>
+            <button type="button" class="btn ghost" id="addLaneColorBtn">＋ Add color</button>
           </section>
 
           <section class="tab-panel" data-btab="routing">
@@ -607,6 +617,7 @@
     <div class="toast" id="toast" hidden></div>
 
     <script src="/vendor/sortable.min.js"></script>
+    <script src="/webauthn.js"></script>
     <script src="/themes.js"></script>
     <script src="/app.js"></script>
   </body>

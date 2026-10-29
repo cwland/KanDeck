@@ -21,6 +21,9 @@ Everything is stored locally as JSON files under the data directory:
   titles, descriptions, due dates, priorities, and tags.
 - **Application password** — stored only as a bcrypt **hash** in
   `data/config.json`. The plaintext password is never stored.
+- **Passkeys** (optional) — only each passkey's **public** key, ID, name,
+  hostname and usage counter are kept in `data/config.json`. The private key
+  never leaves your password manager or device.
 - **API key** — used to authenticate external apps to the REST API.
 - **Settings** — theme, categories, notification and backup configuration.
 - **Secrets at rest** — the SMTP password is **encrypted**
@@ -48,7 +51,8 @@ serving the app to your own browser.
 ## Authentication and access
 
 - Access requires a username and password you set on first run (password
-  bcrypt‑hashed; revocable JWT httpOnly cookie session).
+  bcrypt‑hashed; revocable JWT httpOnly cookie session), or optionally a
+  passkey you add under App Settings → Account.
 - The REST API additionally accepts an API key you generate.
 - **Calendar feeds** (optional, per board and one app-wide, all off by
   default) are the one exception to login: calendar apps can't sign in, so
