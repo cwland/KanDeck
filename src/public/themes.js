@@ -1,10 +1,11 @@
 /**
- * 20 app-level theme presets: 10 light-based + 10 dark-based, paired by accent
+ * 22 app-level theme presets: 11 light-based + 11 dark-based, paired by accent
  * so the 🌓 button can flip between a theme's light/dark twin.
  * Each theme sets the base (light|dark) and an accent that tints the chrome.
  */
 (function () {
   const ACCENTS = [
+    { key: 'navy',   name: 'Navy',   c: '#0b3b66' },
     { key: 'blue',   name: 'Blue',   c: '#0079bf' },
     { key: 'green',  name: 'Green',  c: '#2f9e44' },
     { key: 'purple', name: 'Purple', c: '#7048e8' },
@@ -26,5 +27,5 @@
   });
 
   window.THEMES = themes;
-  window.DEFAULT_THEME = 'light-blue';
+  window.DEFAULT_THEME = 'light-navy';
 })();

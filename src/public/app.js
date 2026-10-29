@@ -190,6 +190,7 @@
     setZoom(s.zoom, false);
     $('#autoSort').checked = !!s.autoSort;
     $('#autoSortKey').value = s.autoSortKey || 'priority';
+    $('#sortMode').value = s.autoSort ? (s.autoSortKey || 'priority') : 'manual';
     renderHeader();
     renderBoard();
     renderBoardSwitcher();
@@ -213,14 +214,14 @@
       if (b.id === state.boardId) btn.setAttribute('aria-current', 'page');
       const n = b.openCount || 0;
       btn.title = `${b.name} — ${n} open card${n === 1 ? '' : 's'}`;
-      btn.innerHTML = `<span class="bs-name">${esc(b.name)}</span> <span class="bs-count${n ? '' : ' zero'}">(${n})</span>`;
+      btn.innerHTML = `<span class="bs-name">${esc(b.name)}</span><span class="bs-count${n ? '' : ' zero'}">${n}</span>`;
       btn.onclick = async () => { if (b.id !== state.boardId) await openBoard(b.id); };
       nav.appendChild(btn);
     });
     const act = $('.bs-tab.active', nav); if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   async function refreshBoardCounts() {
-    try { state.boards = (await api('/boards')).boards; renderBoardSwitcher(); } catch {}
+    try { state.boards = (await api('/boards')).boards; renderBoardSwitcher(); renderSummary(); } catch {}
   }
 
   function renderHeader() {
@@ -265,19 +266,8 @@
       const tc = priText(card.priority) || textOn(pc);
       badges += `<span class="badge" style="background:${pc};color:${tc}">${esc(priName(card.priority))}</span>`;
     }
-    if (cf.dueDate && card.dueDate) {
-      const due = dueLocalDate(card.dueDate);
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      const overdue = due < today; // red only once the due day has passed
-      const dstyle = overdue ? '' : `style="background:${state.badges.due.color};color:${state.badges.due.textColor}"`;
-      badges += `<span class="badge due ${overdue ? 'overdue' : ''}" ${dstyle}>📅 ${due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
-    }
+    const top = cardTopDate(card, inDoneLane);
     if (card.archived) badges += `<span class="badge archived-badge" title="${card.autoArchived ? 'Auto-archived' : 'Archived'}${card.archivedAt ? ' ' + esc(new Date(card.archivedAt).toLocaleDateString()) : ''}">Archived</span>`;
-    // Completed date only shows on cards in the done (last) lane.
-    if (inDoneLane && card.completedAt) {
-      const cd = new Date(card.completedAt);
-      badges += `<span class="badge done-badge" title="Completed ${esc(cd.toLocaleString())}">✓ ${cd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>`;
-    }
     if (cf.alarm && card.alarm && !card.complete) badges += alarmBadge(card.alarm, 'badge');
     if (cf.email && card.email) badges += emailBadge(card.email, 'badge');
     if (cf.source && card.source) {
@@ -288,15 +278,70 @@
       badges += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`;
     });
 
+    if (state.listView) return renderListRow(card, li, top);
     li.innerHTML =
       `<div class="card-main">` +
-      `<div class="card-title">${esc(card.subject)}</div>` +
+      `<div class="card-top"><div class="card-title">${esc(card.subject)}</div>${top.html}</div>` +
       (badges ? `<div class="card-badges">${badges}</div>` : '') +
       `</div>` +
       `<button class="card-check" title="Mark complete"><span class="chk">✓</span></button>` +
       `<button class="card-x" title="Archive or delete" aria-label="Archive or delete this card">✕</button>`;
     li.querySelector('.card-check').onclick = (e) => { e.stopPropagation(); toggleComplete(card, li); };
     li.querySelector('.card-x').onclick = (e) => { e.stopPropagation(); openCardActionMenu(card, e.currentTarget); };
+    li.onclick = () => openCardModal(card);
+    return li;
+  }
+
+  // Date shown at the top-right of a card: the due date (red once overdue),
+  // or ✓ + the completed date for cards in the done lane.
+  function cardTopDate(card, inDoneLane) {
+    const short = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (inDoneLane && card.completedAt) {
+      const cd = new Date(card.completedAt);
+      return { html: `<span class="card-due done" title="Completed ${esc(cd.toLocaleString())}">✓ ${short(cd)}</span>`, text: '✓ ' + short(cd), cls: 'done' };
+    }
+    if (cardFields().dueDate && card.dueDate) {
+      const due = dueLocalDate(card.dueDate);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const overdue = due < today; // red only once the due day has passed
+      return { html: `<span class="card-due${overdue ? ' overdue' : ''}" title="Due ${esc(due.toLocaleDateString())}${overdue ? ' (overdue)' : ''}">${short(due)}</span>`, text: short(due), cls: overdue ? 'overdue' : '' };
+    }
+    return { html: '', text: '', cls: '' };
+  }
+
+  // List view row: title + written-out details (reminder, email/link, tags),
+  // category pill, due date.
+  function renderListRow(card, li, top) {
+    li.classList.add('lv-row');
+    const cf = cardFields();
+    const det = [];
+    if (cf.alarm && card.alarm && !card.complete) {
+      const d = new Date(card.alarm);
+      if (!Number.isNaN(d.getTime())) det.push(`<span${d < new Date() ? ' style="text-decoration:line-through"' : ''}>⏰ Reminder ${esc(d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</span>`);
+    }
+    if (cf.email && card.email) {
+      const href = emailHref(card.email);
+      if (href) det.push(`<a class="email-badge-l" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(emailLabel(card.email))}">${/^https?:/i.test(href) ? '🔗' : '✉️'} ${esc(emailLabel(card.email))}</a>`);
+    }
+    if (cf.tags && (card.tags || []).length) det.push(`<span>Tags: ${esc(card.tags.join(', '))}</span>`);
+    if (cf.source && card.source) det.push(`<span>From ${esc(card.source)}</span>`);
+    if (card.archived) det.push('<span>Archived</span>');
+    let prio = '';
+    if (cf.priority && card.priority && card.priority !== 'none') {
+      const pc = priColor(card.priority) || '#868e96';
+      const tc = priText(card.priority) || textOn(pc);
+      prio = `<span class="badge" style="background:${pc};color:${tc}">${esc(priName(card.priority))}</span>`;
+    }
+    li.innerHTML =
+      `<div class="card-main lv-main"><span class="lv-title">${esc(card.subject)}</span>` +
+      (det.length ? `<div class="lv-details">${det.join('')}</div>` : '') + `</div>` +
+      `<div class="lv-prio">${prio}</div>` +
+      `<div class="lv-due ${top.cls}">${top.text ? esc(top.text) : '—'}</div>` +
+      `<button class="card-check" title="Mark complete"><span class="chk">✓</span></button>` +
+      `<button class="card-x" title="Archive or delete" aria-label="Archive or delete this card">✕</button>`;
+    li.querySelector('.card-check').onclick = (e) => { e.stopPropagation(); toggleComplete(card, li); };
+    li.querySelector('.card-x').onclick = (e) => { e.stopPropagation(); openCardActionMenu(card, e.currentTarget); };
+    li.querySelectorAll('a').forEach((a) => (a.onclick = (e) => e.stopPropagation()));
     li.onclick = () => openCardModal(card);
     return li;
   }
@@ -388,6 +433,10 @@
   function renderBoard() {
     const board = $('#board');
     board.innerHTML = '';
+    state.listView = boardViewFor(state.boardId) === 'list';
+    board.classList.toggle('list-view', state.listView);
+    document.body.classList.toggle('list-mode', state.listView); // zoom only applies to the board view
+    $$('.vt-btn').forEach((b) => { const on = b.dataset.view === (state.listView ? 'list' : 'board'); b.classList.toggle('active', on); b.setAttribute('aria-pressed', on); });
     state.board.columns.forEach((col) => {
       const wrap = document.createElement('section');
       wrap.className = 'column';
@@ -422,6 +471,7 @@
             </button>`;
           })() : ''}
         </div>
+        ${state.listView ? '<div class="lv-cols" aria-hidden="true"><span>Card</span><span>Category</span><span>Due</span></div>' : ''}
         <ul class="cards" data-col="${col.id}"></ul>
         <button class="add-card">＋ Add a card</button>`;
       const ul = $('.cards', wrap);
@@ -437,6 +487,74 @@
       makeSortable(ul);
       board.appendChild(wrap);
     });
+    renderStatus();
+    renderSummary();
+  }
+
+  // ---- Board / List view (remembered per board, per browser) ----
+  function boardViewFor(id) { try { return localStorage.getItem('kandeck.view.' + id) || 'board'; } catch (_) { return 'board'; } }
+  $$('.vt-btn').forEach((b) => (b.onclick = () => {
+    try { localStorage.setItem('kandeck.view.' + state.boardId, b.dataset.view); } catch (_) {}
+    if (state.board) renderBoard();
+  }));
+
+  // Open cards on this board that aren't in the done lane (and not archived).
+  function openCards() {
+    if (!state.board) return [];
+    const done = doneColId();
+    return state.board.columns.filter((c) => c.id !== done).flatMap((c) => c.cards.filter((k) => !k.archived).map((k) => ({ card: k, col: c })));
+  }
+  function dueInfo(card) {
+    if (!card.dueDate) return null;
+    const due = dueLocalDate(card.dueDate);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return { due, days: Math.round((due - today) / 86400000) };
+  }
+  // Status line under the header: "1 overdue · 3 due this week · 12 open"
+  function renderStatus() {
+    const el = $('#statusPill'); if (!el) return;
+    const open = openCards();
+    if (!state.board || !open.length) { el.hidden = true; return; }
+    let overdue = 0, week = 0;
+    open.forEach(({ card }) => { const d = dueInfo(card); if (!d) return; if (d.days < 0) overdue++; else if (d.days <= 7) week++; });
+    const parts = [];
+    if (overdue) parts.push(`<span class="sp-bad">${overdue} overdue</span>`);
+    parts.push(`${week} due this week`);
+    parts.push(`${open.length} open`);
+    el.innerHTML = parts.join('<span class="sp-dot">·</span>');
+    el.hidden = false;
+  }
+  // Side panel → Summary: open cards per lane, what's due soon, other boards.
+  function renderSummary() {
+    const box = $('#sideSummary'); if (!box || !state.board) return;
+    const done = doneColId();
+    const lanes = state.board.columns.map((c, i) => ({
+      name: c.name, color: c.color || laneColorAt(i),
+      n: c.cards.filter((k) => !k.archived).length, done: c.id === done,
+    }));
+    const open = openCards();
+    const soon = open.map((o) => ({ ...o, d: dueInfo(o.card) })).filter((o) => o.d && o.d.days <= 7)
+      .sort((a, b) => a.d.days - b.d.days).slice(0, 8);
+    const short = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    box.innerHTML = `
+      <div class="sum-wrap">
+        <div>
+          <div class="sum-label">Open cards</div>
+          <div class="sum-big">${open.length}</div>
+          <div class="sum-bar">${lanes.filter((l) => l.n).map((l) => `<i style="flex:${l.n};background:${esc(l.color)}"></i>`).join('')}</div>
+          <div class="sum-lanes">${lanes.map((l) => `<div class="sum-lane"><i style="background:${esc(l.color)}"></i><span>${esc(l.name)}${l.done ? ' (done)' : ''}</span><b>${l.n}</b></div>`).join('')}</div>
+        </div>
+        <div>
+          <div class="sum-h">Due this week</div>
+          ${soon.length ? `<ul class="sum-list">${soon.map((o) => `<li data-id="${esc(o.card.id)}"><span class="sl-t">${esc(o.card.subject)}</span><span class="sl-d${o.d.days < 0 ? ' overdue' : ''}">${o.d.days < 0 ? 'Overdue' : o.d.days === 0 ? 'Today' : short(o.d.due)}</span></li>`).join('')}</ul>` : '<div class="sum-empty">Nothing due in the next 7 days.</div>'}
+        </div>
+        <div>
+          <div class="sum-h">Other boards</div>
+          <ul class="sum-list">${(state.boards || []).filter((b) => b.id !== state.boardId).map((b) => `<li data-board="${esc(b.id)}"><span class="sl-t">${esc(b.name)}</span><span class="sl-d" style="color:var(--text-dim)">${b.openCount || 0} open</span></li>`).join('') || '<li class="sum-empty">No other boards.</li>'}</ul>
+        </div>
+      </div>`;
+    box.querySelectorAll('li[data-id]').forEach((li) => (li.onclick = () => { const c = findCardInBoard(li.dataset.id); if (c) openCardModal(c); }));
+    box.querySelectorAll('li[data-board]').forEach((li) => (li.onclick = () => openBoard(li.dataset.board)));
   }
 
   // ---- Drag & drop ----
@@ -1346,6 +1464,8 @@
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);
   function openAppModal() {
+    hideSecrets();
+    $('#railBoards').classList.remove('active'); $('#appSettingsBtn').classList.add('active');
     pendingTheme = state.themeId;
     clearAppDirty();
     setAppTab('theme');
@@ -1672,6 +1792,7 @@
   };
   function dismissAppModal() {
     applyTheme(state.themeId); clearAppDirty(); appModal.hidden = true;
+    $('#appSettingsBtn').classList.remove('active'); $('#railBoards').classList.add('active');
     const b = $('#appSettingsBtn'); if (b) b.focus(); // restore focus to the trigger
   }
   function guardedCloseAppModal() {
@@ -1782,17 +1903,20 @@
     badges += alarmBadge(it.alarm, 'tag-chip');
     badges += emailBadge(it.email, 'tag-chip');
     const src = state.badges.source;
+    const when = new Date(it.createdAt || Date.now());
+    const mon = when.toLocaleDateString(undefined, { month: 'short' });
     li.innerHTML =
       `<button class="ic-del" title="Dismiss" aria-label="Dismiss inbox item">✕</button>` +
-      `<div class="ic-title">${esc(it.subject)}</div>` +
-      `<div class="ic-row">${badges}<span class="ic-src" style="background:${src.color};color:${src.textColor}">${esc(it.source || 'api')}</span></div>` +
-      `<button class="ic-menu" title="Send to a board" aria-label="Send to a board">⋮</button>`;
+      `<div class="ic-date" title="Received ${esc(when.toLocaleString())}"><span>${esc(mon)}</span><span>${when.getDate()}</span></div>` +
+      `<div class="ic-body"><div class="ic-title">${esc(it.subject)}</div>` +
+      `<div class="ic-row">${badges}<span class="ic-src" style="background:${src.color};color:${src.textColor}">From ${esc(it.source || 'api')}</span></div></div>` +
+      `<button class="ic-send ic-menu-btn" title="Send to a board" aria-label="Send to a board">+ Board</button>`;
     li.querySelector('.ic-del').onclick = async (e) => {
       e.stopPropagation();
       await api('/inbox/' + it.id, { method: 'DELETE' });
       loadInbox();
     };
-    li.querySelector('.ic-menu').onclick = (e) => { e.stopPropagation(); openSendToBoardMenu(it, e.currentTarget); };
+    li.querySelector('.ic-send').onclick = (e) => { e.stopPropagation(); openSendToBoardMenu(it, e.currentTarget); };
     li.onclick = () => openInboxCardModal(it);
     return li;
   }
@@ -1912,7 +2036,71 @@
     const tab = $('#inboxTab'); tab.title = label; tab.setAttribute('aria-label', label);
     const c = $('#inboxTabCount'); c.textContent = n > 99 ? '99+' : n; c.classList.toggle('zero', !n);
   }
-  $('#inboxTab').onclick = () => setView(document.body.classList.contains('inbox-collapsed') ? 'inbox' : 'board');
+  $('#inboxTab').onclick = () => {
+    const collapsed = document.body.classList.contains('inbox-collapsed');
+    // Closed → open on the Inbox tab; open on Summary → switch to Inbox; open on Inbox → close.
+    if (collapsed) { setSideTab('inbox'); setView('inbox'); }
+    else if (sideTab !== 'inbox') setSideTab('inbox');
+    else setView('board');
+  };
+
+  // ---- Side panel tabs: Summary | Inbox ----
+  let sideTab = 'inbox';
+  try { sideTab = localStorage.getItem('kandeck.sideTab') === 'summary' ? 'summary' : 'inbox'; } catch (_) {}
+  function setSideTab(t) {
+    sideTab = t;
+    $$('.side-tab').forEach((b) => { const on = b.dataset.side === t; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+    $('#sideInbox').hidden = t !== 'inbox';
+    $('#sideSummary').hidden = t !== 'summary';
+    if (t === 'summary') renderSummary();
+    try { localStorage.setItem('kandeck.sideTab', t); } catch (_) {}
+  }
+  $$('.side-tab').forEach((b) => (b.onclick = () => setSideTab(b.dataset.side)));
+  setSideTab(sideTab);
+
+  // ---- Secret fields (API keys, client secret, passwords, webhook): hidden
+  // by default, with an eye button to show / hide each one. ----
+  const EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  $$('input[data-secret]').forEach((inp) => {
+    const wrap = document.createElement('span');
+    wrap.className = 'secret-wrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'secret-eye';
+    const set = (show) => {
+      inp.type = show ? 'text' : 'password';
+      btn.innerHTML = show ? EYE_OFF : EYE;
+      const l = show ? 'Hide' : 'Show'; btn.title = l; btn.setAttribute('aria-label', l); btn.setAttribute('aria-pressed', show);
+    };
+    btn.onclick = () => set(inp.type === 'password');
+    wrap.appendChild(btn);
+    set(false);
+    inp._hideSecret = () => set(false);
+  });
+  // Re-hide them whenever App settings opens.
+  function hideSecrets() { $$('input[data-secret]').forEach((i) => i._hideSecret && i._hideSecret()); }
+
+  // ---- Left rail ----
+  $('#railBoards').onclick = () => {
+    if (!appModal.hidden) guardedCloseAppModal();
+    if (!boardModal.hidden) closeBoardModal();
+    if (!cardModal.hidden) cardModal.hidden = true;
+  };
+  $('#railSearch').onclick = () => { const i = $('#search'); i.focus(); i.select(); };
+  $('#railArchive').onclick = () => { openAppModal(); setAppTab('archives'); };
+  // Your initials in the rail (from the account username).
+  (async () => {
+    try {
+      const a = await api('/account');
+      const u = String(a.username || '').trim();
+      if (!u) return;
+      const parts = u.split(/[\s._@-]+/).filter(Boolean);
+      const ini = (parts.length > 1 ? parts[0][0] + parts[1][0] : u.slice(0, 2)).toUpperCase();
+      const av = $('#railAvatar'); av.textContent = ini; av.title = 'Signed in as ' + u;
+    } catch (_) {}
+  })();
 
   // ---- Top bar controls ----
   $('#autoSort').onchange = async (e) => {
@@ -1927,6 +2115,15 @@
     await api('/boards/' + state.boardId, { method: 'PUT', body: { settings: { autoSortKey: e.target.value } } });
     if (state.board.settings.autoSort) { for (const col of state.board.columns) await api(`/boards/${state.boardId}/columns/${col.id}`, { method: 'PUT', body: { autoSort: true } }); }
     refresh();
+  };
+  // Sort menu → the auto-sort checkbox / key handlers above.
+  $('#sortMode').onchange = async (e) => {
+    const v = e.target.value;
+    const cb = $('#autoSort'), key = $('#autoSortKey');
+    if (v === 'manual') { if (cb.checked) { cb.checked = false; cb.dispatchEvent(new Event('change')); } return; }
+    if (key.value !== v) { key.value = v; await api('/boards/' + state.boardId, { method: 'PUT', body: { settings: { autoSortKey: v } } }); state.board.settings.autoSortKey = v; }
+    if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+    else key.dispatchEvent(new Event('change'));
   };
   $('#logoutBtn').onclick = async () => { await api('/auth/logout', { method: 'POST' }); window.location.href = '/login'; };
 

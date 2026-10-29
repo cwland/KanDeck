@@ -56,14 +56,21 @@ board.
   and the 10 releases before it; click the version number to reopen it.
 - **App-level categories** (priorities) with editable, high-contrast colors that
   apply across every board.
-- **Inbox** — a capture area fed by the REST API / webhooks. Drag items onto a
-  board, or use each card's **⋮ "send to board"** menu.
+- **Clean, card-based layout** — an icon rail on the left, board tabs across
+  the top, lanes as white cards with each task on its own tile, and rounded
+  pills for category, tags, alarm, email and link. A **List** view stacks the
+  lanes with every card's details written out.
+- **Inbox + Summary side panel** — the Inbox (fed by the REST API / webhooks)
+  sits in a panel on the right: drag items onto a lane or use **+ Board**. The
+  **Summary** tab shows open cards per lane, what's due this week and your
+  other boards.
 - **Routing tags** — give a board tags (e.g. `home`, `work`) and tasks pushed
   to KanDeck with a matching tag skip the Inbox and land in that board's first
   lane.
 - **Search-as-you-type** across all boards; jumps straight to the card.
-- **Themes** — 20 presets (10 light + 10 dark) with a vertical gradient wash;
-  category and badge colors are user-editable with automatically-readable text.
+- **Themes** — 22 presets (11 light + 11 dark, Navy is the default) in the
+  Figtree typeface; category and badge colors are user-editable with
+  automatically-readable text.
 - **REST API** with a date-filtered task-query endpoint for automations.
 - **Notifications** — scheduled email, Discord and text-message task summaries,
   **alarm reminders by text** (iMessage/SMS via the iMessage Gateway Mac app),
@@ -85,20 +92,20 @@ board.
 
 ## Screenshots
 
-A board with the inbox open — priority categories, due dates, tags, and a
-complete lane with check-off:
+A board with the Inbox panel open: categories, due dates, alarm/email/link
+pills, and the done lane with check-off:
 
 ![Board — light theme](docs/img/board-light.png)
 
-The same board in a dark theme (light and dark presets share an accent, so the
-🌓 button flips between them):
+The **List** view in a dark theme (Navy dark), with each card's reminder,
+email/link and tags written out:
 
 ![Board — dark theme](docs/img/board-dark.png)
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/img/card-modal.png" alt="Card detail modal"><br><sub>Card details — description (Markdown), category, due date, and tags.</sub></td>
-    <td width="50%"><img src="docs/img/themes.png" alt="Theme picker"><br><sub>App Settings — 20 theme presets plus Account, Board settings, Notifications, API, Calendar, Backups and Archives.</sub></td>
+    <td width="50%"><img src="docs/img/card-modal.png" alt="Card details panel"><br><sub>Card details open in a side panel: description (Markdown), email/link, board, category, due date, alarm and tags.</sub></td>
+    <td width="50%"><img src="docs/img/themes.png" alt="App Settings page"><br><sub>App Settings is a full page: Theme (22 presets), Account, Sign-in, Board settings, Notifications, API, Calendar, Backups and Archives.</sub></td>
   </tr>
 </table>
 
@@ -341,10 +348,20 @@ subject and email).
 
 ## Using KanDeck
 
-- **Switch boards** with the tabs centered on the board title line —
-  `Home (1) | Work (5) | …`. The number is each board's open cards (not done,
+- **Find your way around** with the icon rail on the left: **Boards**,
+  **Inbox** (with its item count), **Search**, **New board**, **Archives**,
+  **App settings**, your initials and **Log out**. On a phone the rail becomes a
+  bar along the bottom.
+- **Switch boards** with the tabs on the board title line —
+  `Home 1 | Work 5 | …`. The number is each board's open cards (not done,
   not archived) and updates live, even when tasks arrive from n8n or the API.
-  Create a new board with the **＋** next to the search.
+  When space is tight (e.g. the side panel is open on a laptop) the tabs move
+  to their own row under the title.
+- **Board / List**: the switch in the header flips between lanes side by side
+  and a list with the lanes stacked, one row per card with its reminder,
+  email/link and tags written out, plus Category and Due columns. Remembered
+  per board. **Sort** (Manual, Priority, Due date) sits next to it.
+- The line under the header sums up the board: overdue, due this week, open.
 - **Archive or delete a card** with the small **✕** in its top-right corner
   (Delete needs a second click to confirm).
 - **Move a card to another board** from its window: pick the **Board** and
@@ -352,7 +369,7 @@ subject and email).
 - **Email** on a card holds an address (opens your mail app) or a link such as
   the original Gmail message (opens in a new tab). Click it to open, ✏️ to edit;
   cards show a small clickable ✉️ (address) or 🔗 (link) too.
-- **App Settings** (⚙️, top-right) has a section menu down the left: Theme,
+- **App Settings** (⚙️ in the rail) opens as a full page with a section menu down the left: Theme,
   Account, Sign-in, Board settings, Notifications, API, Calendar, Backups,
   Archives. **Board settings** holds the global categories, badge colors and
   lane-color palette used by every board. A single **Save** applies everything
@@ -361,7 +378,7 @@ subject and email).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
   every other browser.
-- **Board Settings** (⚙️, board area) has tabs: **General** (name, description,
+- **Board Settings** (⚙️ in the board header) slides in from the right and has tabs: **General** (name, description,
   what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
   tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
   footer has **Archive board**.
@@ -377,9 +394,14 @@ subject and email).
   login with `npm run reset-password` (no arguments) also removes all passkeys.
 - **Sign-in** (App Settings) chooses which sign-in methods are offered and sets
   up OAuth — see [Sign-in: passwords, passkeys & OAuth](#sign-in-passwords-passkeys--oauth).
-- **Inbox**: open or close it with the tab on the left edge of the board (it
-  shows how many items are waiting). Items arriving via the API land here for triage — drag them onto a
-  board or use the card's **⋮** menu to send it to a board's first column.
+- **Inbox**: open or close the right-hand panel with the Inbox button in the
+  rail (it shows how many items are waiting). Items arriving via the API land
+  here for triage: drag them onto a lane, or click **+ Board** to send one to a
+  board's first lane. The panel's **Summary** tab shows open cards per lane,
+  what's due in the next 7 days and your other boards.
+- **Cards** open in a side panel on the right, so the board stays in view.
+- **Secret fields** (API key, OAuth client secret, SMTP password, Discord
+  webhook, text-gateway key) are hidden; click the 👁 eye to show or hide one.
 - **What's new**: the first time you open KanDeck after an update, a window
   lists what changed in the new version plus the previous 10 releases (newest
   first, collapsed: click a version › to expand it). Dismiss it and it won't appear again until the next version. Click the
@@ -628,7 +650,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v2.11.3 && git push origin v2.11.3
+git tag v3.0.0 && git push origin v3.0.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

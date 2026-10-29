@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KanDeck</title>
+    <link rel="preload" href="/fonts/figtree-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/styles.css" />
     <!-- Paint the saved theme before first render so there's no blue→theme flash. -->
     <script>
@@ -29,62 +30,76 @@
     />
   </head>
   <body>
-    <!-- ===== Top bar ===== -->
-    <header class="topbar">
-      <div class="brand">🗂️ <span>KanDeck</span></div>
+    <!-- ===== Left icon rail (main navigation) ===== -->
+    <nav class="rail" aria-label="Main">
+      <div class="rail-logo" aria-hidden="true">K</div>
+      <button type="button" class="rail-btn active" id="railBoards" title="Boards" aria-label="Boards"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg></button>
+      <!-- Inbox: shows the item count; opens / closes the side panel. -->
+      <button type="button" class="rail-btn" id="inboxTab" aria-controls="inboxPanel" aria-expanded="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/></svg><span class="it-count" id="inboxTabCount">0</span><span id="inboxTabChev" hidden></span></button>
+      <button type="button" class="rail-btn" id="railSearch" title="Search cards" aria-label="Search cards"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+      <button type="button" class="rail-btn" id="addBoardBtn" title="New board" aria-label="New board"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg></button>
+      <button type="button" class="rail-btn" id="railArchive" title="Archives" aria-label="Archives"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg></button>
+      <div class="rail-sep" aria-hidden="true"></div>
+      <button type="button" class="rail-btn" id="appSettingsBtn" title="App settings" aria-label="App settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <div class="rail-spacer"></div>
+      <div class="rail-avatar" id="railAvatar" aria-hidden="true"></div>
+      <button type="button" class="rail-btn" id="logoutBtn" title="Log out" aria-label="Log out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></button>
+    </nav>
 
-      <div class="search" id="searchWrap">
-        <div class="search-box">
-          <input id="search" type="search" placeholder="Search cards…" title="Search cards across all boards" autocomplete="off" />
-          <div class="search-results" id="searchResults" hidden></div>
-        </div>
-        <button class="icon-btn" id="addBoardBtn" title="New board">＋</button>
-      </div>
-
-      <div class="topbar-right">
-        <button class="icon-btn" id="appSettingsBtn" title="App settings">⚙️</button>
-        <button class="icon-btn" id="logoutBtn" title="Log out">⏻</button>
-      </div>
-    </header>
-
-    <!-- ===== Content row: Inbox panel + Board ===== -->
-    <div class="content-row">
-      <aside class="inbox-panel" id="inboxPanel">
-        <header class="inbox-head">
-          <span class="inbox-title">📥 Inbox <b id="inboxCount">0</b>
-            <button type="button" class="inbox-reprocess" id="inboxReprocess" title="Re-check Inbox items against board routing tags" aria-label="Re-check Inbox items against board routing tags">↻</button>
-          </span>
-        </header>
-        <ul class="inbox-list" id="inboxList"></ul>
-      </aside>
-
-      <div class="main-area" id="mainArea">
-        <!-- Inbox edge tab: shows the item count; opens / closes the Inbox panel. -->
-        <button type="button" class="inbox-tab" id="inboxTab" aria-controls="inboxPanel" aria-expanded="true">
-          <span class="it-icon" aria-hidden="true">📥</span>
-          <span class="it-count" id="inboxTabCount">0</span>
-          <span class="it-chev" id="inboxTabChev" aria-hidden="true">‹</span>
-        </button>
-        <div class="board-header" id="boardHeader">
-          <div class="board-meta">
-            <h1 id="boardName">—</h1>
-            <p id="boardDesc"></p>
-          </div>
-          <!-- Board tabs: every active board with its open-card count, live-updated. -->
-          <nav class="board-switcher" id="boardSwitcher" aria-label="Boards"></nav>
-          <div class="board-tools">
-            <label class="autosort" title="Automatically sort cards in every lane">
-              <input type="checkbox" id="autoSort" />
-              <span>Auto-sort</span>
-              <select id="autoSortKey" title="Sort key">
-                <option value="priority">by priority</option>
-                <option value="due">by due date</option>
+    <div class="app-col">
+      <div class="content-row">
+        <div class="main-area" id="mainArea">
+          <div class="board-header" id="boardHeader">
+            <div class="board-meta">
+              <h1 id="boardName">—</h1>
+              <p id="boardDesc"></p>
+            </div>
+            <!-- Board tabs: every active board with its open-card count, live-updated. -->
+            <nav class="board-switcher" id="boardSwitcher" aria-label="Boards"></nav>
+            <div class="board-tools">
+              <div class="search" id="searchWrap">
+                <div class="search-box">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="search-ico"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+                  <input id="search" type="search" placeholder="Search cards" title="Search cards across all boards" autocomplete="off" />
+                  <div class="search-results" id="searchResults" hidden></div>
+                </div>
+              </div>
+              <div class="view-toggle" role="group" aria-label="View">
+                <button type="button" class="vt-btn active" data-view="board" aria-pressed="true">Board</button>
+                <button type="button" class="vt-btn" data-view="list" aria-pressed="false">List</button>
+              </div>
+              <!-- Sort: one menu that drives the auto-sort checkbox + key below. -->
+              <select id="sortMode" class="sort-mode" title="Sort the cards in every lane" aria-label="Sort cards">
+                <option value="manual">Sort: Manual</option>
+                <option value="priority">Sort: Priority</option>
+                <option value="due">Sort: Due date</option>
               </select>
-            </label>
-            <button class="tool-btn" id="boardSettingsBtn" title="Board settings">⚙️</button>
+              <span hidden>
+                <input type="checkbox" id="autoSort" tabindex="-1" />
+                <select id="autoSortKey" tabindex="-1"><option value="priority">by priority</option><option value="due">by due date</option></select>
+              </span>
+              <button class="tool-btn" id="boardSettingsBtn" title="Board settings" aria-label="Board settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></button>
+            </div>
           </div>
+          <div class="status-pill" id="statusPill" hidden></div>
+          <main class="board" id="board"></main>
         </div>
-        <main class="board" id="board"></main>
+
+        <!-- ===== Side panel (right): Summary | Inbox ===== -->
+        <aside class="inbox-panel" id="inboxPanel" aria-label="Side panel">
+          <div class="side-tabs" role="tablist">
+            <button type="button" role="tab" class="side-tab" data-side="summary" aria-selected="false">Summary</button>
+            <button type="button" role="tab" class="side-tab active" data-side="inbox" aria-selected="true"><b id="inboxCount">0</b>Inbox</button>
+          </div>
+          <section class="side-sec" id="sideInbox">
+            <header class="inbox-head">
+              <span class="inbox-hint">Drag onto a lane, or use <b>+ Board</b></span>
+              <button type="button" class="inbox-reprocess" id="inboxReprocess" title="Re-check Inbox items against board routing tags" aria-label="Re-check Inbox items against board routing tags">↻</button>
+            </header>
+            <ul class="inbox-list" id="inboxList"></ul>
+          </section>
+          <section class="side-sec" id="sideSummary" hidden></section>
+        </aside>
       </div>
     </div>
 
@@ -101,7 +116,7 @@
     <button type="button" class="version-foot" id="versionFoot" title="What's new in this version"></button>
 
     <!-- ===== Card modal ===== -->
-    <div class="modal-backdrop" id="cardModal" hidden>
+    <div class="modal-backdrop side" id="cardModal" hidden>
       <div class="modal" role="dialog" aria-modal="true">
         <header class="modal-head">
           <input id="cardSubject" class="card-subject-input" placeholder="Card title" />
@@ -165,7 +180,7 @@
     </div>
 
     <!-- ===== App settings modal (tabbed) ===== -->
-    <div class="modal-backdrop" id="appModal" hidden>
+    <div class="modal-backdrop page" id="appModal" hidden>
       <div class="modal" role="dialog" aria-modal="true" aria-label="App settings">
         <header class="modal-head">
           <h2>App settings</h2>
@@ -268,7 +283,7 @@
             </div>
             <div class="field-row">
               <div class="field"><label>Client ID</label><input id="auClientId" type="text" autocomplete="off" spellcheck="false" /></div>
-              <div class="field"><label>Client secret</label><input id="auSecret" type="password" autocomplete="new-password" /></div>
+              <div class="field"><label>Client secret</label><input id="auSecret" type="password" data-secret autocomplete="new-password" /></div>
             </div>
             <details class="au-adv">
               <summary>Advanced: scopes and endpoints</summary>
@@ -345,7 +360,7 @@
               </div>
               <div class="field-row">
                 <div class="field"><label>Username</label><input id="emUser" type="text" autocomplete="off" /></div>
-                <div class="field"><label>Password</label><input id="emPass" type="password" autocomplete="off" placeholder="•••••• (leave blank to keep)" /></div>
+                <div class="field"><label>Password</label><input id="emPass" type="password" data-secret autocomplete="off" placeholder="•••••• (leave blank to keep)" /></div>
               </div>
               <div class="field-row">
                 <div class="field"><label>Sender email</label><input id="emFrom" type="email" /></div>
@@ -384,7 +399,7 @@
                 <span class="ai-toggle-label">Enable Discord notifications</span>
               </div>
 
-              <div class="field"><label>Discord webhook URL</label><input id="dcWebhook" type="url" autocomplete="off" placeholder="https://discord.com/api/webhooks/…" /></div>
+              <div class="field"><label>Discord webhook URL</label><input id="dcWebhook" type="password" data-secret autocomplete="off" placeholder="https://discord.com/api/webhooks/…" /></div>
 
               <div class="notify-cols">
                 <div class="notify-col">
@@ -421,7 +436,7 @@
               <label>Gateway connection</label>
               <div class="field-row">
                 <div class="field" style="flex:2"><label>Gateway URL</label><input id="tmUrl" type="url" autocomplete="off" placeholder="http://192.168.50.20:8787" /></div>
-                <div class="field"><label>API key</label><input id="tmKey" type="password" autocomplete="off" placeholder="Gateway API key" /></div>
+                <div class="field"><label>API key</label><input id="tmKey" type="password" data-secret autocomplete="off" placeholder="Gateway API key" /></div>
               </div>
               <div class="field-row">
                 <div class="field" style="flex:2"><label>Send to <small>(phone or Apple ID; commas for several)</small></label><input id="tmTo" type="text" autocomplete="off" placeholder="+12085550100" /></div>
@@ -463,7 +478,7 @@
             <p class="hint">An API key lets external apps (like an n8n bot, scripts, or integrations) read and update your boards through KanDeck's REST API. Send it as an <code>X-API-Key</code> header (or <code>Authorization: Bearer &lt;key&gt;</code>).</p>
             <label>API key</label>
             <div class="apikey-row">
-              <input id="apiKeyField" type="text" readonly placeholder="No key set — generate one to enable external access" />
+              <input id="apiKeyField" type="password" data-secret readonly placeholder="No key set — generate one to enable external access" />
               <button type="button" class="btn ghost" id="apiKeyCopy" title="Copy">Copy</button>
             </div>
             <div class="ai-test-row">
@@ -553,7 +568,7 @@
     </div>
 
     <!-- ===== Board settings modal ===== -->
-    <div class="modal-backdrop" id="boardModal" hidden>
+    <div class="modal-backdrop side" id="boardModal" hidden>
       <div class="modal" role="dialog" aria-modal="true" aria-label="Board settings">
         <header class="modal-head">
           <h2 id="boardModalTitle">Board settings</h2>

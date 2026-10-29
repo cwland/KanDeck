@@ -84,7 +84,7 @@ const DEFAULT_BACKUP = {
 };
 
 const DEFAULTS = {
-  theme: 'light-blue',
+  theme: 'light-navy',
   priorities: DEFAULT_PRIORITIES,
   laneColors: DEFAULT_LANE_COLORS,
   badges: DEFAULT_BADGES,
@@ -218,7 +218,7 @@ export async function getSettings() {
   const s = { ...DEFAULTS, ...(await readJson(config.settingsFile, DEFAULTS)) };
   if (!s.priorities || !s.priorities.length) s.priorities = DEFAULT_PRIORITIES;
   if (!s.laneColors || !s.laneColors.length) s.laneColors = DEFAULT_LANE_COLORS;
-  if (!s.theme) s.theme = 'light-blue';
+  if (!s.theme) s.theme = 'light-navy';
   // Deep-fill badge colors so partial/absent config still renders readable.
   s.badges = {
     due: { ...DEFAULT_BADGES.due, ...((s.badges || {}).due || {}) },

@@ -4,6 +4,17 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.0.0 — 2026-10-29
+
+- **New look.** A cleaner, card-based layout in the Figtree typeface: an **icon rail** on the left (Boards, Inbox, Search, New board, Archives, Settings, Log out), white lanes on a light grey page, each card on its own tile, and rounded **pills** for category, tags, alarm ⏰, email ✉️ and link 🔗. The due date sits at the top-right of each card.
+- **Board tabs** across the top with each board's open-card count, plus a summary line: overdue · due this week · open.
+- **List view**: a **Board / List** switch in the header. The list stacks the lanes, one row per card, with the reminder, email/link and tags written out, plus Category and Due columns.
+- The **Inbox** moved to a panel on the **right**, opened from the rail. Each item shows the date it arrived and a **+ Board** button; a new **Summary** tab shows open cards per lane, what's due this week and your other boards.
+- **Cards** and **Board settings** open as side panels, so the board stays visible. **App settings** is now a full page.
+- **Show / hide secrets**: the API key, OAuth client secret, SMTP password, Discord webhook and text-gateway key are hidden by default, with an 👁 eye button to reveal each one.
+- New **Navy** theme (the new default). Your current theme is kept; pick Navy under App settings → Theme for the look in the screenshots.
+- Restyled sign-in page to match. On phones the rail becomes a bar along the bottom.
+
 ## 2.11.3 — 2026-10-29
 
 - **Fix:** after an update the browser could keep using the old app files until a hard refresh, so new features didn't appear. KanDeck now tells the browser to check for newer files on every load (unchanged files are still served from cache).
