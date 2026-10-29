@@ -814,6 +814,15 @@ html[data-theme='dark'] .dirty-banner.error { background: #4a1d1d; color: #ffc9c
   font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim);
 }
 .wn-sub + .wn-entry { border-top: 0; }
+.wn-prev { padding: 0; }
+.wn-prev > summary { list-style: none; cursor: pointer; padding: 9px 4px; margin: 0; border-radius: 8px; user-select: none; }
+.wn-prev > summary::-webkit-details-marker { display: none; }
+.wn-prev > summary:hover { background: var(--surface-2); }
+.wn-prev > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wn-chev { display: inline-block; width: 12px; font-weight: 800; color: var(--text-dim); transition: transform .15s ease; }
+.wn-prev[open] > summary .wn-chev { transform: rotate(90deg); }
+.wn-count { color: var(--text-dim); font-size: .78rem; }
+.wn-prev > ul { padding: 0 0 8px 40px; }
 
 /* Danger zone (App Settings → Backups) */
 .danger-zone { margin-top: 22px; padding: 12px 14px; border: 1px solid #ffc9c9; border-radius: 10px; background: #fff5f5; }

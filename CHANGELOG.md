@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 2.11.1 — 2026-10-29
+
+- **What's new** window: earlier releases under **Previous updates** now start collapsed. Click a version (›) to expand its changes; each row shows how many changes it has.
+
 ## 2.11.0 — 2026-10-29
 
 - **OAuth / OpenID Connect sign-in** — sign in through Authentik, Authelia, Keycloak, Google, Microsoft or any OIDC provider. Set it up in the new **App Settings → Sign-in** tab: issuer URL, client ID and secret, and your own button label (e.g. **Sign in with Authentik**). Click **Link my account** once so only *your* provider account can sign in (or list allowed, verified emails).

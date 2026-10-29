@@ -2006,10 +2006,21 @@
         </div>
         <ul>${(e.changes || []).map((c) => `<li>${mdInline(c)}</li>`).join('')}</ul>
       </section>`;
+    // Previous releases start collapsed; click the row (›) to expand.
+    const collapsed = (e) => `
+      <details class="wn-entry wn-prev">
+        <summary class="wn-head">
+          <span class="wn-chev" aria-hidden="true">›</span>
+          <span class="wn-ver">v${esc(e.version)}</span>
+          <span class="wn-count">${(e.changes || []).length} change${(e.changes || []).length === 1 ? '' : 's'}</span>
+          <span class="wn-date">${esc(fmtRelDate(e.date))}</span>
+        </summary>
+        <ul>${(e.changes || []).map((c) => `<li>${mdInline(c)}</li>`).join('')}</ul>
+      </details>`;
     if (!cur) html += '<p class="hint">No release notes found.</p>';
     else {
       html += section(cur, cur.version === data.current);
-      if (prev.length) html += `<div class="wn-sub">Previous updates</div>` + prev.map((e) => section(e, false)).join('');
+      if (prev.length) html += `<div class="wn-sub">Previous updates</div>` + prev.map(collapsed).join('');
     }
     $('#wnBody').innerHTML = html;
     $('#wnBody').scrollTop = 0;
