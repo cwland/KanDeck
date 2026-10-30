@@ -15,6 +15,9 @@ import {
   clearSessionCookie,
   validCookie,
   bumpSessionVersion,
+  listSessions,
+  revokeSessions,
+  sessionPayload,
   requireSessionApi,
   MIN_PASSWORD,
 } from '../auth.js';
@@ -122,7 +125,7 @@ router.post('/setup', async (req, res) => {
     });
   try {
     await setCredentials({ username: req.body?.username, password: req.body?.password });
-    setSessionCookie(res, await issueToken());
+    setSessionCookie(res, await issueToken(req, 'password'));
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -140,7 +143,7 @@ router.post('/login', async (req, res) => {
   const result = await verifyLogin(req.body?.username, req.body?.password);
   if (result.ok) {
     attempts.delete(ip);
-    setSessionCookie(res, await issueToken());
+    setSessionCookie(res, await issueToken(req, 'password'));
     return res.json({ ok: true, needsUsername: !!result.needsUsername });
   }
   recordFail(ip);
@@ -181,7 +184,7 @@ router.post('/passkey/verify', async (req, res) => {
     return res.status(401).json({ error: 'That passkey wasn’t accepted. Try again, or use your password.' });
   }
   attempts.delete(ip);
-  setSessionCookie(res, await issueToken());
+  setSessionCookie(res, await issueToken(req, 'passkey'));
   res.json({ ok: true });
 });
 
@@ -241,7 +244,7 @@ router.get('/oauth/callback', async (req, res) => {
     }
     attempts.delete(ip);
     await saveAuthSettings((s) => ({ ...s, oauth: { ...s.oauth, lastLoginAt: new Date().toISOString() } }));
-    setSessionCookie(res, await issueToken());
+    setSessionCookie(res, await issueToken(req, 'oauth'));
     res.redirect('/');
   } catch (err) {
     console.error('[oauth] callback failed:', err.message);
@@ -249,7 +252,9 @@ router.get('/oauth/callback', async (req, res) => {
   }
 });
 
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
+  const p = sessionPayload(req);
+  if (p && p.sid) await revokeSessions({ id: p.sid }).catch(() => {});
   clearSessionCookie(res);
   res.json({ ok: true });
 });
@@ -263,10 +268,10 @@ accountRouter.get('/', async (req, res) => {
   res.json({ username: c.username || '', passwordChangedAt: c.passwordChangedAt || null, minPassword: MIN_PASSWORD });
 });
 
+// Username: no password needed (you're already signed in; the password and
+// passkeys stay as they are).
 accountRouter.put('/username', async (req, res) => {
   try {
-    if (!(await verifyPassword(req.body?.currentPassword)))
-      return res.status(400).json({ error: 'Current password is incorrect' });
     await setCredentials({ username: validateUsername(req.body?.username) }, { keepSessions: true });
     res.json({ ok: true, username: await getUsername() });
   } catch (err) {
@@ -279,7 +284,7 @@ accountRouter.put('/password', async (req, res) => {
     if (!(await verifyPassword(req.body?.currentPassword)))
       return res.status(400).json({ error: 'Current password is incorrect' });
     await setCredentials({ password: req.body?.newPassword }); // logs out other sessions
-    setSessionCookie(res, await issueToken()); // keep this browser signed in
+    setSessionCookie(res, await issueToken(req, 'password')); // keep this browser signed in
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -376,6 +381,34 @@ accountRouter.delete('/auth-settings/oauth/link', async (req, res) => {
   if (problem) return res.status(409).json({ error: 'Can’t unlink while OAuth is your only way to sign in. Turn password sign-in back on first.' });
   await saveAuthSettings(() => next);
   res.json({ ok: true, ...(await signInView(req)) });
+});
+
+// ---- Sessions (Account → Show sessions) ----
+function describeUA(ua) {
+  ua = String(ua || '');
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+    : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /curl|wget|node|python/i.test(ua) ? 'Script' : 'Browser';
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Mac OS X|Macintosh/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : '';
+  return { browser, os };
+}
+accountRouter.get('/sessions', async (req, res) => {
+  const cur = (sessionPayload(req) || {}).sid;
+  const list = (await listSessions())
+    .map((x) => ({ id: x.id, ip: x.ip || '', method: x.method || 'password', createdAt: x.createdAt, lastSeenAt: x.lastSeenAt || x.createdAt, current: x.id === cur, ...describeUA(x.ua) }))
+    .sort((a, b) => (b.current - a.current) || String(b.lastSeenAt).localeCompare(String(a.lastSeenAt)));
+  res.json({ sessions: list });
+});
+accountRouter.delete('/sessions/:id', async (req, res) => {
+  const cur = (sessionPayload(req) || {}).sid;
+  const n = await revokeSessions({ id: req.params.id });
+  if (!n) return res.status(404).json({ error: 'Session not found' });
+  if (req.params.id === cur) clearSessionCookie(res);
+  res.json({ ok: true, signedOutHere: req.params.id === cur });
+});
+accountRouter.post('/sessions/revoke-others', async (req, res) => {
+  const cur = (sessionPayload(req) || {}).sid;
+  res.json({ ok: true, removed: await revokeSessions({ exceptId: cur || '-' }) });
 });
 
 accountRouter.post('/logout-all', async (req, res) => {

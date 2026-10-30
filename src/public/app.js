@@ -1205,7 +1205,9 @@
   async function loadAccount() {
     loadPasskeys();
     loadSignIn();
-    ['#acUserPw', '#acCurPw', '#acNewPw', '#acNewPw2'].forEach((id) => ($(id).value = ''));
+    ['#acCurPw', '#acNewPw', '#acNewPw2'].forEach((id) => ($(id).value = ''));
+    $('#acPwHelp').hidden = true; $('#acPwInfo').setAttribute('aria-expanded', 'false');
+    refreshSessionCount();
     acStatus('#acUserStatus', ''); acStatus('#acPwStatus', '');
     try {
       const a = await api('/account');
@@ -1224,8 +1226,9 @@
   }
   $('#acUserSave').onclick = async () => {
     try {
-      const r = await accountCall('/username', 'PUT', { username: $('#acUsername').value.trim(), currentPassword: $('#acUserPw').value });
-      $('#acUserPw').value = ''; $('#acUsername').value = r.username || '';
+      const r = await accountCall('/username', 'PUT', { username: $('#acUsername').value.trim() });
+      $('#acUsername').value = r.username || '';
+      const av = $('#railAvatar'); if (av && r.username) { const parts = r.username.split(/[\s._@-]+/).filter(Boolean); av.textContent = (parts.length > 1 ? parts[0][0] + parts[1][0] : r.username.slice(0, 2)).toUpperCase(); av.title = 'Signed in as ' + r.username; }
       acStatus('#acUserStatus', '✓ Username saved', true);
     } catch (e) { acStatus('#acUserStatus', '✗ ' + e.message, false); }
   };
@@ -1237,8 +1240,63 @@
       acStatus('#acPwStatus', '✓ Password changed — other sessions signed out', true);
     } catch (e) { acStatus('#acPwStatus', '✗ ' + e.message, false); }
   };
-  $('#acLogoutAll').onclick = async () => {
-    if (!confirm('Log out every browser, including this one?')) return;
+  // (i) next to Password: how to reset it on the server.
+  $('#acPwInfo').onclick = () => {
+    const h = $('#acPwHelp'); h.hidden = !h.hidden;
+    $('#acPwInfo').setAttribute('aria-expanded', h.hidden ? 'false' : 'true');
+  };
+
+  // ---- Sessions: every signed-in browser; sign out one, all others, or all ----
+  const sessionsModal = $('#sessionsModal');
+  async function refreshSessionCount() {
+    try { const { sessions } = await accountCall('/sessions', 'GET'); $('#acSessCount').textContent = `${sessions.length} signed in`; } catch (_) {}
+  }
+  const ago = (iso) => {
+    const s = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (!Number.isFinite(s)) return '—';
+    if (s < 90) return 'just now';
+    if (s < 3600) return Math.round(s / 60) + ' min ago';
+    if (s < 86400) return Math.round(s / 3600) + ' h ago';
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+  const METHOD = { password: 'Password', passkey: 'Passkey', oauth: 'OAuth' };
+  async function renderSessions() {
+    const ul = $('#sessList'); ul.innerHTML = '<li class="sess-empty">Loading…</li>';
+    let list = [];
+    try { list = (await accountCall('/sessions', 'GET')).sessions; } catch (e) { ul.innerHTML = `<li class="sess-empty">${esc(e.message)}</li>`; return; }
+    $('#acSessCount').textContent = `${list.length} signed in`;
+    $('#ssOthers').disabled = list.filter((x) => !x.current).length === 0;
+    ul.innerHTML = '';
+    if (!list.length) { ul.innerHTML = '<li class="sess-empty">No sessions.</li>'; return; }
+    list.forEach((x) => {
+      const li = document.createElement('li'); li.className = 'sess-row' + (x.current ? ' current' : '');
+      const what = `${x.browser}${x.os ? ' on ' + x.os : ''}`;
+      li.innerHTML =
+        `<div class="sess-ico" aria-hidden="true">${/iPhone|Android/.test(x.os) ? '📱' : /iPad/.test(x.os) ? '📲' : '💻'}</div>` +
+        `<div class="sess-main"><div class="sess-what">${esc(what)}${x.current ? ' <span class="sess-here">This browser</span>' : ''}</div>` +
+        `<div class="sess-meta">${esc(x.ip || 'unknown IP')} · ${esc(METHOD[x.method] || x.method)} · signed in ${esc(new Date(x.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))} · active ${esc(ago(x.lastSeenAt))}</div></div>`;
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn ghost sess-out';
+      btn.textContent = 'Sign out'; btn.title = `Sign out ${what}${x.current ? ' (this browser)' : ''}`; btn.setAttribute('aria-label', btn.title);
+      btn.onclick = async () => {
+        if (x.current && !confirm('Sign out this browser?')) return;
+        try {
+          const r = await accountCall('/sessions/' + encodeURIComponent(x.id), 'DELETE');
+          if (r.signedOutHere) { window.location.href = '/login'; return; }
+          toast('Signed out ' + what); renderSessions();
+        } catch (e) { toast('Could not sign out: ' + e.message); }
+      };
+      li.appendChild(btn); ul.appendChild(li);
+    });
+  }
+  $('#acShowSessions').onclick = () => { sessionsModal.hidden = false; renderSessions(); setTimeout(() => $('#ssDone').focus(), 30); };
+  $('#ssClose').onclick = $('#ssDone').onclick = () => { sessionsModal.hidden = true; refreshSessionCount(); };
+  $('#ssOthers').onclick = async () => {
+    if (!confirm('Sign out every other browser? This one stays signed in.')) return;
+    try { const r = await accountCall('/sessions/revoke-others', 'POST'); toast(`Signed out ${r.removed} session${r.removed === 1 ? '' : 's'}`); renderSessions(); }
+    catch (e) { toast('Could not sign out: ' + e.message); }
+  };
+  $('#ssAll').onclick = async () => {
+    if (!confirm('Sign out everywhere, including this browser?')) return;
     try { await accountCall('/logout-all', 'POST'); } catch {}
     window.location.href = '/login';
   };
@@ -1485,11 +1543,13 @@
     appDirty = true;
     const b = $('#appDirty');
     b.classList.remove('error'); b.textContent = DIRTY_MSG; b.hidden = false;
+    if (typeof updateAppFoot === 'function') updateAppFoot();
   }
   function clearAppDirty() {
     appDirty = false;
     const b = $('#appDirty');
     b.classList.remove('error'); b.hidden = true;
+    if (typeof updateAppFoot === 'function') updateAppFoot();
   }
   // Inline validation error shown in the same banner (red), switching to the tab.
   function showAppError(msg, tab) {
@@ -1510,7 +1570,7 @@
     $('#railBoards').classList.remove('active'); $('#appSettingsBtn').classList.add('active');
     pendingTheme = state.themeId;
     clearAppDirty();
-    setAppTab('theme');
+    setAppTab('account');
     renderThemeGrid();
     renderPriorityEditor();
     renderBadgeEditor();
@@ -1730,9 +1790,18 @@
       $('#autoBackupRetention').value = c.retention || 12;
     } catch {}
   }
+  var SELF_SAVE_TABS = ['account', 'signin', 'api', 'calendar', 'archives']; // var: used before this line runs
+  var currentAppTab = 'account';
+  function updateAppFoot() {
+    const self = SELF_SAVE_TABS.includes(currentAppTab) && !appDirty;
+    $('#appSave').hidden = self;
+    $('#appCancel').textContent = self ? 'Close' : 'Cancel';
+  }
   function setAppTab(tab) {
+    currentAppTab = tab;
     $$('#appTabs .modal-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     $$('#appModal .tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.tab === tab));
+    updateAppFoot();
   }
   $$('#appTabs .modal-tab').forEach((b) => (b.onclick = () => setAppTab(b.dataset.tab)));
   function themeCard(t) {

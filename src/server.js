@@ -10,7 +10,7 @@ import config from './config.js';
 import * as boardStore from './storage/boards.js';
 import * as settingsStore from './storage/settings.js';
 import * as inboxStore from './storage/inbox.js';
-import { requireSession, requireApiAuth, getAppConfig } from './auth.js';
+import { requireSession, requireApiAuth, getAppConfig, upgradeLegacySession } from './auth.js';
 import apiRoutes from './api/routes.js';
 import authRoutes, { accountRouter } from './api/auth-routes.js';
 import { scheduleBackups, createBackup } from './services/backup.js';
@@ -56,6 +56,7 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
+app.use(upgradeLegacySession); // give pre-3.1 cookies a listed session
 
 // Health check (unauthenticated) — handy for Docker + uptime checks.
 app.get('/healthz', (req, res) => res.json({ ok: true, name: 'KanDeck' }));

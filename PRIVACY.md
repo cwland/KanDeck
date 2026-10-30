@@ -27,6 +27,11 @@ Everything is stored locally as JSON files under the data directory:
 - **OAuth sign-in** (optional) — your identity provider's settings (the client
   secret **encrypted**), plus the linked account's subject ID and email. KanDeck
   talks only to the provider you configure, and only while you sign in.
+- **Sessions** — for each signed-in browser: a random session ID, its IP
+  address, browser/OS (user-agent), how it signed in, and when it signed in and
+  was last active, so you can review and sign out sessions (App Settings →
+  Account). Entries are removed when you sign out, when they expire, or with
+  **Sign out everywhere** / a password change.
 - **API key** — used to authenticate external apps to the REST API.
 - **Settings** — theme, categories, notification and backup configuration.
 - **Secrets at rest** — the SMTP password is **encrypted**

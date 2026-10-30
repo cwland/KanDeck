@@ -224,7 +224,7 @@ apps can reach your `.ics` feeds), but check these first:
 
 What KanDeck does on its own: bcrypt-hashed password, optional passkeys
 (WebAuthn, bound to each hostname, same login throttle), `httpOnly` + `SameSite`
-session cookies that can be revoked (**Log out all sessions**, password
+session cookies that can be revoked one by one (**Account → Show sessions**), password
 change), a first-run setup that strangers can't claim (local network or
 `SETUP_TOKEN` only), security headers on every response (CSP, `X-Frame-Options`,
 `nosniff`, `no-referrer`, and HSTS — sent only over HTTPS for the hostname in
@@ -372,15 +372,23 @@ subject and email).
 - **Email** on a card holds an address (opens your mail app) or a link such as
   the original Gmail message (opens in a new tab). Click it to open, ✏️ to edit;
   cards show a small clickable ✉️ (address) or 🔗 (link) too.
-- **App Settings** (⚙️ in the rail) opens as a full page with a section menu down the left: Theme,
-  Account, Sign-in, Board settings, Notifications, API, Calendar, Backups,
-  Archives. **Board settings** holds the global categories, badge colors and
-  lane-color palette used by every board. A single **Save** applies everything
-  (the Account, Sign-in, API, Calendar and Archives tabs have their own buttons
-  and act immediately).
-- **Account** (App Settings) changes your username or password (current password
-  required) and has **Log out all sessions**. Changing the password signs out
-  every other browser.
+- **App Settings** (⚙️ in the rail) opens as a full page with a section menu down the left:
+  Account, Sign-in, Board settings, Theme, Notifications, API, Calendar,
+  Backups, Archives. **Board settings** holds the global categories, badge
+  colors and lane-color palette used by every board. Board settings, Theme,
+  Notifications and Backups are saved with the page's **Save**; Account,
+  Sign-in, API, Calendar and Archives act immediately (the footer then shows
+  just **Close**).
+- **Account** (App Settings):
+  - **Username** — change it any time (no password needed).
+  - **Password** — needs your current password; signs out every other browser.
+    The **(i)** next to it shows how to reset a forgotten password on the
+    server (`docker compose exec kandeck npm run reset-password -- <user> <pass>`).
+  - **Sessions → Show sessions** lists every signed-in browser — browser and
+    OS, IP address, how it signed in (password, passkey or OAuth), when, and
+    when it was last active. **Sign out** any one of them, **Sign out all
+    others**, or **Sign out everywhere**. A signed-out browser is refused on
+    its next click.
 - **New board** (＋ in the rail) opens a small centered window: name, optional
   description, **Create board**. It starts with To Do · In Progress · Done.
 - **Board Settings** (the sliders icon at the top right) slides in from the right and has tabs: **General** (name, description,
@@ -660,7 +668,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v3.0.4 && git push origin v3.0.4
+git tag v3.1.0 && git push origin v3.1.0
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

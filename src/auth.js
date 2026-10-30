@@ -59,7 +59,7 @@ export async function setCredentials({ username, password } = {}, { keepSessions
       c = { ...(c || {}) };
       const next = { ...c, ...patch };
       if (!c.createdAt && next.passwordHash) next.createdAt = new Date().toISOString();
-      if (!keepSessions) next.sessionVersion = (c.sessionVersion || 1) + 1;
+      if (!keepSessions) { next.sessionVersion = (c.sessionVersion || 1) + 1; next.sessions = []; }
       return next;
     },
     {}
@@ -90,7 +90,7 @@ export async function verifyLogin(username, password) {
 export async function clearCredentials() {
   await updateJson(
     config.configFile,
-    (c) => ({ ...(c || {}), username: null, passwordHash: null, createdAt: null, passkeys: [], sessionVersion: ((c && c.sessionVersion) || 1) + 1 }),
+    (c) => ({ ...(c || {}), username: null, passwordHash: null, createdAt: null, passkeys: [], sessions: [], sessionVersion: ((c && c.sessionVersion) || 1) + 1 }),
     {}
   );
   return true;
@@ -136,6 +136,7 @@ export async function bumpSessionVersion() {
   await updateJson(config.configFile, (c) => {
     c = { ...(c || {}) };
     v = c.sessionVersion = (c.sessionVersion || 1) + 1;
+    c.sessions = [];
     return c;
   }, {});
   return v;
@@ -167,10 +168,85 @@ export function generateApiKeyValue() {
 
 // ---- Sessions ---------------------------------------------------------------
 
-export async function issueToken() {
-  return jwt.sign({ sub: 'app-user', sv: await currentSessionVersion() }, config.jwtSecret, {
-    expiresIn: config.sessionTtl,
-  });
+// ---- Session list -------------------------------------------------------------
+// Every sign-in gets an id (`sid` in the cookie) and a record in config.json:
+// { id, createdAt, lastSeenAt, expiresAt, ip, ua, method }. A cookie whose sid
+// is no longer listed is rejected, so one browser can be signed out on its own.
+const MAX_SESSIONS = 50;
+
+function clientInfo(req) {
+  return {
+    ip: String((req && req.ip) || (req && req.socket && req.socket.remoteAddress) || '').replace(/^::ffff:/, '').slice(0, 64),
+    ua: String((req && req.get && req.get('user-agent')) || '').slice(0, 300),
+  };
+}
+
+/** Sign in this browser: new session record + signed token. method = how they signed in. */
+export async function issueToken(req, method = 'password') {
+  const sv = await currentSessionVersion();
+  const sid = crypto.randomBytes(12).toString('base64url');
+  const token = jwt.sign({ sub: 'app-user', sv, sid }, config.jwtSecret, { expiresIn: config.sessionTtl });
+  const exp = (jwt.decode(token) || {}).exp;
+  const now = new Date().toISOString();
+  const rec = { id: sid, createdAt: now, lastSeenAt: now, expiresAt: exp ? new Date(exp * 1000).toISOString() : null, method, ...clientInfo(req) };
+  await updateJson(config.configFile, (c) => {
+    c = { ...(c || {}) };
+    const live = (Array.isArray(c.sessions) ? c.sessions : []).filter((x) => !x.expiresAt || new Date(x.expiresAt) > new Date());
+    c.sessions = [...live, rec].slice(-MAX_SESSIONS);
+    return c;
+  }, {});
+  return token;
+}
+
+export async function listSessions() {
+  const c = await getAppConfig();
+  return (Array.isArray(c.sessions) ? c.sessions : []).filter((x) => !x.expiresAt || new Date(x.expiresAt) > new Date());
+}
+
+/** Remove sessions: by id, or every one except `keepId`. Returns how many were removed. */
+export async function revokeSessions({ id, exceptId } = {}) {
+  let removed = 0;
+  await updateJson(config.configFile, (c) => {
+    c = { ...(c || {}) };
+    const list = Array.isArray(c.sessions) ? c.sessions : [];
+    const next = list.filter((x) => (id ? x.id !== id : x.id === exceptId));
+    removed = list.length - next.length;
+    c.sessions = next;
+    return c;
+  }, {});
+  return removed;
+}
+
+/** The decoded session cookie (or null). */
+export function sessionPayload(req) {
+  const token = req.cookies?.[COOKIE];
+  if (!token) return null;
+  try { return jwt.verify(token, config.jwtSecret); } catch { return null; }
+}
+
+// "Last active" is written at most every 5 minutes per session.
+const lastTouch = new Map();
+async function touchSession(sid, req) {
+  const now = Date.now();
+  if (now - (lastTouch.get(sid) || 0) < 5 * 60 * 1000) return;
+  lastTouch.set(sid, now);
+  if (lastTouch.size > 500) lastTouch.clear();
+  const info = clientInfo(req);
+  await updateJson(config.configFile, (c) => {
+    c = { ...(c || {}) };
+    c.sessions = (Array.isArray(c.sessions) ? c.sessions : []).map((x) => (x.id === sid ? { ...x, lastSeenAt: new Date(now).toISOString(), ip: info.ip || x.ip } : x));
+    return c;
+  }, {}).catch(() => {});
+}
+
+/** Cookies from before the session list existed (no sid): swap them for a
+ *  listed session the first time they're used, so nobody is signed out. */
+export async function upgradeLegacySession(req, res, next) {
+  try {
+    const p = sessionPayload(req);
+    if (p && !p.sid && p.sv === (await currentSessionVersion())) setSessionCookie(res, await issueToken(req, 'password'));
+  } catch (_) {}
+  next();
 }
 
 export function setSessionCookie(res, token) {
@@ -191,14 +267,15 @@ export function clearSessionCookie(res) {
 
 /** True if the request carries a valid, current (not revoked) session. */
 export async function validCookie(req) {
-  const token = req.cookies?.[COOKIE];
-  if (!token) return false;
-  try {
-    const payload = jwt.verify(token, config.jwtSecret);
-    return payload.sv === (await currentSessionVersion());
-  } catch {
-    return false;
-  }
+  const payload = sessionPayload(req);
+  if (!payload) return false;
+  const c = await getAppConfig();
+  if (payload.sv !== ((c && c.sessionVersion) || 1)) return false;
+  if (!payload.sid) return true; // pre-3.1 cookie; upgraded by upgradeLegacySession
+  const sess = (Array.isArray(c.sessions) ? c.sessions : []).find((x) => x.id === payload.sid);
+  if (!sess) return false; // signed out from the Sessions list
+  touchSession(payload.sid, req);
+  return true;
 }
 
 /** Guard for browser/UI routes — requires a valid session cookie. A logged-in

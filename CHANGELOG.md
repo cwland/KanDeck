@@ -4,6 +4,15 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.1.0 — 2026-10-29
+
+- **Sessions**: App Settings → Account → **Show sessions** lists every signed-in browser with its browser/OS, IP address, sign-in method (password, passkey or OAuth), sign-in time and last activity. **Sign out** any one, **Sign out all others**, or **Sign out everywhere**. Existing sign-ins carry over — nobody is logged out by the update.
+- **Changing your username no longer asks for your password.**
+- An **(i)** next to Password explains how to reset a forgotten password on the server (Docker or not).
+- **Sign-in settings reorganized** into clear cards: Sign-in methods · Passkeys · OAuth, each with its switch in the card header. OAuth is laid out as three steps: register KanDeck with your provider (callback URL), provider details, who can sign in.
+- **Settings menu** now starts with **Account**; **Theme** moved below Board settings. Settings opens on Account.
+- Tabs that save on their own (Account, Sign-in, API, Calendar, Archives) show just **Close** in the footer instead of a Save button that did nothing there.
+
 ## 3.0.4 — 2026-10-29
 
 - **New board** opens a small window in the middle of the screen: a name and an optional description, then **Create board**. Nothing is created until you click Create (Cancel or Esc leaves no trace). New boards start with To Do · In Progress · Done; change lanes, colors and routing later in Board settings.

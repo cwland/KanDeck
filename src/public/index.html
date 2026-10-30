@@ -197,10 +197,10 @@
           <h2>App settings</h2>
         </header>
         <nav class="modal-tabs" id="appTabs" aria-label="Settings sections">
-          <button type="button" class="modal-tab active" data-tab="theme"><span class="mt-ico" aria-hidden="true">🎨</span>Theme</button>
-          <button type="button" class="modal-tab" data-tab="account"><span class="mt-ico" aria-hidden="true">👤</span>Account</button>
+          <button type="button" class="modal-tab active" data-tab="account"><span class="mt-ico" aria-hidden="true">👤</span>Account</button>
           <button type="button" class="modal-tab" data-tab="signin"><span class="mt-ico" aria-hidden="true">🔐</span>Sign-in</button>
           <button type="button" class="modal-tab" data-tab="boardlook"><span class="mt-ico" aria-hidden="true">🏷️</span>Board settings</button>
+          <button type="button" class="modal-tab" data-tab="theme"><span class="mt-ico" aria-hidden="true">🎨</span>Theme</button>
           <button type="button" class="modal-tab" data-tab="notify"><span class="mt-ico" aria-hidden="true">🔔</span>Notifications</button>
           <button type="button" class="modal-tab" data-tab="api"><span class="mt-ico" aria-hidden="true">🔑</span>API</button>
           <button type="button" class="modal-tab" data-tab="calendar"><span class="mt-ico" aria-hidden="true">📅</span>Calendar</button>
@@ -218,44 +218,63 @@
           </section>
 
           <section class="tab-panel" data-tab="account">
-            <p class="hint">Your KanDeck login. Changes on this tab apply immediately and need your current password.</p>
+            <p class="hint">Your KanDeck login. Changes on this tab apply immediately.</p>
 
-            <label>Change username</label>
-            <div class="field-row">
-              <div class="field"><label>Username</label><input id="acUsername" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" /></div>
-              <div class="field"><label>Current password</label><input id="acUserPw" type="password" autocomplete="off" /></div>
-            </div>
-            <div class="ai-test-row">
-              <button type="button" class="btn ghost" id="acUserSave">Save username</button>
+            <div class="set-card">
+              <div class="set-head"><div><h3>Username</h3><p>Used with your password on the sign-in page.</p></div></div>
+              <div class="field-row ac-row">
+                <div class="field"><label for="acUsername" class="sr-only">Username</label><input id="acUsername" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" /></div>
+                <div class="field ac-btn"><button type="button" class="btn ghost" id="acUserSave">Save username</button></div>
+              </div>
               <span class="ai-test-status" id="acUserStatus"></span>
             </div>
 
-            <label style="margin-top:18px">Change password</label>
-            <div class="field-row">
-              <div class="field"><label>Current password</label><input id="acCurPw" type="password" autocomplete="off" /></div>
-              <div class="field"><label>New password <small id="acMin">(min 12)</small></label><input id="acNewPw" type="password" autocomplete="off" /></div>
-              <div class="field"><label>Confirm new</label><input id="acNewPw2" type="password" autocomplete="off" /></div>
+            <div class="set-card">
+              <div class="set-head">
+                <div>
+                  <h3>Password
+                    <button type="button" class="info-btn" id="acPwInfo" aria-expanded="false" aria-controls="acPwHelp" title="Forgot your password? How to reset it" aria-label="Forgot your password? How to reset it">i</button>
+                  </h3>
+                  <p>Changing your password signs out every other browser.</p>
+                </div>
+              </div>
+              <div class="info-pop" id="acPwHelp" hidden>
+                <b>Forgot it, or can't sign in?</b> Reset the login on the server where KanDeck runs:
+                <code>docker compose exec kandeck npm run reset-password -- &lt;username&gt; &lt;new-password&gt;</code>
+                Not using Docker? Run <code>npm run reset-password -- &lt;username&gt; &lt;new-password&gt;</code> in the KanDeck folder. Your boards and settings are kept; every browser is signed out.
+              </div>
+              <div class="field-row">
+                <div class="field"><label for="acCurPw">Current password</label><input id="acCurPw" type="password" autocomplete="off" /></div>
+                <div class="field"><label for="acNewPw">New password <small id="acMin">(min 12)</small></label><input id="acNewPw" type="password" autocomplete="off" /></div>
+                <div class="field"><label for="acNewPw2">Confirm new</label><input id="acNewPw2" type="password" autocomplete="off" /></div>
+              </div>
+              <div class="ai-test-row">
+                <button type="button" class="btn ghost" id="acPwSave">Change password</button>
+                <span class="ai-test-status" id="acPwStatus"></span>
+              </div>
             </div>
-            <div class="ai-test-row">
-              <button type="button" class="btn ghost" id="acPwSave">Change password</button>
-              <span class="ai-test-status" id="acPwStatus"></span>
-            </div>
-            <p class="hint">Changing your password signs out every other browser.</p>
 
-            <label style="margin-top:18px">Sessions</label>
-            <div class="ai-test-row">
-              <button type="button" class="btn ghost" id="acLogoutAll">Log out all sessions</button>
+            <div class="set-card">
+              <div class="set-head">
+                <div><h3>Sessions</h3><p>Every browser that's signed in. Sign out any you don't recognize. (Calendar feeds and the API key aren't affected.)</p></div>
+              </div>
+              <div class="ai-test-row">
+                <button type="button" class="btn ghost" id="acShowSessions">Show sessions</button>
+                <span class="ai-test-status" id="acSessCount"></span>
+              </div>
             </div>
-            <p class="hint">Signs out every browser, including this one. Use it if you signed in somewhere you no longer trust. Calendar feeds and the API key are not affected.</p>
           </section>
 
           <section class="tab-panel" data-tab="signin">
-            <p class="hint">Choose how you can sign in. Changes here apply when you click <b>Save sign-in settings</b>. KanDeck won't let you save a setup that would lock you out.</p>
+            <p class="hint">Choose how you can sign in, then click <b>Save sign-in settings</b>. KanDeck won't save a setup that would lock you out.</p>
 
-            <label>Sign-in methods</label>
-            <div class="field-row">
-              <div class="field" style="flex:2">
-                <label>Mode</label>
+            <!-- 1. Which methods the sign-in page offers -->
+            <div class="set-card">
+              <div class="set-head">
+                <div><h3>Sign-in methods</h3><p>What the sign-in page offers.</p></div>
+              </div>
+              <div class="field">
+                <label for="auMode">Mode</label>
                 <select id="auMode">
                   <option value="ALL_ENABLED">Password, passkeys and OAuth (all enabled)</option>
                   <option value="PASSWORDS_AND_OAUTH">Password and OAuth</option>
@@ -264,39 +283,54 @@
                   <option value="OAUTH_ONLY">OAuth only</option>
                 </select>
               </div>
+              <p class="au-summary" id="auSummary"></p>
             </div>
-            <p class="hint" id="auSummary"></p>
 
-            <div class="ai-toggle-row au-section">
-              <label class="switch"><input type="checkbox" id="auPasskeys" /><span></span></label>
-              <span class="ai-toggle-label">Passkeys</span>
-            </div>
-            <div class="au-body" id="auPkBody">
-              <p class="hint">Sign in with 1Password, iCloud Keychain or a security key. A passkey works on the address you add it from (<b id="pkHost"></b>), so add one from each address you use.</p>
-              <ul class="pk-list" id="pkList"></ul>
-              <p class="hint" id="pkEmpty">No passkeys yet.</p>
-              <div class="ai-test-row">
-                <button type="button" class="btn primary" id="pkAdd">＋ Add a passkey</button>
-                <span class="ai-test-status" id="pkStatus"></span>
+            <!-- 2. Passkeys -->
+            <div class="set-card">
+              <div class="set-head">
+                <div><h3>Passkeys</h3><p>1Password, iCloud Keychain, Touch ID or a security key.</p></div>
+                <label class="switch" title="Allow passkeys"><input type="checkbox" id="auPasskeys" aria-label="Allow passkeys" /><span></span></label>
+              </div>
+              <div class="au-body" id="auPkBody">
+                <p class="hint">A passkey works on the address you add it from (<b id="pkHost"></b>), so add one from each address you use.</p>
+                <ul class="pk-list" id="pkList"></ul>
+                <p class="hint" id="pkEmpty">No passkeys yet.</p>
+                <div class="ai-test-row">
+                  <button type="button" class="btn ghost" id="pkAdd">＋ Add a passkey</button>
+                  <span class="ai-test-status" id="pkStatus"></span>
+                </div>
               </div>
             </div>
 
-            <div class="ai-toggle-row au-section">
-              <label class="switch"><input type="checkbox" id="auOauth" /><span></span></label>
-              <span class="ai-toggle-label">OAuth / OpenID Connect</span>
-            </div>
-            <div class="au-body" id="auOauthBody">
-            <p class="hint">Sign in through an identity provider such as Authentik, Authelia, Keycloak, Google or Microsoft. Create an OAuth2/OIDC app there with this <b>callback (redirect) URL</b>, adding one for each address you use KanDeck on:</p>
-            <div class="apikey-row"><input id="auRedirect" type="text" readonly aria-label="OAuth callback URL" /><button type="button" class="btn ghost" id="auCopyRedirect">Copy</button></div>
-            <div class="field-row">
-              <div class="field"><label>Button label</label><input id="auProvider" type="text" maxlength="40" placeholder="Authentik" /></div>
-              <div class="field" style="flex:2"><label>Issuer URL</label><input id="auIssuer" type="url" spellcheck="false" placeholder="https://auth.example.com/application/o/kandeck/" /></div>
-            </div>
-            <div class="field-row">
-              <div class="field"><label>Client ID</label><input id="auClientId" type="text" autocomplete="off" spellcheck="false" /></div>
-              <div class="field"><label>Client secret</label><input id="auSecret" type="password" data-secret autocomplete="new-password" /></div>
-            </div>
-            <details class="au-adv">
+            <!-- 3. OAuth / OIDC -->
+            <div class="set-card">
+              <div class="set-head">
+                <div><h3>OAuth / OpenID Connect</h3><p>Authentik, Authelia, Keycloak, Google, Microsoft …</p></div>
+                <label class="switch" title="Enable OAuth sign-in"><input type="checkbox" id="auOauth" aria-label="Enable OAuth sign-in" /><span></span></label>
+              </div>
+              <div class="au-body" id="auOauthBody">
+                <div class="au-step">
+                  <div class="au-step-n" aria-hidden="true">1</div>
+                  <div class="au-step-body">
+                    <h4>Register KanDeck with your provider</h4>
+                    <p class="hint">Create an OAuth2/OIDC app and paste this <b>callback (redirect) URL</b>. Add one for each address you use KanDeck on.</p>
+                    <div class="apikey-row"><input id="auRedirect" type="text" readonly aria-label="OAuth callback URL" /><button type="button" class="btn ghost" id="auCopyRedirect">Copy</button></div>
+                  </div>
+                </div>
+                <div class="au-step">
+                  <div class="au-step-n" aria-hidden="true">2</div>
+                  <div class="au-step-body">
+                    <h4>Provider details</h4>
+                    <div class="field-row">
+                      <div class="field" style="flex:2"><label for="auIssuer">Issuer URL</label><input id="auIssuer" type="url" spellcheck="false" placeholder="https://auth.example.com/application/o/kandeck/" /></div>
+                      <div class="field"><label for="auProvider">Button label</label><input id="auProvider" type="text" maxlength="40" placeholder="Authentik" /></div>
+                    </div>
+                    <div class="field-row">
+                      <div class="field"><label for="auClientId">Client ID</label><input id="auClientId" type="text" autocomplete="off" spellcheck="false" /></div>
+                      <div class="field"><label for="auSecret">Client secret</label><input id="auSecret" type="password" data-secret autocomplete="new-password" /></div>
+                    </div>
+                    <details class="au-adv">
               <summary>Advanced: scopes and endpoints</summary>
               <p class="hint">Only needed if your provider has no discovery document, or to override it.</p>
               <div class="field-row">
@@ -311,24 +345,33 @@
                 <div class="field"><label>JWKS URL</label><input id="auJwks" type="url" spellcheck="false" /></div>
               </div>
             </details>
-            <p class="hint">Who may sign in: <b>link your account</b> (recommended), and/or list email addresses the provider has <i>verified</i>.</p>
-            <div class="field-row">
-              <div class="field" style="flex:2"><label>Allowed emails <small>(optional, comma-separated)</small></label><input id="auEmails" type="text" spellcheck="false" autocapitalize="none" /></div>
-            </div>
-            <div class="au-linked" id="auLinked"></div>
-            <div class="ai-test-row">
-              <button type="button" class="btn ghost" id="auTest">Check provider</button>
-              <button type="button" class="btn ghost" id="auLink">Link my account</button>
-              <button type="button" class="btn ghost" id="auUnlink" hidden>Unlink</button>
-              <span class="ai-test-status" id="auTestStatus"></span>
-            </div>
+                    <div class="ai-test-row">
+                      <button type="button" class="btn ghost" id="auTest">Check provider</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="au-step">
+                  <div class="au-step-n" aria-hidden="true">3</div>
+                  <div class="au-step-body">
+                    <h4>Who can sign in</h4>
+                    <p class="hint"><b>Link your account</b> (recommended), and/or list email addresses your provider has <i>verified</i>.</p>
+                    <div class="au-link-row">
+                      <div class="au-linked" id="auLinked"></div>
+                      <button type="button" class="btn ghost" id="auLink">Link my account</button>
+                      <button type="button" class="btn ghost" id="auUnlink" hidden>Unlink</button>
+                    </div>
+                    <div class="field"><label for="auEmails">Allowed emails <small>(optional, comma-separated)</small></label><input id="auEmails" type="text" spellcheck="false" autocapitalize="none" /></div>
+                  </div>
+                </div>
+                <div class="ai-test-row"><span class="ai-test-status" id="auTestStatus"></span></div>
+              </div>
             </div>
 
-            <div class="ai-test-row" style="margin-top:18px">
+            <div class="set-save">
               <button type="button" class="btn primary" id="auSave">Save sign-in settings</button>
               <span class="ai-test-status" id="auStatus"></span>
             </div>
-            <p class="hint"><b>Locked out?</b> On the server run <code>docker compose exec kandeck npm run auth:reset</code> to turn password sign-in back on (add <code>-- --disable-oauth-passkeys</code> to also switch OAuth and passkeys off).</p>
+            <div class="set-note"><b>Locked out?</b> On the server run <code>docker compose exec kandeck npm run auth:reset</code> to turn password sign-in back on. Add <code>-- --disable-oauth-passkeys</code> to also switch OAuth and passkeys off.</div>
           </section>
 
           <section class="tab-panel" data-tab="boardlook">
@@ -579,6 +622,27 @@
     </div>
 
     <!-- ===== Board settings modal ===== -->
+    <!-- ===== Sessions (centered) ===== -->
+    <div class="modal-backdrop" id="sessionsModal" hidden>
+      <div class="modal sessions-modal" role="dialog" aria-modal="true" aria-labelledby="ssTitle">
+        <header class="modal-head">
+          <h2 id="ssTitle">Signed-in sessions</h2>
+          <span style="flex:1"></span>
+          <button type="button" class="icon-btn" id="ssClose" title="Close" aria-label="Close">✕</button>
+        </header>
+        <div class="modal-body">
+          <p class="hint">Each browser that's signed in to KanDeck. Signing one out takes effect on its next click.</p>
+          <ul class="sess-list" id="sessList"></ul>
+        </div>
+        <footer class="modal-foot">
+          <button type="button" class="btn danger" id="ssAll">Sign out everywhere</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn ghost" id="ssOthers">Sign out all others</button>
+          <button type="button" class="btn primary" id="ssDone">Done</button>
+        </footer>
+      </div>
+    </div>
+
     <!-- ===== New board (centered) ===== -->
     <div class="modal-backdrop" id="newBoardModal" hidden>
       <form class="modal modal-sm new-board" id="newBoardForm" role="dialog" aria-modal="true" aria-labelledby="nbTitle" novalidate>
