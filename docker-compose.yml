@@ -36,6 +36,9 @@ services:
       # below are only pre-UI fallbacks.
       BACKUP_CRON: ${BACKUP_CRON:-0 3 * * 0}
       BACKUP_RETENTION: ${BACKUP_RETENTION:-12}
+      # Release watcher (App Settings → Updates). "off" = never contact GitHub.
+      UPDATE_CHECK: ${UPDATE_CHECK:-}
+      UPDATE_CHECK_URL: ${UPDATE_CHECK_URL:-}
     volumes:
       # Host-side bind mount → survives rebuilds (spec: bind-mounted host dir).
       - ./data:/app/data

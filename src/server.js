@@ -18,6 +18,7 @@ import { updateJson } from './storage/store.js';
 import { startNotifications } from './services/notify.js';
 import { icsHandler } from './services/ics.js';
 import { runEmergencyReset } from './auth-reset.js';
+import { startUpdateWatcher } from './services/updates.js';
 
 const app = express();
 const HSTS_HOST = (() => { try { return config.appUrl ? new URL(config.appUrl).hostname.toLowerCase() : ''; } catch { return ''; } })();
@@ -150,6 +151,7 @@ async function start() {
   boardStore.startAutoArchive();
   await scheduleBackups();
   startNotifications();
+  startUpdateWatcher();
   app.listen(config.port, config.host, () => {
     console.log(
       `\n  🗂  KanDeck running → http://localhost:${config.port}` +

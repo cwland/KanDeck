@@ -31,6 +31,14 @@
     <meta name="theme-color" content="#0b3b66" />
   </head>
   <body>
+    <!-- ===== Release watcher bar (fixed, very top) ===== -->
+    <div class="update-bar" id="updateBar" role="status" aria-live="polite" hidden>
+      <svg class="ub-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      <span class="ub-msg" id="ubMsg"></span>
+      <button type="button" class="ub-btn" id="ubWhatsNew"><span class="ub-long">See what&rsquo;s new</span><span class="ub-short">What&rsquo;s new</span></button>
+      <button type="button" class="ub-dismiss" id="ubDismiss" title="Dismiss until the next version" aria-label="Dismiss until the next version">Dismiss</button>
+    </div>
+
     <!-- ===== Left icon rail (main navigation) ===== -->
     <nav class="rail" aria-label="Main">
       <div class="rail-logo" aria-hidden="true">K</div>
@@ -206,6 +214,7 @@
           <button type="button" class="modal-tab" data-tab="api"><span class="mt-ico" aria-hidden="true">🔑</span>API</button>
           <button type="button" class="modal-tab" data-tab="calendar"><span class="mt-ico" aria-hidden="true">📅</span>Calendar</button>
           <button type="button" class="modal-tab" data-tab="backups"><span class="mt-ico" aria-hidden="true">💾</span>Backups</button>
+          <button type="button" class="modal-tab" data-tab="updates"><span class="mt-ico" aria-hidden="true">⬆️</span>Updates</button>
           <button type="button" class="modal-tab" data-tab="archives"><span class="mt-ico" aria-hidden="true">🗄️</span>Archives</button>
         </nav>
         <div class="dirty-banner" id="appDirty" hidden>⚠️ You have unsaved changes — click Save to keep them.</div>
@@ -605,6 +614,29 @@
               <div class="dz-title">⚠️ Danger zone</div>
               <p class="hint">For testing. <b>Reset all cards</b> permanently deletes every card on every board — active and archived, archived boards included — and empties the Inbox. Boards, lanes, routing tags, calendar feeds and settings are kept. A full backup is taken first, so you can undo it from the list above.</p>
               <button type="button" class="btn danger-solid" id="resetCards">Reset all cards…</button>
+            </div>
+          </section>
+
+          <section class="tab-panel" data-tab="updates">
+            <p class="hint">KanDeck watches the <b>version on the main branch</b> on GitHub (the code the Docker image is built from). When it's newer than what you're running, a bar appears across the top. It checks when you sign in and every 3 hours. <b>Dismiss</b> hides it until the next version.</p>
+            <div class="ai-toggle-row">
+              <label class="switch"><input type="checkbox" id="upEnabled" /><span></span></label>
+              <span class="ai-toggle-label">Check for new versions automatically</span>
+            </div>
+            <p class="hint" id="upEnvNote" hidden>⚠️ Turned off on the server with <code>UPDATE_CHECK=off</code> — remove it from your environment to use this.</p>
+            <div class="field-row">
+              <div class="field"><label for="upRepo">GitHub repository</label><input id="upRepo" type="text" spellcheck="false" autocomplete="off" placeholder="cwland/KanDeck" /></div>
+              <div class="field" style="max-width:180px"><label for="upBranch">Branch</label><input id="upBranch" type="text" spellcheck="false" autocomplete="off" placeholder="main" /></div>
+            </div>
+            <div class="field">
+              <label for="upToken">GitHub token <span class="hint-inline">(optional — only for a private repo or fork)</span></label>
+              <input id="upToken" type="password" data-secret autocomplete="off" placeholder="ghp_… or github_pat_…" />
+            </div>
+            <p class="hint">The public KanDeck repo needs no token. For a private one, create a fine-grained token with read-only <b>Contents</b> access to that repo. It's stored on your server and never shown again. <button type="button" class="linkish" id="upClearToken" hidden>Remove saved token</button></p>
+            <div class="ai-test-row">
+              <button type="button" class="btn primary" id="upSave">Save</button>
+              <button type="button" class="btn ghost" id="upCheck">Check now</button>
+              <span class="ai-test-status" id="upStatus" role="status"></span>
             </div>
           </section>
 

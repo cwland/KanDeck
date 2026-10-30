@@ -1579,7 +1579,7 @@
   // tab, whose key actions commit to the server immediately. Everything else
   // (theme, categories, lanes, notifications, auto-backup) is persisted
   // by the main Save button, so it DOES flag unsaved changes.
-  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"], [data-tab="calendar"], [data-tab="account"], [data-tab="signin"]';
+  const SELF_SAVE = '[data-tab="api"], [data-tab="archives"], [data-tab="calendar"], [data-tab="account"], [data-tab="signin"], [data-tab="updates"]';
   const dirtyIfTracked = (e) => { if (e.target.closest && e.target.closest(SELF_SAVE)) return; markAppDirty(); };
   appModal.addEventListener('input', dirtyIfTracked);
   appModal.addEventListener('change', dirtyIfTracked);
@@ -1599,6 +1599,7 @@
     loadNotifications();
     loadBackupConfig();
     loadBackups();
+    loadUpdateSettings();
     loadArchivedBoards();
     appModal.hidden = false;
     // Move focus into the dialog for keyboard users.
@@ -1808,7 +1809,7 @@
       $('#autoBackupRetention').value = c.retention || 12;
     } catch {}
   }
-  var SELF_SAVE_TABS = ['account', 'signin', 'api', 'calendar', 'archives']; // var: used before this line runs
+  var SELF_SAVE_TABS = ['account', 'signin', 'api', 'calendar', 'archives', 'updates']; // var: used before this line runs
   var currentAppTab = 'account';
   function updateAppFoot() {
     const self = SELF_SAVE_TABS.includes(currentAppTab) && !appDirty;
@@ -2362,6 +2363,84 @@
     e.preventDefault(); openSearchPop();
   });
 
+  // ---- Release watcher: bar across the very top when a newer version is out.
+  // Checked when the app opens (after sign-in) and every 3 hours. Dismissing
+  // hides it until the next version. ----
+  let updateInfo = null;
+  function showUpdateBar(on) {
+    $('#updateBar').hidden = !on;
+    document.documentElement.classList.toggle('has-update-bar', on);
+  }
+  async function checkUpdates(onOpen) {
+    try {
+      updateInfo = await api('/updates' + (onOpen ? '?open=1' : ''));
+      const u = updateInfo;
+      if (u.available && !u.dismissed) {
+        $('#ubMsg').innerHTML = `<b><span class="ub-long">KanDeck ${esc(u.latest)} is available!</span><span class="ub-short">v${esc(u.latest)} available</span></b> <span class="ub-sub">You're on ${esc(u.current)}.</span>`;
+        showUpdateBar(true);
+      } else showUpdateBar(false);
+    } catch (_) { /* offline / check disabled: no bar */ }
+  }
+  $('#ubWhatsNew').onclick = () => { if (updateInfo) openWhatsNew({ ...updateInfo, upcoming: true }); };
+  $('#ubDismiss').onclick = async () => {
+    showUpdateBar(false);
+    if (updateInfo && updateInfo.latest) { try { await api('/updates/dismiss', { method: 'PUT', body: { version: updateInfo.latest } }); } catch (_) {} }
+  };
+  checkUpdates(true);
+  setInterval(() => checkUpdates(false), 3 * 60 * 60 * 1000);
+
+  // App settings → Updates (applies immediately; the token is write-only).
+  const upStatus = (msg, kind) => { const el = $('#upStatus'); el.textContent = msg || ''; el.className = 'ai-test-status' + (kind ? ' ' + kind : ''); };
+  function fillUpdateSettings(u) {
+    $('#upEnabled').checked = !!u.enabled;
+    $('#upEnabled').disabled = !!u.envDisabled;
+    $('#upEnvNote').hidden = !u.envDisabled;
+    $('#upRepo').value = u.repo || '';
+    $('#upBranch').value = u.branch || '';
+    $('#upToken').value = '';
+    $('#upToken').placeholder = u.hasToken ? '•••••• saved (leave blank to keep)' : 'ghp_… or github_pat_…';
+    $('#upClearToken').hidden = !u.hasToken;
+  }
+  async function loadUpdateSettings() {
+    upStatus('');
+    try { fillUpdateSettings(await api('/updates/settings')); } catch (_) {}
+  }
+  function describeCheck(u) {
+    if (u.error) return [`Couldn't check: ${u.error}`, 'err'];
+    if (u.available) return [`KanDeck ${u.latest} is available (you're on ${u.current}).`, 'ok'];
+    return [`You're up to date (${u.current}${u.latest ? `, latest is ${u.latest}` : ''}).`, 'ok'];
+  }
+  async function saveUpdateSettings(extra = {}) {
+    const body = { enabled: $('#upEnabled').checked, repo: $('#upRepo').value.trim(), branch: $('#upBranch').value.trim(), ...extra };
+    const tok = $('#upToken').value.trim();
+    if (tok && !extra.clearToken) body.token = tok;
+    fillUpdateSettings(await api('/updates/settings', { method: 'PUT', body }));
+  }
+  $('#upSave').onclick = async () => {
+    try { await saveUpdateSettings(); upStatus('Saved', 'ok'); checkUpdates(false); }
+    catch (e) { upStatus(e.message || 'Save failed', 'err'); }
+  };
+  $('#upEnabled').onchange = async () => {
+    try { await saveUpdateSettings(); upStatus($('#upEnabled').checked ? 'Automatic checks on' : 'Automatic checks off', 'ok'); checkUpdates(false); }
+    catch (e) { upStatus(e.message || 'Save failed', 'err'); }
+  };
+  $('#upClearToken').onclick = async () => {
+    try { await saveUpdateSettings({ clearToken: true }); upStatus('Token removed', 'ok'); }
+    catch (e) { upStatus(e.message || 'Failed', 'err'); }
+  };
+  $('#upCheck').onclick = async () => {
+    const btn = $('#upCheck'); btn.disabled = true; upStatus('Checking…');
+    try {
+      // Save unsaved edits first so "Check now" tests what's on screen.
+      await saveUpdateSettings();
+      const u = await api('/updates/check', { method: 'POST' });
+      if (!u.enabled) upStatus('Automatic checks are off — turn them on to check.', 'err');
+      else { const [m, k] = describeCheck(u); upStatus(m, k); }
+      checkUpdates(false);
+    } catch (e) { upStatus(e.message || 'Check failed', 'err'); }
+    finally { btn.disabled = false; }
+  };
+
   // ---- What's new (changelog) ----
   // Shown automatically once per new version; dismissing marks that version as
   // seen (server-side, so it follows you across browsers). Clicking the version
@@ -2375,6 +2454,7 @@
   function renderWhatsNew(data) {
     const [cur, ...prev] = data.entries || [];
     const updated = data.unseen && data.lastSeenVersion && data.lastSeenVersion !== data.current;
+    if (data.upcoming) { renderUpcoming(data); return; }
     let html = `<div class="wn-banner">${updated
       ? `Updated <span class="wn-ver old">v${esc(data.lastSeenVersion)}</span> → <span class="wn-ver">v${esc(data.current)}</span>`
       : `You're on <span class="wn-ver">v${esc(data.current)}</span>`}</div>`;
@@ -2406,9 +2486,24 @@
     $('#wnBody').innerHTML = html;
     $('#wnBody').scrollTop = 0;
   }
+  // Release watcher: notes for a version that's available but not installed yet.
+  function renderUpcoming(data) {
+    const list = data.entries || [];
+    let html = `<div class="wn-banner wn-upcoming">Version <span class="wn-ver">v${esc(data.latest)}</span> is available — you're on <span class="wn-ver old">v${esc(data.current)}</span></div>`;
+    html += `<div class="wn-howto"><b>How to update</b> (on the server where KanDeck runs):<code>docker compose pull\ndocker compose up -d</code></div>`;
+    if (!list.length) html += '<p class="hint">No release notes were published for this version.</p>';
+    list.forEach((e, i) => {
+      const items = (e.changes || []).map((c) => `<li>${mdInline(c)}</li>`).join('');
+      html += i === 0
+        ? `<section class="wn-entry current"><div class="wn-head"><span class="wn-ver">v${esc(e.version)}</span><span class="wn-tag">New</span><span class="wn-date">${esc(fmtRelDate(e.date))}</span></div><ul>${items}</ul></section>`
+        : `<details class="wn-entry wn-prev"><summary class="wn-head"><span class="wn-chev" aria-hidden="true">›</span><span class="wn-ver">v${esc(e.version)}</span><span class="wn-count">${(e.changes || []).length} change${(e.changes || []).length === 1 ? '' : 's'}</span><span class="wn-date">${esc(fmtRelDate(e.date))}</span></summary><ul>${items}</ul></details>`;
+    });
+    $('#wnBody').innerHTML = html;
+    $('#wnBody').scrollTop = 0;
+  }
   async function openWhatsNew(data) {
     try { data = data || await api('/changelog'); } catch { toast('Could not load release notes'); return; }
-    whatsNewUnseen = !!data.unseen;
+    whatsNewUnseen = !data.upcoming && !!data.unseen; // upcoming notes never mark anything "seen"
     renderWhatsNew(data);
     whatsNewModal.hidden = false;
     requestAnimationFrame(() => $('#wnOk').focus());

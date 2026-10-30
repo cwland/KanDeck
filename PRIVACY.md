@@ -6,12 +6,16 @@ KanDeck handles data so you can make informed decisions about how you deploy it.
 
 ## The short version
 
-- KanDeck has **no telemetry, no analytics, and no "phone home."** It never
-  sends your data to the project authors or any third party on its own.
+- KanDeck has **no telemetry and no analytics.** It never sends your data to
+  the project authors or any third party on its own.
+- The one automatic request is the **release watcher**: it downloads KanDeck's
+  public `package.json` and `CHANGELOG.md` from GitHub to see if a newer version
+  exists. Nothing about you or your boards is sent, and you can turn it off
+  (App Settings → Updates, or `UPDATE_CHECK=off`).
 - All of your data lives in **plain files on disk** in the app's data directory
   (`data/`) — boards, cards, inbox items, settings, and backups.
-- KanDeck only talks to an external service when **you configure it to**, and
-  only to the endpoint **you** provide.
+- Apart from that update check, KanDeck only talks to an external service
+  when **you configure it to**, and only to the endpoint **you** provide.
 
 ## What data KanDeck stores, and where
 
@@ -44,17 +48,19 @@ component.
 
 ## When KanDeck contacts an external service
 
-KanDeck makes outbound network requests **only** for features you explicitly
-enable and configure, to the destinations you specify:
+KanDeck makes outbound network requests **only** for the update check (on by
+default, easy to turn off) and for features you explicitly enable and configure,
+to the destinations you specify:
 
 | Feature | Outbound request | Configured by you |
 |---------|------------------|-------------------|
+| **Release watcher** (on by default) | When you sign in and every 3 hours, the server GETs `package.json` (and, if newer, `CHANGELOG.md`) from GitHub — `raw.githubusercontent.com`, or `api.github.com` if you add a token for a private repo. GitHub sees your server's IP address and a `KanDeck/<version>` user agent; no board data or personal data is sent. | App Settings → Updates (or `UPDATE_CHECK=off`) |
 | **Email notifications** | The server connects to the **SMTP server** you configure to send task summaries. | App Settings → Notifications |
 | **Discord notifications** | The server POSTs task summaries / pings to the **Discord webhook URL** you configure. | App Settings → Notifications |
 | **Text messages** | The server POSTs alarm reminders and/or task summaries (card titles, board names, due dates) to the **iMessage Gateway URL** you configure, which sends them through Apple's Messages service on your Mac. | App Settings → Notifications → Text |
 
-If you enable none of these, KanDeck makes no outbound requests at all beyond
-serving the app to your own browser.
+If you turn the update check off and enable none of the others, KanDeck makes
+no outbound requests at all beyond serving the app to your own browser.
 
 ## Authentication and access
 
@@ -79,10 +85,11 @@ serving the app to your own browser.
 
 ## Third‑party services
 
-When you use the email or Discord features, your data is handled by those
-third parties (your email provider, Discord) under **their** privacy policies,
-not this one. Review and
-configure those services according to your own requirements.
+When you use the email, Discord or text features, your data is handled by
+those third parties (your email provider, Discord, Apple) under **their**
+privacy policies, not this one. The update-check request itself is subject to
+GitHub's privacy policy. Review and configure those services according to your
+own requirements.
 
 ## Changes
 

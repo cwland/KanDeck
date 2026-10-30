@@ -4,6 +4,14 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.2.0 — 2026-10-29
+
+- **Release watcher**: when a newer KanDeck is out, a slim bar appears across the very top — **KanDeck X is available!** with **See what's new** and **Dismiss**. It checks the version on GitHub's main branch when you sign in and every 3 hours.
+- **See what's new** shows every change between your version and the new one, plus the `docker compose` commands to update.
+- **Dismiss** hides the bar until the *next* version (remembered on the server, so it stays dismissed in every browser).
+- New **App Settings → Updates**: turn automatic checks on/off, choose the GitHub repo and branch to watch (e.g. your fork), and add an optional **GitHub token** for a private repo (hidden, with the 👁 toggle; never shown again). **Check now** tells you if you're up to date or what went wrong.
+- `UPDATE_CHECK=off` in the environment disables the watcher completely. See PRIVACY.md — this is the only request KanDeck makes on its own, and it sends nothing about you or your boards.
+
 ## 3.1.4 — 2026-10-29
 
 - **List view, one line per card**: the ✉️ / 🔗 icon now sits right after the title, followed by a one-line preview of the description. New **Tags** (with the card's source, e.g. n8n) and **Reminder** columns next to Category and Due. The list shows these even when a board hides them on its card tiles. When space is tight (e.g. side panel open on a laptop) the Tags and Reminder columns step aside and a ⏰ icon marks cards with a reminder.

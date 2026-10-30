@@ -20,6 +20,7 @@ import { createBackup, listBackups, restoreBackup, rescheduleBackups } from '../
 import { testEmail, testDiscord, testImessage, emailProvider, discordProvider, imessageProvider } from '../services/notify/index.js';
 import config from '../config.js';
 import { getChangelog } from '../services/changelog.js';
+import { updateStatus, dismissUpdate, getUpdateSettings, saveUpdateSettings } from '../services/updates.js';
 
 const router = Router();
 
@@ -341,6 +342,28 @@ router.put('/settings', wrap(async (req, res) => {
 router.put('/settings/priorities', wrap(async (req, res) => {
   const priorities = await settings.updatePriorities(req.body?.priorities || []);
   res.json({ priorities });
+}));
+
+// ---- Release watcher: is a newer KanDeck available? -------------------------
+// ?open=1 (page load / sign-in) re-checks GitHub if the last check is >10 min old;
+// otherwise the 3-hour cached result is used.
+router.get('/updates', wrap(async (req, res) => {
+  res.json(await updateStatus({ onOpen: req.query.open === '1' }));
+}));
+router.put('/updates/dismiss', wrap(async (req, res) => {
+  await dismissUpdate(req.body?.version);
+  res.json({ ok: true });
+}));
+// App settings → Updates. The GitHub token is write-only (never returned).
+router.get('/updates/settings', wrap(async (req, res) => {
+  res.json(await getUpdateSettings());
+}));
+router.put('/updates/settings', wrap(async (req, res) => {
+  res.json(await saveUpdateSettings(req.body || {}));
+}));
+// "Check now": always asks GitHub, ignoring the cache.
+router.post('/updates/check', wrap(async (req, res) => {
+  res.json(await updateStatus({ force: true }));
 }));
 
 // ---- What's new (changelog) -------------------------------------------------

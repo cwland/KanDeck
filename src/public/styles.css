@@ -1537,3 +1537,47 @@ html[data-theme='dark'] .info-btn { color: #8fb8ea; border-color: #8fb8ea; }
 }
 .lv-alarm-ico { display: none; flex: 0 0 auto; font-size: .85rem; }
 @container mainarea (max-width: 1120px) { .lv-alarm-ico { display: inline; } }
+
+/* ---- Release watcher bar: slim, high-contrast, fixed across the very top ---- */
+:root { --ub-h: 0px; }
+html.has-update-bar { --ub-h: 44px; }
+html.has-update-bar body { padding-top: var(--ub-h); }
+.update-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 90;
+  display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 16px;
+  background: #1c1f23; color: #fff; font-size: .92rem; box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.update-bar[hidden] { display: none; }
+.update-bar .ub-ico { color: #7cd4a5; flex: 0 0 auto; }
+.ub-msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ub-sub { color: #c3cad1; font-weight: 400; margin-left: 4px; }
+.ub-btn {
+  flex: 0 0 auto; height: 30px; padding: 0 14px; border: 0; border-radius: 8px; cursor: pointer;
+  background: #fff; color: #1c1f23; font-weight: 700; font-size: .85rem;
+}
+.ub-btn:hover { background: #e7eef7; }
+.ub-dismiss {
+  flex: 0 0 auto; height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; cursor: pointer;
+  background: transparent; color: #fff; font-weight: 600; font-size: .85rem;
+}
+.ub-dismiss:hover { background: rgba(255,255,255,.12); }
+.update-bar button:focus-visible { outline: 2px solid #7cd4a5; outline-offset: 2px; }
+html.has-update-bar .modal-backdrop { top: var(--ub-h); }
+.update-bar .ub-short { display: none; }
+@media (max-width: 760px) {
+  .ub-sub { display: none; }
+  .update-bar { gap: 8px; padding: 0 10px; font-size: .85rem; justify-content: space-between; }
+}
+@media (max-width: 520px) {
+  .update-bar .ub-long, .update-bar .ub-ico { display: none; }
+  .update-bar .ub-short { display: inline; }
+  .ub-btn, .ub-dismiss { padding: 0 10px; }
+}
+/* App settings → Updates */
+.hint-inline { font-weight: 400; color: var(--text-dim); font-size: .85em; }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent, #1f63b0); font: inherit; text-decoration: underline; cursor: pointer; }
+/* What's new: upcoming-version view */
+.wn-upcoming { background: #1c1f23; color: #fff; }
+.wn-upcoming .wn-ver.old { opacity: .75; }
+.wn-howto { font-size: .86rem; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; }
+.wn-howto code { display: block; white-space: pre; margin-top: 6px; font-size: .82rem; }

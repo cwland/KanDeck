@@ -35,6 +35,7 @@ board.
 - [REST API](#rest-api)
 - [Notifications](#notifications)
 - [Backups](#backups)
+- [Updates](#updates)
 - [Building the Docker image (CI)](#building-the-docker-image-ci)
 - [Privacy & License](#privacy--license)
 
@@ -54,6 +55,11 @@ board.
   undated cards as to-dos).
 - **What's new** — after an update, a window shows the new version's changes
   and the 10 releases before it; click the version number to reopen it.
+- **Release watcher** — a slim bar across the top tells you when a newer
+  version is out (**See what's new** · **Dismiss**). It checks the version on
+  GitHub's main branch when you sign in and every 3 hours. Dismissed until the
+  next version. Optional GitHub token for private repos/forks.
+  See [Updates](#updates).
 - **App-level categories** (priorities) with editable, high-contrast colors that
   apply across every board.
 - **Clean, card-based layout** — an icon rail on the left, board tabs across
@@ -197,6 +203,8 @@ is in [`.env.example`](.env.example). The ones that matter:
 | `DATA_DIR` | Optional | Where the JSON store lives (default `./data`). |
 | `SESSION_TTL` | Optional | Session lifetime (default `7d`). |
 | `BACKUP_CRON`, `BACKUP_RETENTION` | Optional | Pre-UI fallbacks; the real schedule/retention are set in **App Settings → Backups**. |
+| `UPDATE_CHECK` | Optional | Set to `off` to stop the release watcher from ever contacting GitHub (overrides the switch in **App Settings → Updates**). |
+| `UPDATE_CHECK_URL` | Optional | Read `package.json` / `CHANGELOG.md` from this base URL instead of GitHub (mirrors, testing). |
 
 Keep your `.env` **out of source control** (it's already gitignored).
 
@@ -647,6 +655,46 @@ deletes every card on every board — active and archived, archived boards
 included — and empties the Inbox, keeping boards, lanes, routing tags, feeds and
 settings. It asks twice (type `RESET`), only works from a signed-in browser (not
 the API key), and saves a **Pre-reset** backup first so you can restore it.
+
+---
+
+## Updates
+
+KanDeck watches for new releases on its own. When the **version on the main
+branch** on GitHub (the code the `:latest` Docker image is built from) is newer
+than the one you're running, a slim bar appears across the very top:
+
+> ⬆ **KanDeck 3.3.0 is available!** You're on 3.2.0. **[See what's new]** **[Dismiss]**
+
+- **See what's new** lists every change between your version and the new one,
+  plus the commands to update.
+- **Dismiss** hides the bar until the *next* version comes out (it's remembered
+  on the server, so it stays dismissed in every browser).
+- It checks when you sign in / open the app and every 3 hours in the background.
+
+Settings live in **App Settings → Updates**:
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| Check automatically | On | Off = no requests to GitHub at all. |
+| GitHub repository | `cwland/KanDeck` | Point it at your fork (`owner/name` or a GitHub URL). |
+| Branch | `main` | The branch whose `package.json` version counts as "latest". |
+| GitHub token | — | Only for a **private** repo/fork. Create a fine-grained token with read-only **Contents** access to that repo. Stored on your server, never shown again (blank = keep). |
+
+**Check now** saves the form and checks immediately, reporting "up to date",
+"X is available", or what went wrong (e.g. *Not found — add a token if the repo
+is private*, or *GitHub rejected the token*). Without a token KanDeck reads
+`raw.githubusercontent.com`; with one it uses the GitHub API.
+
+To update the Docker install:
+
+```bash
+docker compose pull
+docker compose up -d --force-recreate
+docker compose exec kandeck node -p "require('./package.json').version"   # confirm
+```
+
+`UPDATE_CHECK=off` in your environment turns the watcher off completely.
 
 ---
 
