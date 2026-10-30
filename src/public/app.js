@@ -324,26 +324,41 @@
 
   // List view row: title + written-out details (reminder, email/link, tags),
   // category pill, due date.
+  // List view row (one line): ✓ · title + ✉️/🔗 + description preview · tags ·
+  // reminder · category · due · ✕
   function renderListRow(card, li, top) {
     li.classList.add('lv-row');
-    const cf = cardFields();
-    const det = [];
-    if (cf.alarm && card.alarm && !card.complete) {
-      const d = new Date(card.alarm);
-      if (!Number.isNaN(d.getTime())) det.push(`<span${d < new Date() ? ' style="text-decoration:line-through"' : ''}>⏰ Reminder ${esc(d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</span>`);
-    }
+    // The list is the detailed view: it shows tags, source, reminder and
+    // email/link even when the board hides them on the card tiles.
+    const cf = { ...cardFields(), tags: true, source: true, alarm: true, email: true };
+    const short = (d) => d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    // Icons right after the title (email / link, archived)
+    let icons = '';
     if (cf.email && card.email) {
       const href = emailHref(card.email);
-      // Icon only; the address / link is in the hover text.
       if (href) {
         const isLink = /^https?:/i.test(href);
         const t = (isLink ? 'Open link: ' : 'Email: ') + emailLabel(card.email);
-        det.push(`<a class="lv-icon" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(t)}" aria-label="${esc(t)}">${isLink ? '🔗' : '✉️'}</a>`);
+        icons += `<a class="lv-icon" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(t)}" aria-label="${esc(t)}">${isLink ? '🔗' : '✉️'}</a>`;
       }
     }
-    if (cf.tags && (card.tags || []).length) det.push(`<span>Tags: ${esc(card.tags.join(', '))}</span>`);
-    if (cf.source && card.source) det.push(`<span>From ${esc(card.source)}</span>`);
-    if (card.archived) det.push('<span>Archived</span>');
+    if (card.alarm && !card.complete) {
+      const d = new Date(card.alarm);
+      if (!Number.isNaN(d.getTime())) { const t = 'Reminder ' + d.toLocaleString(); icons += `<span class="lv-alarm-ico" role="img" title="${esc(t)}" aria-label="${esc(t)}">⏰</span>`; }
+    }
+    if (card.archived) icons += '<span class="lv-flag" title="Archived">Archived</span>';
+    // One-line description preview (Markdown symbols stripped)
+    const desc = String(card.description || '').replace(/[#*_`>\[\]()~-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    // Tags (+ source) as small pills
+    let tags = '';
+    if (cf.tags) (card.tags || []).forEach((t) => { tags += `<span class="tag-chip" style="background:${state.badges.tag.color};color:${state.badges.tag.textColor}">${esc(t)}</span>`; });
+    if (cf.source && card.source) tags += `<span class="tag-chip lv-src" title="Source">${esc(card.source)}</span>`;
+    // Reminder
+    let rem = '<span class="lv-none">—</span>';
+    if (cf.alarm && card.alarm && !card.complete) {
+      const d = new Date(card.alarm);
+      if (!Number.isNaN(d.getTime())) rem = `<span class="lv-rem${d < new Date() ? ' past' : ''}" title="Reminder ${esc(d.toLocaleString())}${d < new Date() ? ' (passed)' : ''}">⏰ ${esc(short(d))}</span>`;
+    }
     let prio = '';
     if (cf.priority && card.priority && card.priority !== 'none') {
       const pc = priColor(card.priority) || '#868e96';
@@ -351,8 +366,10 @@
       prio = `<span class="badge" style="background:${pc};color:${tc}">${esc(priName(card.priority))}</span>`;
     }
     li.innerHTML =
-      `<div class="card-main lv-main"><span class="lv-title">${esc(card.subject)}</span>` +
-      (det.length ? `<div class="lv-details">${det.join('')}</div>` : '') + `</div>` +
+      `<div class="card-main lv-main"><span class="lv-title">${esc(card.subject)}</span>${icons}` +
+      (desc ? `<span class="lv-desc" title="${esc(desc)}">${esc(desc)}</span>` : '') + `</div>` +
+      `<div class="lv-tags">${tags || '<span class="lv-none">—</span>'}</div>` +
+      `<div class="lv-remcol">${rem}</div>` +
       `<div class="lv-prio">${prio}</div>` +
       `<div class="lv-due ${top.cls}">${top.text ? esc(top.text) : '—'}</div>` +
       `<button class="card-check" title="Mark complete"><span class="chk">✓</span></button>` +
@@ -489,7 +506,7 @@
             </button>`;
           })() : ''}
         </div>
-        ${state.listView ? '<div class="lv-cols" aria-hidden="true"><span>Card</span><span>Category</span><span>Due</span></div>' : ''}
+        ${state.listView ? '<div class="lv-cols" aria-hidden="true"><span>Card</span><span class="lv-h-tags">Tags</span><span class="lv-h-rem">Reminder</span><span>Category</span><span>Due</span></div>' : ''}
         <ul class="cards" data-col="${col.id}"></ul>
         <button class="add-card">＋ Add a card</button>`;
       const ul = $('.cards', wrap);

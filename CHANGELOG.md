@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.1.4 — 2026-10-29
+
+- **List view, one line per card**: the ✉️ / 🔗 icon now sits right after the title, followed by a one-line preview of the description. New **Tags** (with the card's source, e.g. n8n) and **Reminder** columns next to Category and Due. The list shows these even when a board hides them on its card tiles. When space is tight (e.g. side panel open on a laptop) the Tags and Reminder columns step aside and a ⏰ icon marks cards with a reminder.
+
 ## 3.1.3 — 2026-10-29
 
 - **Fix (List view):** the ✓ circle on completed cards covered the first letters of the title. Each row now has its own check column on the left (faint until you hover, solid green when done) and the ✕ sits at the right end of the row.

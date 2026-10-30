@@ -1504,3 +1504,36 @@ html[data-theme='dark'] .info-btn { color: #8fb8ea; border-color: #8fb8ea; }
 .board.list-view .card-x { right: 4px; top: 50%; margin-top: 0; transform: translateY(-50%); }
 .board.list-view .lv-cols { padding-left: 58px; padding-right: 56px; }
 @media (hover: none) { .board.list-view .card-check { opacity: .6; } }
+
+/* List view, one line per card: title + icons + description · Tags · Reminder · Category · Due */
+.lv-cols, .board.list-view .card.lv-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 200px) 150px 110px 84px;
+}
+.lv-cols span:nth-child(2), .lv-cols span:nth-child(3) { text-align: left; }
+.board.list-view .card.lv-row { padding-top: 10px; padding-bottom: 10px; }
+.lv-main { flex-direction: row; align-items: center; gap: 8px; white-space: nowrap; }
+.lv-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.lv-main a.lv-icon { flex: 0 0 auto; text-decoration: none; font-size: .9rem; line-height: 1; padding: 3px 7px; border-radius: 8px; background: var(--mint); }
+.lv-main a.lv-icon:hover { filter: brightness(.95); }
+.lv-flag { flex: 0 0 auto; font-size: .72rem; font-weight: 700; color: var(--text-dim); background: var(--surface-2); border-radius: 999px; padding: 2px 8px; }
+.lv-desc { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); font-size: .86rem; }
+.lv-tags { display: flex; gap: 4px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.lv-tags .tag-chip { font-size: .74rem; padding: 2px 9px; flex: 0 0 auto; }
+.lv-tags .lv-src { background: var(--surface-2); color: var(--text-dim); }
+.lv-remcol { font-size: .84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-rem { color: var(--mint-text); }
+.lv-rem.past { color: var(--text-dim); text-decoration: line-through; }
+.lv-none { color: var(--text-dim); opacity: .6; }
+/* Narrower board area: drop the Tags and Reminder columns */
+@container mainarea (max-width: 1120px) {
+  .lv-cols, .board.list-view .card.lv-row { grid-template-columns: minmax(0, 1fr) 110px 84px; }
+  .lv-h-tags, .lv-h-rem, .board.list-view .lv-tags, .board.list-view .lv-remcol { display: none; }
+}
+@container mainarea (max-width: 620px) {
+  .lv-cols { display: none; }
+  .board.list-view .card.lv-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .board.list-view .lv-prio { display: none; }
+  .lv-desc { display: none; }
+}
+.lv-alarm-ico { display: none; flex: 0 0 auto; font-size: .85rem; }
+@container mainarea (max-width: 1120px) { .lv-alarm-ico { display: inline; } }
