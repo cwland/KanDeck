@@ -359,12 +359,12 @@ subject and email).
   board name to see its description.
 - **Search**: the 🔍 at the top right (or press **/**) opens a search box
   across all boards; Esc closes it.
-- **Board / List** (top left): flips between lanes side by side and a list
+- **Board / List** (left end of the summary line under the tabs): flips between lanes side by side and a list
   with the lanes stacked, one row per card with its reminder, tags and an ✉️ /
   🔗 icon for its email or link (hover for the address), plus Category and Due
-  columns. Remembered per board. **Sort** (Manual, Priority, Due date) sits
-  next to it.
-- The line under the header sums up the board: overdue, due this week, open.
+  columns. Remembered per board. **Sort** (Manual, Priority, Due date) is at
+  the right end of the same line.
+- The line under the header sums up the board: overdue · due this week · open.
 - **Archive or delete a card** with the small **✕** in its top-right corner
   (Delete needs a second click to confirm).
 - **Move a card to another board** from its window: pick the **Board** and
@@ -658,7 +658,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v3.0.1 && git push origin v3.0.1
+git tag v3.0.2 && git push origin v3.0.2
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

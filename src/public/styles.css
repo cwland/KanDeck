@@ -1414,3 +1414,17 @@ body.inbox-collapsed .inbox-edge { right: 0; }
 }
 .rail .version-foot:hover, .rail .version-foot:focus-visible { background: var(--surface-2); color: var(--text); text-decoration: none; }
 @media (max-width: 760px) { .rail .version-foot { display: none; } }
+
+/* Status row: Board/List switch · summary line · Sort */
+.status-row { display: flex; align-items: center; gap: 12px; margin: 0 44px 12px 24px; }
+.status-row .status-pill { flex: 1 1 auto; margin: 0; min-width: 0; }
+.status-row .sort-mode { margin-left: auto; flex: 0 0 auto; }
+.status-row .view-toggle { flex: 0 0 auto; }
+.board-header { grid-template-areas: ". title right" "tabs tabs tabs"; }
+@container mainarea (max-width: 620px) {
+  .board-header { grid-template-areas: "title right" "tabs tabs"; }
+}
+@media (max-width: 760px) {
+  .status-row { margin: 0 14px 12px; flex-wrap: wrap; }
+  .status-row .status-pill { order: 3; flex-basis: 100%; }
+}

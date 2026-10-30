@@ -52,22 +52,6 @@
           <!-- Compact header: view + sort (left) · board title (center) · search + board settings (right);
                board tabs centered underneath. -->
           <div class="board-header" id="boardHeader">
-            <div class="bh-left">
-              <div class="view-toggle" role="group" aria-label="View">
-                <button type="button" class="vt-btn active" data-view="board" aria-pressed="true">Board</button>
-                <button type="button" class="vt-btn" data-view="list" aria-pressed="false">List</button>
-              </div>
-              <!-- Sort: one menu that drives the auto-sort checkbox + key below. -->
-              <select id="sortMode" class="sort-mode" title="Sort the cards in every lane" aria-label="Sort cards">
-                <option value="manual">Sort: Manual</option>
-                <option value="priority">Sort: Priority</option>
-                <option value="due">Sort: Due date</option>
-              </select>
-              <span hidden>
-                <input type="checkbox" id="autoSort" tabindex="-1" aria-label="Auto-sort" />
-                <select id="autoSortKey" tabindex="-1" aria-label="Auto-sort key"><option value="priority">by priority</option><option value="due">by due date</option></select>
-              </span>
-            </div>
             <div class="board-meta">
               <h1 id="boardName">—</h1>
               <p id="boardDesc" hidden></p>
@@ -86,7 +70,24 @@
             <!-- Board tabs: every active board with its open-card count, live-updated. -->
             <nav class="board-switcher" id="boardSwitcher" aria-label="Boards"></nav>
           </div>
-          <div class="status-pill" id="statusPill" hidden></div>
+          <!-- Board / List (left) · board summary (center) · Sort (right) -->
+          <div class="status-row">
+              <div class="view-toggle" role="group" aria-label="View">
+                <button type="button" class="vt-btn active" data-view="board" aria-pressed="true">Board</button>
+                <button type="button" class="vt-btn" data-view="list" aria-pressed="false">List</button>
+              </div>
+              <div class="status-pill" id="statusPill" hidden></div>
+              <!-- Sort: one menu that drives the auto-sort checkbox + key below. -->
+              <select id="sortMode" class="sort-mode" title="Sort the cards in every lane" aria-label="Sort cards">
+                <option value="manual">Sort: Manual</option>
+                <option value="priority">Sort: Priority</option>
+                <option value="due">Sort: Due date</option>
+              </select>
+              <span hidden>
+                <input type="checkbox" id="autoSort" tabindex="-1" aria-label="Auto-sort" />
+                <select id="autoSortKey" tabindex="-1" aria-label="Auto-sort key"><option value="priority">by priority</option><option value="due">by due date</option></select>
+              </span>
+          </div>
           <main class="board" id="board"></main>
         </div>
 

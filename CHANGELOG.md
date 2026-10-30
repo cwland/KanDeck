@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.0.2 — 2026-10-29
+
+- **Board / List** moved to the left end of the summary line (overdue · due this week · open) and **Sort** to its right end, so the header is just the board name, tabs, search and board settings.
+
 ## 3.0.1 — 2026-10-29
 
 - **Compact header**: the board name is centered at the top (no description line; hover the name to see it) with the board tabs centered underneath. **Board / List** and **Sort** sit at the top left; **search** is now a 🔍 icon at the top right (press **/** too), next to **Board settings** (new sliders icon, so it isn't confused with the App settings gear).
