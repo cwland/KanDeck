@@ -1490,3 +1490,17 @@ html[data-theme='dark'] .info-btn { color: #8fb8ea; border-color: #8fb8ea; }
 .sessions-modal .modal-foot { flex-wrap: wrap; border-top: 1px solid var(--border); }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .set-note code, .info-pop code { word-break: normal; overflow-wrap: anywhere; }
+
+/* List view: the check circle gets its own gutter on the left (it used to sit
+   on top of the title's first letters), and the ✕ sits inside the row. */
+.board.list-view .card.lv-row { position: relative; padding-left: 36px; padding-right: 34px; }
+.board.list-view .card-check {
+  left: 4px; top: 50%; margin-top: 0; transform: translateY(-50%) !important;
+  opacity: .35; transition: opacity .15s ease, background .3s ease, border-color .3s ease;
+}
+.board.list-view .card.lv-row:hover .card-check,
+.board.list-view .card-check:focus-visible,
+.board.list-view .card.complete .card-check { opacity: 1; }
+.board.list-view .card-x { right: 4px; top: 50%; margin-top: 0; transform: translateY(-50%); }
+.board.list-view .lv-cols { padding-left: 58px; padding-right: 56px; }
+@media (hover: none) { .board.list-view .card-check { opacity: .6; } }

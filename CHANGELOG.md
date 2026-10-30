@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.1.3 — 2026-10-29
+
+- **Fix (List view):** the ✓ circle on completed cards covered the first letters of the title. Each row now has its own check column on the left (faint until you hover, solid green when done) and the ✕ sits at the right end of the row.
+
 ## 3.1.2 — 2026-10-29
 
 - The summary line above the board (overdue · due this week · open) now always shows. On a board with nothing open it says **No open cards** instead of disappearing.
