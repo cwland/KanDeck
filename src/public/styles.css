@@ -1428,3 +1428,6 @@ body.inbox-collapsed .inbox-edge { right: 0; }
   .status-row { margin: 0 14px 12px; flex-wrap: wrap; }
   .status-row .status-pill { order: 3; flex-basis: 100%; }
 }
+/* Belt and braces: the page itself never scrolls sideways (only the lanes do). */
+.app-col, .content-row, .main-area { overflow-x: clip; }
+.board-switcher { position: relative; } /* offsetLeft of the tabs is measured from the row */

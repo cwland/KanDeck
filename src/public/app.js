@@ -226,7 +226,10 @@
       btn.onclick = async () => { if (b.id !== state.boardId) await openBoard(b.id); };
       nav.appendChild(btn);
     });
-    const act = $('.bs-tab.active', nav); if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'center' });
+    // Center the open board's tab by scrolling ONLY the tab row. (scrollIntoView
+    // also scrolled the page sideways, pushing the rail/lanes off-screen.)
+    const act = $('.bs-tab.active', nav);
+    if (act && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = act.offsetLeft - (nav.clientWidth - act.offsetWidth) / 2;
     updateTabFades();
   }
   async function refreshBoardCounts() {
