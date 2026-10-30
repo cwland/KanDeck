@@ -91,6 +91,12 @@ app.get(['/', '/index.html'], requireSession, (req, res) => {
   res.sendFile(path.join(pub, 'index.html'));
 });
 
+// Browsers fetch /favicon.ico on their own: hand them the KanDeck icon.
+app.get('/favicon.ico', (req, res) => {
+  res.type('image/png').set('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(pub, 'icons', 'favicon-32.png'));
+});
+
 // Serve static assets (css/js/img). These are non-sensitive.
 app.use(express.static(pub, { index: false, setHeaders: noCache }));
 

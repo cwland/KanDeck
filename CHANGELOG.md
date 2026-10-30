@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.1.1 — 2026-10-29
+
+- **New browser-tab icon**: the KanDeck "K" (white on navy, like the rail logo) replaces the 🗂️ emoji on the app and the sign-in page. Also used for bookmarks, the iPhone/iPad home screen and Android "Add to Home Screen" (new web-app manifest).
+
 ## 3.1.0 — 2026-10-29
 
 - **Sessions**: App Settings → Account → **Show sessions** lists every signed-in browser with its browser/OS, IP address, sign-in method (password, passkey or OAuth), sign-in time and last activity. **Sign out** any one, **Sign out all others**, or **Sign out everywhere**. Existing sign-ins carry over — nobody is logged out by the update.
