@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.1.2 — 2026-10-29
+
+- The summary line above the board (overdue · due this week · open) now always shows. On a board with nothing open it says **No open cards** instead of disappearing.
+
 ## 3.1.1 — 2026-10-29
 
 - **New browser-tab icon**: the KanDeck "K" (white on navy, like the rail logo) replaces the 🗂️ emoji on the app and the sign-in page. Also used for bookmarks, the iPhone/iPad home screen and Android "Add to Home Screen" (new web-app manifest).

@@ -532,7 +532,8 @@
   function renderStatus() {
     const el = $('#statusPill'); if (!el) return;
     const open = openCards();
-    if (!state.board || !open.length) { el.hidden = true; return; }
+    if (!state.board) { el.hidden = true; return; }
+    if (!open.length) { el.textContent = 'No open cards'; el.hidden = false; return; } // always shown (empty boards too)
     let overdue = 0, week = 0;
     open.forEach(({ card }) => { const d = dueInfo(card); if (!d) return; if (d.days < 0) overdue++; else if (d.days <= 7) week++; });
     const parts = [];
