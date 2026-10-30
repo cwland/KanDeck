@@ -4,6 +4,10 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.0.4 — 2026-10-29
+
+- **New board** opens a small window in the middle of the screen: a name and an optional description, then **Create board**. Nothing is created until you click Create (Cancel or Esc leaves no trace). New boards start with To Do · In Progress · Done; change lanes, colors and routing later in Board settings.
+
 ## 3.0.3 — 2026-10-29
 
 - **Fix:** clicking through the board tabs (with more boards than fit) slid the whole screen to the left until the rail and first lanes were off-screen. Now only the tab row scrolls to keep the open board's tab in view.

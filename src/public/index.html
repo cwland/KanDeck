@@ -579,6 +579,28 @@
     </div>
 
     <!-- ===== Board settings modal ===== -->
+    <!-- ===== New board (centered) ===== -->
+    <div class="modal-backdrop" id="newBoardModal" hidden>
+      <form class="modal modal-sm new-board" id="newBoardForm" role="dialog" aria-modal="true" aria-labelledby="nbTitle" novalidate>
+        <header class="modal-head">
+          <h2 id="nbTitle">New board</h2>
+          <span class="spacer" style="flex:1"></span>
+          <button type="button" class="icon-btn" id="nbClose" title="Close" aria-label="Close">✕</button>
+        </header>
+        <div class="modal-body">
+          <div class="field"><label for="nbName">Board name</label><input id="nbName" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Home, Work, Groceries" required /></div>
+          <div class="field"><label for="nbDesc">Description <small>(optional)</small></label><input id="nbDesc" type="text" maxlength="200" autocomplete="off" /></div>
+          <p class="hint">Starts with To Do · In Progress · Done. Change lanes, colors and routing later in Board settings.</p>
+          <p class="nb-err" id="nbErr" hidden></p>
+        </div>
+        <footer class="modal-foot">
+          <span class="spacer"></span>
+          <button type="button" class="btn ghost" id="nbCancel">Cancel</button>
+          <button type="submit" class="btn primary" id="nbCreate">Create board</button>
+        </footer>
+      </form>
+    </div>
+
     <div class="modal-backdrop side" id="boardModal" hidden>
       <div class="modal" role="dialog" aria-modal="true" aria-label="Board settings">
         <header class="modal-head">

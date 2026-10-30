@@ -381,6 +381,8 @@ subject and email).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
   every other browser.
+- **New board** (＋ in the rail) opens a small centered window: name, optional
+  description, **Create board**. It starts with To Do · In Progress · Done.
 - **Board Settings** (the sliders icon at the top right) slides in from the right and has tabs: **General** (name, description,
   what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
   tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
@@ -658,7 +660,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v3.0.3 && git push origin v3.0.3
+git tag v3.0.4 && git push origin v3.0.4
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

@@ -1451,12 +1451,29 @@
   // ---- New board ----
   // Create with defaults, switch to it, then open the full board configuration
   // window so the whole board (name, lanes, complete lane, window) can be set.
-  $('#addBoardBtn').onclick = async () => {
-    const b = await api('/boards', { method: 'POST', body: { name: 'New Board' } });
-    state.newBoardId = b.id; // rolled back if the config is closed without saving
-    await loadBoards(b.id);
-    openBoardModal();
-    setTimeout(() => { $('#bmName').focus(); $('#bmName').select(); }, 30);
+  // New board: a small centered window — name (+ optional description).
+  // Nothing is created until you click Create.
+  const newBoardModal = $('#newBoardModal');
+  function closeNewBoard() { newBoardModal.hidden = true; }
+  $('#addBoardBtn').onclick = () => {
+    $('#nbName').value = ''; $('#nbDesc').value = ''; $('#nbErr').hidden = true;
+    newBoardModal.hidden = false;
+    setTimeout(() => $('#nbName').focus(), 30);
+  };
+  $('#nbClose').onclick = $('#nbCancel').onclick = closeNewBoard;
+  $('#newBoardForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const name = $('#nbName').value.trim();
+    const err = $('#nbErr');
+    if (!name) { err.textContent = 'Give the board a name.'; err.hidden = false; $('#nbName').focus(); return; }
+    const btn = $('#nbCreate'); btn.disabled = true;
+    try {
+      const b = await api('/boards', { method: 'POST', body: { name, description: $('#nbDesc').value.trim() } });
+      closeNewBoard();
+      await loadBoards(b.id);
+      toast(`Board “${name}” created`);
+    } catch (ex) { err.textContent = 'Could not create the board: ' + (ex.message || 'error'); err.hidden = false; }
+    finally { btn.disabled = false; }
   };
 
   // ---- App settings modal (theme + categories + lane colors) ----

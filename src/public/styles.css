@@ -1431,3 +1431,7 @@ body.inbox-collapsed .inbox-edge { right: 0; }
 /* Belt and braces: the page itself never scrolls sideways (only the lanes do). */
 .app-col, .content-row, .main-area { overflow-x: clip; }
 .board-switcher { position: relative; } /* offsetLeft of the tabs is measured from the row */
+.new-board { width: min(94vw, 460px); }
+.new-board .modal-body { padding-bottom: 4px; }
+.nb-err { color: #c92a2a; font-size: .88rem; font-weight: 600; margin: 4px 0 0; }
+.nb-err[hidden] { display: none; }
