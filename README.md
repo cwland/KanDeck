@@ -349,18 +349,21 @@ subject and email).
 ## Using KanDeck
 
 - **Find your way around** with the icon rail on the left: **Boards**,
-  **Inbox** (with its item count), **Search**, **New board**, **Archives**,
-  **App settings**, your initials and **Log out**. On a phone the rail becomes a
-  bar along the bottom.
-- **Switch boards** with the tabs on the board title line —
-  `Home 1 | Work 5 | …`. The number is each board's open cards (not done,
-  not archived) and updates live, even when tasks arrive from n8n or the API.
-  When space is tight (e.g. the side panel is open on a laptop) the tabs move
-  to their own row under the title.
-- **Board / List**: the switch in the header flips between lanes side by side
-  and a list with the lanes stacked, one row per card with its reminder,
-  email/link and tags written out, plus Category and Due columns. Remembered
-  per board. **Sort** (Manual, Priority, Due date) sits next to it.
+  **Inbox** (with its item count), **New board**, **Archives**,
+  **App settings**, your initials, the version (opens What's new) and
+  **Log out**. On a phone the rail becomes a bar along the bottom.
+- **Header**: the board name sits centered at the top with the board tabs
+  centered under it — `Home 1 | Work 5 | …`. The number is each board's open
+  cards (not done, not archived) and updates live, even when tasks arrive from
+  n8n or the API. Many boards? The tab row scrolls (its edges fade). Hover the
+  board name to see its description.
+- **Search**: the 🔍 at the top right (or press **/**) opens a search box
+  across all boards; Esc closes it.
+- **Board / List** (top left): flips between lanes side by side and a list
+  with the lanes stacked, one row per card with its reminder, tags and an ✉️ /
+  🔗 icon for its email or link (hover for the address), plus Category and Due
+  columns. Remembered per board. **Sort** (Manual, Priority, Due date) sits
+  next to it.
 - The line under the header sums up the board: overdue, due this week, open.
 - **Archive or delete a card** with the small **✕** in its top-right corner
   (Delete needs a second click to confirm).
@@ -378,7 +381,7 @@ subject and email).
 - **Account** (App Settings) changes your username or password (current password
   required) and has **Log out all sessions**. Changing the password signs out
   every other browser.
-- **Board Settings** (⚙️ in the board header) slides in from the right and has tabs: **General** (name, description,
+- **Board Settings** (the sliders icon at the top right) slides in from the right and has tabs: **General** (name, description,
   what shows on cards), **Lanes** (lanes + auto-archive), **Routing** (routing
   tags), **Calendar** (the board's feed) and **Archived** (archived cards). The
   footer has **Archive board**.
@@ -394,14 +397,19 @@ subject and email).
   login with `npm run reset-password` (no arguments) also removes all passkeys.
 - **Sign-in** (App Settings) chooses which sign-in methods are offered and sets
   up OAuth — see [Sign-in: passwords, passkeys & OAuth](#sign-in-passwords-passkeys--oauth).
-- **Inbox**: open or close the right-hand panel with the Inbox button in the
-  rail (it shows how many items are waiting). Items arriving via the API land
+- **Inbox**: open or close the right-hand panel with one click — either the
+  Inbox button in the rail or the tab on the right edge of the board (both
+  show how many items are waiting). On narrower laptop screens the panel
+  slides over the board instead of squeezing it. Items arriving via the API land
   here for triage: drag them onto a lane, or click **+ Board** to send one to a
   board's first lane. The panel's **Summary** tab shows open cards per lane,
   what's due in the next 7 days and your other boards.
 - **Cards** open in a side panel on the right, so the board stays in view.
 - **Secret fields** (API key, OAuth client secret, SMTP password, Discord
   webhook, text-gateway key) are hidden; click the 👁 eye to show or hide one.
+- **Accessibility**: every icon button has hover text and a screen-reader
+  label, form fields are labelled, and lane-color swatches are keyboard
+  reachable.
 - **What's new**: the first time you open KanDeck after an update, a window
   lists what changed in the new version plus the previous 10 releases (newest
   first, collapsed: click a version › to expand it). Dismiss it and it won't appear again until the next version. Click the
@@ -650,7 +658,7 @@ settings if you want anyone to pull it. To cut a release, bump `version` in
 shows), then:
 
 ```bash
-git tag v3.0.0 && git push origin v3.0.0
+git tag v3.0.1 && git push origin v3.0.1
 ```
 
 To cross-build locally from an Apple-Silicon Mac for an Intel/AMD server without

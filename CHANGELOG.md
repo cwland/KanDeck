@@ -4,6 +4,17 @@ All notable changes to KanDeck. Newest first. The in-app **What's new** window
 reads this file. Format: one `## <version> — <YYYY-MM-DD>` heading per release,
 followed by `- ` bullet points (`**bold**` and `` `code` `` are supported).
 
+## 3.0.1 — 2026-10-29
+
+- **Compact header**: the board name is centered at the top (no description line; hover the name to see it) with the board tabs centered underneath. **Board / List** and **Sort** sit at the top left; **search** is now a 🔍 icon at the top right (press **/** too), next to **Board settings** (new sliders icon, so it isn't confused with the App settings gear).
+- **Inbox opens and closes with one click**, from the rail or from the new **tab on the right edge** of the board (like the original version), which shows the item count. On laptop-size screens the panel slides over the board instead of squeezing it.
+- **List view**: emails and links show as just an ✉️ / 🔗 icon (hover for the address).
+- The version number moved into the rail (under your initials) so it no longer covers cards.
+- **Archive board** is now a red text button, set apart from Cancel.
+- Many boards: the tab row fades at the edges when there are more to scroll to.
+- **Accessibility**: every icon has hover text and a screen-reader label; all settings fields are labelled; lane-color swatches are real, keyboard-reachable buttons.
+- The unused "Due date" badge color setting is hidden (due dates show as text on cards now).
+
 ## 3.0.0 — 2026-10-29
 
 - **New look.** A cleaner, card-based layout in the Figtree typeface: an **icon rail** on the left (Boards, Inbox, Search, New board, Archives, Settings, Log out), white lanes on a light grey page, each card on its own tile, and rounded **pills** for category, tags, alarm ⏰, email ✉️ and link 🔗. The due date sits at the top-right of each card.

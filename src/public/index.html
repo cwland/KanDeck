@@ -36,34 +36,23 @@
       <button type="button" class="rail-btn active" id="railBoards" title="Boards" aria-label="Boards"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg></button>
       <!-- Inbox: shows the item count; opens / closes the side panel. -->
       <button type="button" class="rail-btn" id="inboxTab" aria-controls="inboxPanel" aria-expanded="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/></svg><span class="it-count" id="inboxTabCount">0</span><span id="inboxTabChev" hidden></span></button>
-      <button type="button" class="rail-btn" id="railSearch" title="Search cards" aria-label="Search cards"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
       <button type="button" class="rail-btn" id="addBoardBtn" title="New board" aria-label="New board"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg></button>
       <button type="button" class="rail-btn" id="railArchive" title="Archives" aria-label="Archives"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg></button>
       <div class="rail-sep" aria-hidden="true"></div>
       <button type="button" class="rail-btn" id="appSettingsBtn" title="App settings" aria-label="App settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
       <div class="rail-spacer"></div>
       <div class="rail-avatar" id="railAvatar" aria-hidden="true"></div>
+      <button type="button" class="version-foot" id="versionFoot" title="What's new in this version" aria-label="What's new in this version"></button>
       <button type="button" class="rail-btn" id="logoutBtn" title="Log out" aria-label="Log out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></button>
     </nav>
 
     <div class="app-col">
       <div class="content-row">
         <div class="main-area" id="mainArea">
+          <!-- Compact header: view + sort (left) · board title (center) · search + board settings (right);
+               board tabs centered underneath. -->
           <div class="board-header" id="boardHeader">
-            <div class="board-meta">
-              <h1 id="boardName">—</h1>
-              <p id="boardDesc"></p>
-            </div>
-            <!-- Board tabs: every active board with its open-card count, live-updated. -->
-            <nav class="board-switcher" id="boardSwitcher" aria-label="Boards"></nav>
-            <div class="board-tools">
-              <div class="search" id="searchWrap">
-                <div class="search-box">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="search-ico"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-                  <input id="search" type="search" placeholder="Search cards" title="Search cards across all boards" autocomplete="off" />
-                  <div class="search-results" id="searchResults" hidden></div>
-                </div>
-              </div>
+            <div class="bh-left">
               <div class="view-toggle" role="group" aria-label="View">
                 <button type="button" class="vt-btn active" data-view="board" aria-pressed="true">Board</button>
                 <button type="button" class="vt-btn" data-view="list" aria-pressed="false">List</button>
@@ -75,16 +64,38 @@
                 <option value="due">Sort: Due date</option>
               </select>
               <span hidden>
-                <input type="checkbox" id="autoSort" tabindex="-1" />
-                <select id="autoSortKey" tabindex="-1"><option value="priority">by priority</option><option value="due">by due date</option></select>
+                <input type="checkbox" id="autoSort" tabindex="-1" aria-label="Auto-sort" />
+                <select id="autoSortKey" tabindex="-1" aria-label="Auto-sort key"><option value="priority">by priority</option><option value="due">by due date</option></select>
               </span>
-              <button class="tool-btn" id="boardSettingsBtn" title="Board settings" aria-label="Board settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></button>
             </div>
+            <div class="board-meta">
+              <h1 id="boardName">—</h1>
+              <p id="boardDesc" hidden></p>
+            </div>
+            <div class="board-tools">
+              <div class="search" id="searchWrap">
+                <button type="button" class="tool-btn" id="searchToggle" title="Search cards (/)" aria-label="Search cards" aria-expanded="false" aria-controls="searchPop"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+                <div class="search-pop search-box" id="searchPop" hidden>
+                  <svg class="search-ico" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+                  <input id="search" type="search" placeholder="Search all boards" title="Search cards across all boards" autocomplete="off" />
+                  <div class="search-results" id="searchResults" hidden></div>
+                </div>
+              </div>
+              <button class="tool-btn" id="boardSettingsBtn" title="Board settings" aria-label="Board settings"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
+            </div>
+            <!-- Board tabs: every active board with its open-card count, live-updated. -->
+            <nav class="board-switcher" id="boardSwitcher" aria-label="Boards"></nav>
           </div>
           <div class="status-pill" id="statusPill" hidden></div>
           <main class="board" id="board"></main>
         </div>
 
+        <!-- Edge tab on the right side: pulls the Inbox panel out / puts it back. -->
+        <button type="button" class="inbox-edge" id="inboxEdge" aria-controls="inboxPanel">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/></svg>
+          <span class="ie-count" id="inboxEdgeCount">0</span>
+          <span class="ie-chev" id="inboxEdgeChev" aria-hidden="true">›</span>
+        </button>
         <!-- ===== Side panel (right): Summary | Inbox ===== -->
         <aside class="inbox-panel" id="inboxPanel" aria-label="Side panel">
           <div class="side-tabs" role="tablist">
@@ -113,7 +124,6 @@
     </div>
 
     <!-- ===== Version (bottom center) — opens What's new ===== -->
-    <button type="button" class="version-foot" id="versionFoot" title="What's new in this version"></button>
 
     <!-- ===== Card modal ===== -->
     <div class="modal-backdrop side" id="cardModal" hidden>
@@ -199,7 +209,7 @@
         <div class="dirty-banner" id="appDirty" hidden>⚠️ You have unsaved changes — click Save to keep them.</div>
         <div class="modal-body">
           <section class="tab-panel active" data-tab="theme">
-            <p class="hint">Pick an app-wide theme. Light and dark variants share an accent, so the 🌓 button flips between them.</p>
+            <p class="hint">Pick an app-wide theme. Each accent comes in a light and a dark version.</p>
             <div class="theme-group-label">Light</div>
             <div class="theme-grid" id="themeGridLight"></div>
             <div class="theme-group-label">Dark</div>
@@ -276,7 +286,7 @@
             </div>
             <div class="au-body" id="auOauthBody">
             <p class="hint">Sign in through an identity provider such as Authentik, Authelia, Keycloak, Google or Microsoft. Create an OAuth2/OIDC app there with this <b>callback (redirect) URL</b>, adding one for each address you use KanDeck on:</p>
-            <div class="apikey-row"><input id="auRedirect" type="text" readonly /><button type="button" class="btn ghost" id="auCopyRedirect">Copy</button></div>
+            <div class="apikey-row"><input id="auRedirect" type="text" readonly aria-label="OAuth callback URL" /><button type="button" class="btn ghost" id="auCopyRedirect">Copy</button></div>
             <div class="field-row">
               <div class="field"><label>Button label</label><input id="auProvider" type="text" maxlength="40" placeholder="Authentik" /></div>
               <div class="field" style="flex:2"><label>Issuer URL</label><input id="auIssuer" type="url" spellcheck="false" placeholder="https://auth.example.com/application/o/kandeck/" /></div>
@@ -497,7 +507,7 @@
             </div>
             <div id="gIcsPanel" hidden>
               <div class="apikey-row">
-                <input id="gIcsUrl" type="text" readonly />
+                <input id="gIcsUrl" type="text" readonly aria-label="All-boards calendar feed URL" />
                 <button type="button" class="btn ghost" id="gIcsCopy">Copy</button>
                 <a class="btn ghost ics-sub" id="gIcsSubscribe" href="#" title="Open in your calendar app">Subscribe</a>
               </div>
@@ -653,7 +663,7 @@
               </div>
               <div id="icsPanel" hidden>
                 <div class="apikey-row">
-                  <input id="icsUrl" type="text" readonly />
+                  <input id="icsUrl" type="text" readonly aria-label="Board calendar feed URL" />
                   <button type="button" class="btn ghost" id="icsCopy">Copy</button>
                   <a class="btn ghost" id="icsSubscribe" href="#" title="Open in your calendar app">Subscribe</a>
                 </div>
@@ -679,7 +689,7 @@
           </section>
         </div>
         <footer class="modal-foot">
-          <button class="btn ghost" id="bmArchive" title="Hide this board; restore or delete it from App settings → Archives">Archive board</button>
+          <button class="btn danger" id="bmArchive" title="Hide this board; restore or delete it from App settings → Archives">Archive board</button>
           <span class="spacer"></span>
           <button class="btn ghost" id="bmCancel">Cancel</button>
           <button class="btn primary" id="bmSave">Save</button>

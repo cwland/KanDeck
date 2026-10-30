@@ -80,7 +80,7 @@
     state.themeId = s.theme || window.DEFAULT_THEME || 'light-blue';
     applyTheme(state.themeId);
     if (s.version) {
-      $('#versionFoot').textContent = 'KanDeck v' + s.version;
+      $('#versionFoot').textContent = 'v' + s.version;
     }
   }
 
@@ -203,6 +203,14 @@
   // Counts are open cards (not done, not archived). They're refreshed from the
   // server whenever any board changes — locally or behind the scenes (API,
   // n8n, tag routing, auto-archive) via the live event stream.
+  // Fade whichever end of the tab row has more boards hidden.
+  function updateTabFades() {
+    const n = $('#boardSwitcher'); if (!n) return;
+    n.classList.toggle('fade-l', n.scrollLeft > 2);
+    n.classList.toggle('fade-r', n.scrollLeft + n.clientWidth < n.scrollWidth - 2);
+  }
+  window.addEventListener('resize', updateTabFades);
+  $('#boardSwitcher').addEventListener('scroll', updateTabFades, { passive: true });
   function renderBoardSwitcher() {
     const nav = $('#boardSwitcher'); if (!nav) return;
     nav.innerHTML = '';
@@ -218,7 +226,8 @@
       btn.onclick = async () => { if (b.id !== state.boardId) await openBoard(b.id); };
       nav.appendChild(btn);
     });
-    const act = $('.bs-tab.active', nav); if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const act = $('.bs-tab.active', nav); if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'center' });
+    updateTabFades();
   }
   async function refreshBoardCounts() {
     try { state.boards = (await api('/boards')).boards; renderBoardSwitcher(); renderSummary(); } catch {}
@@ -226,6 +235,7 @@
 
   function renderHeader() {
     $('#boardName').textContent = state.board.name;
+    $('#boardName').title = state.board.description || '';
     $('#boardDesc').textContent = state.board.description || '';
   }
 
@@ -321,7 +331,12 @@
     }
     if (cf.email && card.email) {
       const href = emailHref(card.email);
-      if (href) det.push(`<a class="email-badge-l" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(emailLabel(card.email))}">${/^https?:/i.test(href) ? '🔗' : '✉️'} ${esc(emailLabel(card.email))}</a>`);
+      // Icon only; the address / link is in the hover text.
+      if (href) {
+        const isLink = /^https?:/i.test(href);
+        const t = (isLink ? 'Open link: ' : 'Email: ') + emailLabel(card.email);
+        det.push(`<a class="lv-icon" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(t)}" aria-label="${esc(t)}">${isLink ? '🔗' : '✉️'}</a>`);
+      }
     }
     if (cf.tags && (card.tags || []).length) det.push(`<span>Tags: ${esc(card.tags.join(', '))}</span>`);
     if (cf.source && card.source) det.push(`<span>From ${esc(card.source)}</span>`);
@@ -913,10 +928,17 @@
     name.type = 'text'; name.className = 'lane-name'; name.value = col.name || ''; name.placeholder = 'Lane name';
     const sw = document.createElement('div'); sw.className = 'lane-swatches';
     (state.laneColors || []).forEach((c) => {
-      const d = document.createElement('div');
+      // Real buttons so they're keyboard-reachable and announced.
+      const d = document.createElement('button');
+      d.type = 'button';
       d.className = 'lane-sw' + (col.color === c ? ' selected' : '');
       d.style.background = c; d.dataset.color = c;
-      d.onclick = () => { $$('.lane-sw', sw).forEach((x) => x.classList.remove('selected')); d.classList.add('selected'); li.dataset.color = c; };
+      d.title = 'Lane color ' + c; d.setAttribute('aria-label', 'Lane color ' + c);
+      d.setAttribute('aria-pressed', col.color === c ? 'true' : 'false');
+      d.onclick = () => {
+        $$('.lane-sw', sw).forEach((x) => { x.classList.remove('selected'); x.setAttribute('aria-pressed', 'false'); });
+        d.classList.add('selected'); d.setAttribute('aria-pressed', 'true'); li.dataset.color = c;
+      };
       sw.appendChild(d);
     });
     // The last row is labelled "Done" via CSS (.lane-row:last-child) so the
@@ -1720,7 +1742,8 @@
   function laneColorChip(c) {
     const d = document.createElement('div'); d.className = 'lane-color-chip';
     const input = document.createElement('input'); input.type = 'color'; input.value = c || '#4dabf7';
-    const del = document.createElement('button'); del.type = 'button'; del.className = 'lc-del'; del.textContent = '✕'; del.title = 'Remove';
+    input.title = 'Lane color (click to change)'; input.setAttribute('aria-label', 'Lane color');
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'lc-del'; del.textContent = '✕'; del.title = 'Remove this lane color';
     del.onclick = () => { d.remove(); markAppDirty(); };
     d.append(input, del);
     return d;
@@ -2034,15 +2057,19 @@
     const open = !document.body.classList.contains('inbox-collapsed');
     const label = `${open ? 'Close' : 'Open'} the Inbox (${n} item${n === 1 ? '' : 's'})`;
     const tab = $('#inboxTab'); tab.title = label; tab.setAttribute('aria-label', label);
+    tab.setAttribute('aria-expanded', open ? 'true' : 'false');
     const c = $('#inboxTabCount'); c.textContent = n > 99 ? '99+' : n; c.classList.toggle('zero', !n);
+    const edge = $('#inboxEdge'); edge.title = label; edge.setAttribute('aria-label', label); edge.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const ec = $('#inboxEdgeCount'); ec.textContent = n > 99 ? '99+' : n; ec.classList.toggle('zero', !n);
+    $('#inboxEdgeChev').textContent = open ? '›' : '‹';
   }
-  $('#inboxTab').onclick = () => {
-    const collapsed = document.body.classList.contains('inbox-collapsed');
-    // Closed → open on the Inbox tab; open on Summary → switch to Inbox; open on Inbox → close.
-    if (collapsed) { setSideTab('inbox'); setView('inbox'); }
-    else if (sideTab !== 'inbox') setSideTab('inbox');
+  // One click always opens / closes the panel (rail Inbox button and the edge tab).
+  function toggleInbox() {
+    if (document.body.classList.contains('inbox-collapsed')) { setSideTab('inbox'); setView('inbox'); }
     else setView('board');
-  };
+  }
+  $('#inboxTab').onclick = toggleInbox;
+  $('#inboxEdge').onclick = toggleInbox;
 
   // ---- Side panel tabs: Summary | Inbox ----
   let sideTab = 'inbox';
@@ -2082,13 +2109,40 @@
   // Re-hide them whenever App settings opens.
   function hideSecrets() { $$('input[data-secret]').forEach((i) => i._hideSecret && i._hideSecret()); }
 
+  // ---- Accessibility: every icon-only control gets hover text (title) AND a
+  // screen-reader label (aria-label); every field gets a label. Runs on
+  // anything added to the page later too (cards, lanes, settings rows). ----
+  function a11yFix(root) {
+    (root || document).querySelectorAll('button, a[href], [role="button"], [role="tab"]').forEach((el) => {
+      const txt = (el.textContent || '').replace(/[^\p{L}\p{N}]/gu, '');
+      const t = el.getAttribute('title'), a = el.getAttribute('aria-label');
+      if (!txt) {
+        if (t && !a) el.setAttribute('aria-label', t);
+        else if (a && !t) el.setAttribute('title', a);
+      }
+    });
+    (root || document).querySelectorAll('input:not([type=hidden]):not([aria-label]), select:not([aria-label]), textarea:not([aria-label])').forEach((el) => {
+      if (el.labels && el.labels.length && el.labels[0].textContent.trim()) return;
+      const field = el.closest('.field');
+      let lab = field ? field.querySelector(':scope > label') : null;
+      if (!lab && el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') lab = el.previousElementSibling;
+      const text = (lab ? lab.textContent : (el.placeholder || el.title || '')).replace(/\s+/g, ' ').trim();
+      if (text) el.setAttribute('aria-label', text);
+    });
+  }
+  a11yFix();
+  let a11yQueued = false;
+  new MutationObserver(() => {
+    if (a11yQueued) return; a11yQueued = true;
+    requestAnimationFrame(() => { a11yQueued = false; a11yFix(); });
+  }).observe(document.body, { childList: true, subtree: true });
+
   // ---- Left rail ----
   $('#railBoards').onclick = () => {
     if (!appModal.hidden) guardedCloseAppModal();
     if (!boardModal.hidden) closeBoardModal();
     if (!cardModal.hidden) cardModal.hidden = true;
   };
-  $('#railSearch').onclick = () => { const i = $('#search'); i.focus(); i.select(); };
   $('#railArchive').onclick = () => { openAppModal(); setAppTab('archives'); };
   // Your initials in the rail (from the account username).
   (async () => {
@@ -2136,7 +2190,7 @@
     return null;
   }
   async function openSearchResult(r) {
-    hideSearch();
+    closeSearchPop();
     if (r.boardId !== state.boardId) await openBoard(r.boardId);
     const card = state.board && findCardInBoard(r.cardId);
     if (card) openCardModal(card);
@@ -2175,11 +2229,30 @@
     searchTimer = setTimeout(() => runSearch(q), 140);
   };
   $('#search').onkeydown = (e) => {
-    if (e.key === 'Escape') { hideSearch(); e.target.blur(); }
+    if (e.key === 'Escape') { e.stopPropagation(); closeSearchPop(); }
     if (e.key === 'Enter') { const first = searchBox.querySelector('.sr-item'); if (first) first.click(); }
   };
+  // Search lives behind the 🔍 icon (top-right): a popover with the box + results.
+  function openSearchPop() {
+    const pop = $('#searchPop'); pop.hidden = false;
+    $('#searchToggle').setAttribute('aria-expanded', 'true');
+    const i = $('#search'); i.focus(); i.select();
+    if (i.value.trim()) runSearch(i.value.trim());
+  }
+  function closeSearchPop() {
+    hideSearch(); $('#searchPop').hidden = true;
+    $('#searchToggle').setAttribute('aria-expanded', 'false');
+  }
+  $('#searchToggle').onclick = (e) => { e.stopPropagation(); if ($('#searchPop').hidden) openSearchPop(); else closeSearchPop(); };
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-box')) hideSearch();
+    if (!e.target.closest('#searchWrap')) closeSearchPop();
+  });
+  // "/" opens search from anywhere (unless you're typing in a field).
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (!$$('.modal-backdrop').every((m) => m.hidden)) return;
+    e.preventDefault(); openSearchPop();
   });
 
   // ---- What's new (changelog) ----
